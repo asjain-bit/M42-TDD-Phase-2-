@@ -17,12 +17,12 @@ const internalProfile = profile('evaluator', 'Internal Interest Team')
 const strategyProfile = profile('strategy-fit', 'Strategy Team')
 const adminProfile = profile('partnership-admin', 'Partnership Admin')
 
-/** AlphaHealth once Dr. Zainab has decided */
+/** AlphaHealth once Leena Thomas has decided */
 const STRATEGY_DONE: PartnershipRequest = {
   ...INITIAL_PARTNERSHIP_REQUESTS[1],
   stageApprovals: {
     internal: { status: 'approved', by: 'Mariam Al-Zaabi', date: 'Done' },
-    strategy: { status: 'approved', by: 'Dr. Zainab', date: 'Done' },
+    strategy: { status: 'approved', by: 'Leena Thomas', date: 'Done' },
   },
 }
 
@@ -504,11 +504,28 @@ describe('PartnershipDetail', () => {
 
     it('has one strategy member and sends its own request', async () => {
       const user = userEvent.setup()
-      renderDetail({ request: afterInternal() })
+      // The Director has picked Leena Thomas from + Add Member; nobody is preselected
+      renderDetail({
+        request: afterInternal({
+          strategyTeamMembers: [
+            {
+              id: 'strat-2',
+              name: 'Leena Thomas',
+              initials: 'LT',
+              role: 'Senior Strategy Manager',
+              department: 'Strategy',
+              expertise: 'Growth & Expansion',
+              avatarColorBg: '#fce7f3',
+              avatarColorText: '#9d174d',
+              source: 'manual' as const,
+            },
+          ],
+        }),
+      })
       expect(
         screen.getByText('Choose the Strategy Team reviewers, then send the request.')
       ).toBeInTheDocument()
-      expect(screen.getByText('Dr. Zainab')).toBeInTheDocument()
+      expect(screen.getByText('Leena Thomas')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Add Member/i })).toBeEnabled()
       expect(screen.getByText('You can add up to 5 members.')).toBeInTheDocument()
       // Strategy members are added by the Director, never AI recommended
@@ -524,7 +541,7 @@ describe('PartnershipDetail', () => {
       expect(onSendReview).toHaveBeenCalledWith(
         mockRequest.id,
         'strategy',
-        expect.objectContaining({ members: [expect.objectContaining({ name: 'Dr. Zainab' })] })
+        expect.objectContaining({ members: [expect.objectContaining({ name: 'Leena Thomas' })] })
       )
       expect(
         screen.getByText('Awaiting approval', { selector: 'span.inline-flex' })

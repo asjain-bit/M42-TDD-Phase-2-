@@ -609,14 +609,14 @@ describe('summary note', () => {
     const next = updateSummaryNote(
       pending,
       'Good <mark data-tone="critical">risk</mark><script>alert(1)</script><img src=x onerror=alert(1)>',
-      { name: 'Dr. Zainab', role: 'Strategy Team' }
+      { name: 'Leena Thomas', role: 'Strategy Team' }
     )
     expect(next.summaryNote?.html).toBe('Good <mark data-tone="critical">risk</mark>')
-    expect(next.summaryNote?.updatedBy).toBe('Dr. Zainab')
+    expect(next.summaryNote?.updatedBy).toBe('Leena Thomas')
     expect(next.summaryNote?.updatedOn).toMatch(/^\d{2} \w{3} \d{4}$/)
     expect(next.auditLog.at(-1)).toMatchObject({
       title: 'Summary note updated',
-      actor: 'Dr. Zainab (Strategy Team)',
+      actor: 'Leena Thomas (Strategy Team)',
       kind: 'user',
     })
   })

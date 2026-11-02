@@ -15,6 +15,11 @@ import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { FilePicker } from '@/components/molecules/FilePicker'
 import { TddReport } from '@/components/organisms/TddReport'
 import { ThinkingMode } from '@/components/organisms/ThinkingMode'
+import {
+  CallFormatChoice,
+  PlatformCallRoom,
+  type CallFormat,
+} from '@/components/organisms/PlatformCallRoom'
 import { StageFooter } from '@/components/molecules/StageFooter'
 import { StrategyDecisionModal } from '@/components/organisms/StrategyDecisionModal'
 import type { PartnershipRequest } from '@/types/partnership.types'
@@ -108,6 +113,8 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
   const final = value.finalDecision
   const [modal, setModal] = useState<'proceed' | 'reject' | null>(null)
   const [confirmFinal, setConfirmFinal] = useState<'yes' | 'no' | null>(null)
+  const held = value.platformCall
+  const [format, setFormat] = useState<CallFormat>(held ? 'platform' : 'outside')
 
   const needsDecision = Boolean(value.businessCase) && !decision
 
@@ -123,7 +130,13 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
 
       <Section
         title="Value assessment call"
-        subtitle="The call happens outside the portal. Confirm it took place."
+        subtitle={
+          held
+            ? 'The call was held on the platform; the listening agent wrote the summary below.'
+            : format === 'platform'
+              ? 'Hold the call here. The agent listens and writes a summary; it does not speak.'
+              : 'The call happens outside the portal. Confirm it took place.'
+        }
         badge={
           value.callConfirmedOn && (
             <Chip tone="good">
@@ -133,7 +146,21 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
           )
         }
       >
-        {value.callConfirmedOn ? null : isSponsor ? (
+        {isSponsor && !value.callConfirmedOn && (
+          <CallFormatChoice name="value-call-format" value={format} onChange={setFormat} />
+        )}
+        {held || (format === 'platform' && !value.callConfirmedOn) ? (
+          <PlatformCallRoom
+            callType="value"
+            caseCode={request.requestCode}
+            hostName="Rashid Al-Nuaimi"
+            canHost={isSponsor && !value.callConfirmedOn}
+            saved={held}
+            onComplete={(attendees) =>
+              onAction({ type: 'platformCall', callType: 'value', attendees })
+            }
+          />
+        ) : value.callConfirmedOn ? null : isSponsor ? (
           <Checkbox
             checked={false}
             onChange={() => onAction({ type: 'confirmValueCall' })}

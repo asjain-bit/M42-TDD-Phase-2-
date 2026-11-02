@@ -7,6 +7,8 @@ import {
   type InternalScenario,
   type PartnershipRequest,
   type QuestionAnswer,
+  type CallAttendee,
+  type MeetingSummary,
   type QuestionnaireQuestion,
   type SponsorPreference,
   type StrategyMemberResponse,
@@ -20,10 +22,18 @@ const ADMIN_NAME = 'Nadia Al-Farsi'
 const DIRECTOR_ACTOR = `${DIRECTOR_NAME} (Director)`
 const ADMIN_ACTOR = `${ADMIN_NAME} (Partnership Admin)`
 const INTERNAL_ACTOR = 'Mariam Al-Zaabi (Internal Interest)'
-const STRATEGY_ACTOR = 'Dr. Zainab (Strategy Team)'
 const SPONSOR_NAME = 'Rashid Al-Nuaimi'
 const SPONSOR_ACTOR = `${SPONSOR_NAME} (Sponsor)`
 const AGENT_ACTOR = 'Triage Agent'
+
+/** The Strategy Team reviewer the Director picked for this case */
+const strategyReviewer = (r: PartnershipRequest) => r.strategyTeamMembers?.[0]?.name
+
+/** Audit actor for Strategy Team actions: the picked reviewer, or the team when none is known */
+export const strategyActor = (r: PartnershipRequest) => {
+  const name = strategyReviewer(r)
+  return name ? `${name} (Strategy Team)` : 'Strategy Team'
+}
 
 export const CASE_TYPE_OWNER: Record<CaseType, string> = {
   Partnership: DIRECTOR_NAME,
@@ -100,6 +110,7 @@ export const hasSignedNda = (r: PartnershipRequest): boolean =>
 
 /** Actions that belong to the Discovery Call and later; they need the signed NDA */
 const AFTER_NDA: CaseAction['type'][] = [
+  'platformCall',
   'discoveryFile',
   'proceedToValue',
   'confirmValueCall',
@@ -496,7 +507,7 @@ export const submitReview = (
         ...r.stageApprovals,
         strategy: {
           status: declined ? 'declined' : 'approved',
-          by: 'Dr. Zainab',
+          by: strategyReviewer(r) ?? 'Strategy Team',
           date: 'Just now',
         },
       },
@@ -504,7 +515,7 @@ export const submitReview = (
     {
       title: declined ? 'Strategy Team declined' : 'Strategy Team approved',
       description: response.finalDecision ?? 'Decision submitted.',
-      actor: STRATEGY_ACTOR,
+      actor: strategyActor(r),
       kind: declined ? 'critical' : 'approval',
     }
   )
@@ -869,6 +880,119 @@ export const addDiscoveryFile = (
   )
 }
 
+export type CallType = 'discovery' | 'value'
+
+/** Prototype: the structured summary the listening agent writes when a call on the platform ends */
+export const buildCallSummary = (
+  r: PartnershipRequest,
+  callType: CallType,
+  attendees: CallAttendee[]
+): MeetingSummary => {
+  const company = r.companyName
+  const proposal = r.assessmentAreas?.proposalOfCollaboration?.split(/(?<=[.!?])\s/)[0]
+  const regulatoryUnclear = (r.overviewCards?.regulatory ?? '').toLowerCase().includes('unclear')
+  const base = { attendees: attendees.map((a) => a.name) }
+  if (callType === 'discovery') {
+    return {
+      ...base,
+      keyPoints: [
+        `${company} walked through ${r.headline ?? r.solution}.`,
+        ...(proposal ? [`Proposed collaboration: ${proposal}`] : []),
+        `Focus areas discussed: ${(r.assessmentAreas?.focusAreas ?? [r.focusArea]).join(', ')}.`,
+      ],
+      vendorCommitments: [
+        'Share the security and architecture documentation pack.',
+        'Confirm UAE data hosting options in writing.',
+      ],
+      openQuestions: [
+        'Which hospital or site will pilot first, and who is the clinical owner there?',
+        'Which baseline KPIs will the pilot be measured against?',
+      ],
+      risks: [
+        ...(regulatoryUnclear ? ['Regulatory approvals for the UAE are not yet confirmed.'] : []),
+        'Ownership of models tuned on M42 data is not agreed yet.',
+      ],
+      nextSteps: [
+        'Vendor sends the documents within two weeks.',
+        'Director hands the case to the sponsor for Value & Due Diligence.',
+      ],
+    }
+  }
+  return {
+    ...base,
+    keyPoints: [
+      `Value case for ${company} reviewed against the pilot scope.`,
+      'Expected benefits and the effort for M42 teams were discussed.',
+    ],
+    vendorCommitments: [
+      'Provide pricing for the pilot and for scale-up.',
+      'Share reference sites with comparable outcomes.',
+    ],
+    openQuestions: ['Which budget line funds the pilot?', 'What exit terms apply after the pilot?'],
+    risks: ['Benefits depend on clinical adoption at the pilot site.'],
+    nextSteps: [
+      'Sponsor uploads the business case and records the decision.',
+      'Agent prepares the technical due diligence report if the sponsor proceeds.',
+    ],
+  }
+}
+
+/**
+ * A discovery or value call held on the platform: the attendees and the agent's summary are kept
+ * on the stage, the summary is added to the meeting notes, and the value call counts as held.
+ */
+export const holdPlatformCall = (
+  r: PartnershipRequest,
+  callType: CallType,
+  attendees: CallAttendee[]
+): PartnershipRequest => {
+  const on = todayLabel()
+  const host = callType === 'discovery' ? DIRECTOR_NAME : SPONSOR_NAME
+  const call = {
+    format: 'platform' as const,
+    attendees,
+    summary: buildCallSummary(r, callType, attendees),
+    on,
+  }
+  const discovery = { notes: [], transcripts: [], recordings: [], ...r.discovery }
+  const summaryFile = {
+    name: `${callType === 'discovery' ? 'Discovery' : 'Value'}_call_summary_${r.requestCode}.pdf`,
+    uploadedOn: on,
+    uploadedBy: 'Listening agent',
+  }
+  const next: PartnershipRequest = {
+    ...r,
+    discovery: {
+      ...discovery,
+      notes: [...discovery.notes, summaryFile],
+      ...(callType === 'discovery' ? { platformCall: call } : {}),
+    },
+    ...(callType === 'value'
+      ? {
+          value: {
+            ...r.value,
+            platformCall: call,
+            callConfirmedOn: r.value?.callConfirmedOn ?? on,
+          },
+        }
+      : {}),
+  }
+  const held = appendAudit(next, {
+    title: 'Call held on platform',
+    description: `${callType === 'discovery' ? 'Discovery' : 'Value assessment'} call with ${attendees.length} ${
+      attendees.length === 1 ? 'attendee' : 'attendees'
+    }.`,
+    actor: callType === 'discovery' ? DIRECTOR_ACTOR : `${host} (Sponsor)`,
+    kind: 'user',
+  })
+  return appendAudit(held, {
+    title: 'Meeting summary generated',
+    description: `${summaryFile.name} added to the meeting notes.`,
+    actor: AGENT_ACTOR,
+    kind: 'agent',
+  })
+}
+
 /** The Director hands the case to the sponsor for Value & Due Diligence, with or without extra context */
 export const proceedToValue = (r: PartnershipRequest): PartnershipRequest =>
   r.discovery?.proceededOn || !hasSignedNda(r)
@@ -1126,6 +1250,7 @@ export type CaseAction =
   | { type: 'assignSponsors'; lead: string; co: string[] }
   | { type: 'uploadNda'; fileName: string }
   | { type: 'discoveryFile'; kind: DiscoveryFileKind; name: string }
+  | { type: 'platformCall'; callType: CallType; attendees: CallAttendee[] }
   | { type: 'proceedToValue' }
   | { type: 'confirmValueCall' }
   | { type: 'businessCase'; name: string }
@@ -1160,6 +1285,8 @@ export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): Part
       return assignSponsors(r, { lead: action.lead, co: action.co })
     case 'uploadNda':
       return uploadSignedNda(r, action.fileName)
+    case 'platformCall':
+      return holdPlatformCall(r, action.callType, action.attendees)
     case 'discoveryFile':
       return addDiscoveryFile(r, action.kind, action.name)
     case 'proceedToValue':

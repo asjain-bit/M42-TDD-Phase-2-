@@ -74,6 +74,33 @@ export interface CaseFile {
   uploadedBy: string
 }
 
+/** Someone on a call held on the platform: an M42 colleague or an external email */
+export interface CallAttendee {
+  name: string
+  email?: string
+  internal: boolean
+  role?: string
+}
+
+/** What the listening agent writes after a call held on the platform */
+export interface MeetingSummary {
+  attendees: string[]
+  keyPoints: string[]
+  vendorCommitments: string[]
+  openQuestions: string[]
+  risks: string[]
+  nextSteps: string[]
+}
+
+/** A discovery or value call held on the platform, with the agent's summary */
+export interface PlatformCall {
+  format: 'platform'
+  attendees: CallAttendee[]
+  summary: MeetingSummary
+  /** Display date, e.g. 22 Oct 2026 */
+  on: string
+}
+
 export interface StageApproval {
   status: 'approved' | 'declined'
   by: string
@@ -282,6 +309,8 @@ export interface PartnershipRequest {
     recordings: CaseFile[]
     /** When the Director handed the case to the sponsor for Value & Due Diligence */
     proceededOn?: string
+    /** Set when the discovery call was held on the platform */
+    platformCall?: PlatformCall
   }
   value?: {
     callConfirmedOn?: string
@@ -293,6 +322,8 @@ export interface PartnershipRequest {
     finalDecision?: { status: 'sponsored' | 'declined'; date: string }
     /** Set when the sponsor confirms: completes the case */
     sponsoredOn?: string
+    /** Set when the value assessment call was held on the platform */
+    platformCall?: PlatformCall
   }
 }
 
@@ -412,29 +443,87 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
   },
 ]
 
-export const DEFAULT_STRATEGY_MEMBERS: InternalInterestStakeholder[] = [
-  {
-    id: 'strat-1',
-    name: 'Dr. Zainab',
-    initials: 'DZ',
-    role: 'Head of Strategy',
-    department: 'Strategy',
-    expertise: 'Market Strategy',
-    whySuggested: 'Assesses overall strategic alignment and healthcare market expansion',
-    avatarColorBg: '#dbeafe',
-    avatarColorText: '#1e40af',
-    status: 'Completed',
-    deadline: '2-3 days',
-    decision: 'Proceed',
-    source: 'manual',
-    strategyResponse: {
-      documents: ['MedTech_Innovations_Pitch_Deck.pptx', 'Vendor_Security_Questionnaire.docx'],
-      finalDecision: 'Proceed',
-      finalDecisionNote:
-        'Proceed on the condition that the vendor commits to UAE hosting and registers a local entity.',
-      submittedAt: 'Yesterday at 4:30 PM',
-    },
+/**
+ * No one is the Strategy Team by default: the Director picks the reviewer for each case from the
+ * + Add Member list.
+ */
+export const DEFAULT_STRATEGY_MEMBERS: InternalInterestStakeholder[] = []
+
+/** Seed cases: Leena Thomas reviewed GenomicX and has AlphaHealth still to review */
+const SEED_STRATEGY_REVIEW: InternalInterestStakeholder = {
+  id: 'strat-2',
+  name: 'Leena Thomas',
+  initials: 'LT',
+  role: 'Senior Strategy Manager',
+  department: 'Strategy',
+  expertise: 'Growth & Expansion',
+  whySuggested: 'Assesses overall strategic alignment and healthcare market expansion',
+  avatarColorBg: '#fce7f3',
+  avatarColorText: '#9d174d',
+  status: 'Completed',
+  deadline: '2-3 days',
+  decision: 'Proceed',
+  source: 'manual',
+  strategyResponse: {
+    documents: ['MedTech_Innovations_Pitch_Deck.pptx', 'Vendor_Security_Questionnaire.docx'],
+    finalDecision: 'Proceed',
+    finalDecisionNote:
+      'Proceed on the condition that the vendor commits to UAE hosting and registers a local entity.',
+    submittedAt: 'Yesterday at 4:30 PM',
   },
+}
+
+const SEED_STRATEGY_PENDING: InternalInterestStakeholder = {
+  ...SEED_STRATEGY_REVIEW,
+  status: 'Pending',
+  decision: '-',
+  strategyResponse: undefined,
+}
+
+/** M42 colleagues who can be invited to a call held on the platform */
+export const M42_PEOPLE: { name: string; role: string; email: string }[] = [
+  { name: 'Zaid Al Ali', role: 'Director, Partnerships', email: 'zaid.alali@m42.ae' },
+  { name: 'Nadia Al-Farsi', role: 'Partnership Admin', email: 'nadia.alfarsi@m42.ae' },
+  { name: 'Rashid Al-Nuaimi', role: 'Sponsor', email: 'rashid.alnuaimi@m42.ae' },
+  { name: 'Mariam Al-Zaabi', role: 'Internal Interest Team', email: 'mariam.alzaabi@m42.ae' },
+  { name: 'Leena Thomas', role: 'Senior Strategy Manager', email: 'leena.thomas@m42.ae' },
+  {
+    name: 'Omar Al-Hashemi',
+    role: 'Director of Healthcare Strategy',
+    email: 'omar.alhashemi@m42.ae',
+  },
+  { name: 'Riza Sayeed', role: 'Head of AI & Analytics', email: 'riza.sayeed@m42.ae' },
+  { name: 'Parag Agarwal', role: 'Radiology & Imaging Lead', email: 'parag.agarwal@m42.ae' },
+  { name: 'Najla Al Mansoori', role: 'Clinical Innovation Lead', email: 'najla.almansoori@m42.ae' },
+  {
+    name: 'Khalid Al Zaabi',
+    role: 'Operations Transformation Lead',
+    email: 'khalid.alzaabi@m42.ae',
+  },
+  { name: 'Sara Malik', role: 'HealthTech Partnerships', email: 'sara.malik@m42.ae' },
+  {
+    name: 'Dr. Mona Al Hashimi',
+    role: 'Chief Medical Information Officer',
+    email: 'mona.alhashimi@m42.ae',
+  },
+  {
+    name: 'Dr. Tariq Al Nuaimi',
+    role: 'Head of Clinical Research',
+    email: 'tariq.alnuaimi@m42.ae',
+  },
+  {
+    name: 'Hessa Al Marzooqi',
+    role: 'Information Security Lead',
+    email: 'hessa.almarzooqi@m42.ae',
+  },
+  { name: 'Sultan Al Mehairi', role: 'Enterprise Architect', email: 'sultan.almehairi@m42.ae' },
+  {
+    name: 'Fatima Al Zaabi',
+    role: 'Lead Clinical Bioinformatician',
+    email: 'fatima.alzaabi@m42.ae',
+  },
+  { name: 'Hamad Al Suwaidi', role: 'Service Line Team', email: 'hamad.alsuwaidi@m42.ae' },
+  { name: 'Aisha Al Dhaheri', role: 'Procurement Lead', email: 'aisha.aldhaheri@m42.ae' },
 ]
 
 /* ---------- Service line interests ---------- */
@@ -508,7 +597,7 @@ export const INITIAL_SERVICE_LINE_INTERESTS: ServiceLineInterest[] = [
     submittedBy: 'Hamad Al Suwaidi',
     on: '06 Oct 2026',
     status: 'Approved',
-    decidedBy: 'Dr. Zainab',
+    decidedBy: 'Leena Thomas',
     decidedOn: '08 Oct 2026',
   },
   {
@@ -536,7 +625,7 @@ export const INITIAL_SERVICE_LINE_INTERESTS: ServiceLineInterest[] = [
     submittedBy: 'Hamad Al Suwaidi',
     on: '20 Oct 2026',
     status: 'Approved',
-    decidedBy: 'Dr. Zainab',
+    decidedBy: 'Leena Thomas',
     decidedOn: '22 Oct 2026',
   },
   {
@@ -551,7 +640,7 @@ export const INITIAL_SERVICE_LINE_INTERESTS: ServiceLineInterest[] = [
     submittedBy: 'Hamad Al Suwaidi',
     on: '24 Oct 2026',
     status: 'Declined',
-    decidedBy: 'Dr. Zainab',
+    decidedBy: 'Leena Thomas',
     decidedOn: '25 Oct 2026',
     declineReason: 'Already covered by the genomics programme roadmap for 2027.',
   },
@@ -848,7 +937,8 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     sponsors: { lead: 'Riza Sayeed', co: [] },
     internalOutcome: { scenario: 'single' },
     sent: { internal: true, strategy: true },
-    // Waiting for Dr. Zainab, so the Strategy Team has the whole review still to do
+    strategyTeamMembers: [SEED_STRATEGY_PENDING],
+    // Waiting for Leena Thomas, so the Strategy Team has the whole review still to do
     stageApprovals: {
       internal: { status: 'approved', by: 'Mariam Al-Zaabi', date: 'Done' },
     },
@@ -1031,7 +1121,7 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
         id: 'seed-9',
         title: 'Strategy Team approved',
         description: 'Proceed with a condition.',
-        actor: 'Dr. Zainab (Strategy Team)',
+        actor: 'Leena Thomas (Strategy Team)',
         kind: 'approval',
         timestamp: '06 Oct 2026, 03:10 PM',
       },
@@ -1075,9 +1165,10 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
       ],
     },
     sent: { internal: true, strategy: true },
+    strategyTeamMembers: [SEED_STRATEGY_REVIEW],
     stageApprovals: {
       internal: { status: 'approved', by: 'Mariam Al-Zaabi', date: 'Done' },
-      strategy: { status: 'approved', by: 'Dr. Zainab', date: 'Done' },
+      strategy: { status: 'approved', by: 'Leena Thomas', date: 'Done' },
     },
     companyName: 'GenomicX MENA FZ-LLC',
     vendorName: 'Karim El-Sayed',

@@ -150,16 +150,6 @@ const CANDIDATE_DIRECTORY = [
 
 const STRATEGY_CANDIDATE_DIRECTORY = [
   {
-    id: 'strat-1',
-    name: 'Dr. Zainab',
-    role: 'Head of Strategy',
-    department: 'Strategy',
-    expertise: 'Market Strategy',
-    initials: 'DZ',
-    avatarColorBg: '#dbeafe',
-    avatarColorText: '#1e40af',
-  },
-  {
     id: 'strat-2',
     name: 'Leena Thomas',
     role: 'Senior Strategy Manager',
@@ -880,7 +870,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     setDeleteNote('')
   }
 
-  // Strategy Team state (starts with one person, up to 5)
+  // Strategy Team state: the Director picks the reviewers (up to 5); nobody is preselected
   const [strategyMembers, setStrategyMembers] = useState<InternalInterestStakeholder[]>(
     request.strategyTeamMembers && request.strategyTeamMembers.length > 0
       ? request.strategyTeamMembers

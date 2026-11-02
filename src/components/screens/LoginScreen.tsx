@@ -58,12 +58,11 @@ export const AVAILABLE_PROFILES: UserProfile[] = [
   },
   {
     id: 'strategy-fit',
-    name: 'Dr. Zainab',
+    // A role, not a person: different people review strategy on different cases
+    name: 'Strategy Team',
     designation: 'Strategy Team',
-    email: 'zainab@m42.ae',
+    email: 'strategy@m42.ae',
     roleTitle: 'Strategy Team',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80',
   },
   {
     id: 'sponsor',

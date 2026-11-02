@@ -546,6 +546,19 @@ const sentToInternal: PartnershipRequest = {
   sent: { internal: true },
 }
 
+/** The Strategy reviewer the Director picked from + Add Member (nobody is preselected) */
+const LEENA = {
+  id: 'strat-2',
+  name: 'Leena Thomas',
+  initials: 'LT',
+  role: 'Senior Strategy Manager',
+  department: 'Strategy',
+  expertise: 'Growth & Expansion',
+  avatarColorBg: '#fce7f3',
+  avatarColorText: '#9d174d',
+  source: 'manual' as const,
+}
+
 const openCase = async (user: ReturnType<typeof setup>, name = 'MedTech Innovations') => {
   await user.click(screen.getByText(name))
   finishThinking()
@@ -707,7 +720,12 @@ describe('Internal Interest outcomes', () => {
 
   it('shows the Strategy Team approval and its conditions as soon as the request is sent', async () => {
     const user = setup()
-    render(<Shared profile={directorProfile} initial={[sentToInternal]} />)
+    render(
+      <Shared
+        profile={directorProfile}
+        initial={[{ ...sentToInternal, strategyTeamMembers: [LEENA] }]}
+      />
+    )
     await openCase(user)
     await simulate(user, 'single')
     await user.click(
@@ -718,8 +736,8 @@ describe('Internal Interest outcomes', () => {
     finishThinking()
     await user.click(screen.getByRole('button', { name: 'Send Request' }))
     const popup = screen.getByRole('dialog', { name: 'Send to the Strategy Team' })
-    // One reviewer, Dr. Zainab, with nothing to tick
-    expect(within(popup).getByText('Dr. Zainab')).toBeInTheDocument()
+    // One reviewer, Leena Thomas, with nothing to tick
+    expect(within(popup).getByText('Leena Thomas')).toBeInTheDocument()
     expect(within(popup).queryByRole('checkbox')).not.toBeInTheDocument()
     await user.click(within(popup).getByRole('button', { name: 'Send Request' }))
     // Approved: the Director acknowledges it, then the NDA stage follows
@@ -757,7 +775,7 @@ describe('NDA & Discovery, Value and the Sponsor profile', () => {
             ...r,
             stageApprovals: {
               ...r.stageApprovals,
-              strategy: { status: 'approved' as const, by: 'Dr. Zainab', date: 'Done' },
+              strategy: { status: 'approved' as const, by: 'Leena Thomas', date: 'Done' },
             },
           }
         : r

@@ -86,6 +86,7 @@ const CASE_ACTION_TOASTS: Partial<Record<CaseAction['type'], string>> = {
   summaryNote: 'Notes saved.',
   editInternalAnswer: 'Answer updated. Your original answer is kept on record.',
   sponsorInterest: 'Your sponsor interest has been sent to the Director.',
+  platformCall: 'Call ended. The meeting summary has been added to the notes.',
 }
 
 const PAGE_SIZE = 7

@@ -174,11 +174,11 @@ describe('LoginScreen', () => {
     vi.useRealTimers()
   })
 
-  it('has Dr. Zainab, a woman from the UAE, as the Strategy Team lead', () => {
+  it('has the Strategy Team as a role, with no personal name', () => {
     const lead = AVAILABLE_PROFILES.find((pr) => pr.id === 'strategy-fit')!
-    expect(lead.name).toBe('Dr. Zainab')
+    expect(lead.name).toBe('Strategy Team')
     expect(lead.designation).toBe('Strategy Team')
-    expect(lead.email).toContain('zainab')
-    expect(lead.avatarUrl).toContain('photo-1438761681033-6461ffad8d80')
+    expect(lead.email).toBe('strategy@m42.ae')
+    expect(lead.avatarUrl).toBeUndefined()
   })
 })

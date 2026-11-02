@@ -4,14 +4,20 @@
  * DiscoveryCallStage — Organism
  * The call between the NDA and Value & Due Diligence. The Director adds the meeting notes,
  * transcripts and recordings in one uploader, then proceeds (or skips), which hands the case to
- * the sponsor. Everyone else waits and can read what was added.
+ * the sponsor. The call can also be held on the platform (PlatformCallRoom), where a listening
+ * agent writes the summary. Everyone else waits and can read what was added.
  * Used in: PartnershipDetail
  */
 
-import React from 'react'
+import React, { useState } from 'react'
 import { FileText, Film, Mic } from 'lucide-react'
 import { FilePicker } from '@/components/molecules/FilePicker'
 import { StageFooter } from '@/components/molecules/StageFooter'
+import {
+  CallFormatChoice,
+  PlatformCallRoom,
+  type CallFormat,
+} from '@/components/organisms/PlatformCallRoom'
 import type { CaseFile } from '@/types/partnership.types'
 import type { DiscoveryCallStageProps } from './DiscoveryCallStage.types'
 
@@ -59,6 +65,9 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
   const hasFiles =
     discovery.notes.length + discovery.transcripts.length + discovery.recordings.length > 0
   const canAdd = isDirector && !proceeded
+  const held = request.discovery?.platformCall
+  const [format, setFormat] = useState<CallFormat>(held ? 'platform' : 'outside')
+  const onPlatform = Boolean(held) || format === 'platform'
 
   const proceed = () => {
     onAction({ type: 'proceedToValue' })
@@ -70,16 +79,33 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
       <div className="flex flex-col gap-1 shrink-0">
         <h2 className="text-xl font-semibold text-[#0d212c]">Discovery Call</h2>
         <p className="text-sm text-[#64748b]">
-          {canAdd
-            ? 'Upload the meeting notes, transcript or recording from the call, or skip this and go on. The sponsor takes over from here.'
-            : proceeded
-              ? 'The Director has handed this case to the sponsor.'
-              : 'Waiting for the Director to hold the discovery call and hand this case on.'}
+          {canAdd && onPlatform
+            ? 'Hold the discovery call here. The agent listens and adds a summary to the meeting notes, then you hand the case to the sponsor.'
+            : canAdd
+              ? 'Upload the meeting notes, transcript or recording from the call, or skip this and go on. The sponsor takes over from here.'
+              : proceeded
+                ? 'The Director has handed this case to the sponsor.'
+                : 'Waiting for the Director to hold the discovery call and hand this case on.'}
         </p>
       </div>
 
       <div className="relative flex-1 min-h-0 overflow-y-auto flex flex-col gap-5 pr-1">
-        {canAdd && (
+        {canAdd && !held && (
+          <CallFormatChoice name="discovery-call-format" value={format} onChange={setFormat} />
+        )}
+        {onPlatform && (
+          <PlatformCallRoom
+            callType="discovery"
+            caseCode={request.requestCode}
+            hostName="Zaid Al Ali"
+            canHost={canAdd}
+            saved={held}
+            onComplete={(attendees) =>
+              onAction({ type: 'platformCall', callType: 'discovery', attendees })
+            }
+          />
+        )}
+        {canAdd && !onPlatform && (
           <FilePicker
             label="Upload meeting notes, transcript or recording"
             hint="Documents, audio or video"
