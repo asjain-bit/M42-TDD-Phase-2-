@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect } from 'vitest'
 import { AlignmentPack, buildOpenQuestions } from './AlignmentPack'
 import { INITIAL_PARTNERSHIP_REQUESTS } from '@/types/partnership.types'
@@ -58,5 +59,30 @@ describe('AlignmentPack', () => {
     const questions = buildOpenQuestions(INITIAL_PARTNERSHIP_REQUESTS[1])
     expect(questions[0]).toMatch(/Has the vendor confirmed this condition/)
     expect(questions.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('shows the current internal answer, with its history', async () => {
+    const [first, ...rest] = request.internalInterests!
+    const answers = first.answers!.map((a, i) =>
+      i === 0
+        ? {
+            ...a,
+            edits: [
+              { answer: 'Revised answer', reason: 'New data', by: first.name, on: '25 Oct 2026' },
+            ],
+          }
+        : a
+    )
+    render(
+      <AlignmentPack
+        request={{ ...request, internalInterests: [{ ...first, answers }, ...rest] }}
+      />
+    )
+    expect(screen.getByText('Revised answer')).toBeInTheDocument()
+    expect(screen.getByText('Edited')).toBeInTheDocument()
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'View original and changes (1)' }))
+    expect(screen.getByText('Reason: New data')).toBeInTheDocument()
   })
 })

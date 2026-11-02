@@ -8,10 +8,12 @@ import {
   type PartnershipRequest,
   type QuestionAnswer,
   type QuestionnaireQuestion,
+  type SponsorPreference,
   type StrategyMemberResponse,
   type WorkflowStage,
 } from '@/types/partnership.types'
 import type { VendorFormValues } from '@/types/vendorForm'
+import { escapeNoteText, markNote, sanitiseNoteHtml } from '@/lib/summaryNote'
 
 const DIRECTOR_NAME = 'Zaid Al Ali'
 const ADMIN_NAME = 'Nadia Al-Farsi'
@@ -39,6 +41,38 @@ export const formatTimestamp = (date = new Date()) =>
     minute: '2-digit',
   })}`
 
+/* ---------- Internal Interest due dates ---------- */
+
+/** Internal Interest reviewers are asked to answer within this many days; late answers still count */
+export const INTERNAL_RESPONSE_DAYS = 4
+
+const DAY_MS = 24 * 60 * 60 * 1000
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const fromIso = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+/** The due date for a request sent now (ISO yyyy-mm-dd) */
+export const internalDueOn = (sentOn = new Date()) =>
+  isoDate(new Date(sentOn.getTime() + INTERNAL_RESPONSE_DAYS * DAY_MS))
+
+/** 16 Oct 2026 */
+export const formatDueDate = (iso: string) => todayLabel(fromIso(iso))
+
+/** Whole days a pending response is past its due date; 0 when on time, answered or without a date */
+export const getOverdueDays = (
+  dueOn: string | undefined,
+  status: string | undefined,
+  today = new Date()
+) => {
+  if (!dueOn || status !== 'Pending') return 0
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const days = Math.round((start.getTime() - fromIso(dueOn).getTime()) / DAY_MS)
+  return days > 0 ? days : 0
+}
+
 export type AuditInput = Omit<AuditEvent, 'id' | 'timestamp'> & { key?: string }
 
 /** Adds an event to the case's audit log. An event with an existing key is only logged once. */
@@ -48,6 +82,50 @@ export const appendAudit = (r: PartnershipRequest, event: AuditInput): Partnersh
   const id = key ?? `${r.id}-${log.length + 1}-${Date.now()}`
   if (key && log.some((e) => e.id === key)) return r
   return { ...r, auditLog: [...log, { ...rest, id, timestamp: formatTimestamp() }] }
+}
+
+/** The six workflow stages on the case page, in order */
+export const WORKFLOW_STAGES = [
+  'Initial Assessment Brief',
+  'Internal Canvas',
+  'Strategic Alignment',
+  'NDA',
+  'Discovery Call',
+  'Value & Due Diligence',
+] as const
+
+/** True only once a vendor-signed copy of the NDA has been uploaded; acknowledging is not enough */
+export const hasSignedNda = (r: PartnershipRequest): boolean =>
+  Boolean(r.nda?.versions?.some((v) => v.signed === true))
+
+/** Actions that belong to the Discovery Call and later; they need the signed NDA */
+const AFTER_NDA: CaseAction['type'][] = [
+  'discoveryFile',
+  'proceedToValue',
+  'confirmValueCall',
+  'businessCase',
+  'valueDecision',
+  'generateTdd',
+  'finalSponsor',
+]
+
+/**
+ * The furthest workflow stage (1-6) the case has got to, whether or not it has since left the
+ * workflow. A brief that was rejected or routed still counts as the brief stage.
+ */
+const furthestStage = (r: PartnershipRequest): number => {
+  // A case is only closed after its brief was approved (rejected briefs exit instead)
+  const briefApproved =
+    r.decision?.status === 'proceeded' ||
+    r.status === 'In Progress' ||
+    r.status === 'At Risk' ||
+    r.status === 'Closed'
+  if (r.queue === 'admin' || r.queue === 'routed' || !briefApproved) return 1
+  if (r.stageApprovals?.internal?.status !== 'approved') return 2
+  if (r.stageApprovals?.strategy?.status !== 'approved') return 3
+  if (!r.alignmentPackOn || !hasSignedNda(r)) return 4
+  if (!r.discovery?.proceededOn) return 5
+  return 6
 }
 
 /**
@@ -60,14 +138,41 @@ export const getStageLabel = (r: PartnershipRequest): string => {
   if (r.queue === 'routed') {
     return r.caseType === 'Procure' ? 'Routed to Procurement' : 'Routed to Corporate Development'
   }
-  const briefApproved =
-    r.decision?.status === 'proceeded' || r.status === 'In Progress' || r.status === 'At Risk'
-  if (r.queue === 'admin' || !briefApproved) return 'Initial Assessment Brief'
-  if (r.stageApprovals?.internal?.status !== 'approved') return 'Internal Canvas'
-  if (r.stageApprovals?.strategy?.status !== 'approved') return 'Strategic Alignment'
-  if (!r.alignmentPackOn) return 'NDA'
-  if (!r.discovery?.proceededOn) return 'Discovery Call'
-  return 'Value & Due Diligence'
+  return WORKFLOW_STAGES[furthestStage(r) - 1]
+}
+
+export type StageKind = 'active' | 'closed' | 'exited' | 'routed'
+
+export interface StageProgress {
+  /** Same as getStageLabel */
+  label: string
+  /** Current stage (1-6) while the case is in the workflow; null once it has left */
+  index: number | null
+  total: number
+  kind: StageKind
+  /** Furthest stage the case got to (1-6); for closed and exited cases, where it stopped */
+  reached: number
+}
+
+/** The stage as a position among the six, for progress displays */
+export const getStageProgress = (r: PartnershipRequest): StageProgress => {
+  const label = getStageLabel(r)
+  const reached = furthestStage(r)
+  const kind: StageKind =
+    label === 'Closed'
+      ? 'closed'
+      : label === 'Exited'
+        ? 'exited'
+        : r.queue === 'routed'
+          ? 'routed'
+          : 'active'
+  return {
+    label,
+    index: kind === 'active' ? reached : null,
+    total: WORKFLOW_STAGES.length,
+    kind,
+    reached,
+  }
 }
 
 /** Director has made a decision, so the Partnership Admin can no longer change the type */
@@ -142,6 +247,26 @@ export const buildInfoEmail = (r: PartnershipRequest, senderName: string) => ({
     '',
     'Kind regards,',
     senderName,
+    'Director, Partnerships',
+    'M42',
+  ].join('\n'),
+})
+
+/** Starting point for the email the Director sends the partner when closing the request */
+export const buildCloseEmail = (r: PartnershipRequest, directorName: string, reason: string) => ({
+  to: r.companyInfo.email,
+  subject: `Update on your partnership request ${r.requestCode}`,
+  body: [
+    `Hi ${r.companyInfo.name},`,
+    '',
+    `Thank you for your partnership request (${r.requestCode}) for "${r.solution}" and for the time your team has given us.`,
+    '',
+    `After careful review, we have decided not to take the request further at this stage. ${reason.trim()}`,
+    '',
+    'We appreciate your interest in working with M42 and would be glad to hear from you again in the future.',
+    '',
+    'Kind regards,',
+    directorName,
     'Director, Partnerships',
     'M42',
   ].join('\n'),
@@ -275,7 +400,9 @@ export const sendReview = (
   const members = payload.members.map((m) => ({
     ...m,
     status: 'Pending',
-    deadline: team === 'internal' ? '4 days' : '2-3 days',
+    ...(team === 'internal'
+      ? { dueOn: internalDueOn(), deadline: undefined }
+      : { deadline: '2-3 days' }),
     decision: '-',
     sponsor: undefined,
     responseDate: undefined,
@@ -411,6 +538,20 @@ const summarise = (text: string, max = 110) => {
   return first.length > max ? `${first.slice(0, max - 1).trimEnd()}…` : first
 }
 
+/** Starting use case summary for a new case, built from the vendor form */
+const buildSummaryNote = (values: VendorFormValues, solution: string, maturity: string) => {
+  const approvals = parseApprovals(values.relevantApprovals).filter((a) => a !== 'Not applicable')
+  const areas =
+    values.focusAreas.length > 0 ? values.focusAreas.join(', ') : 'no focus area selected'
+  const lead = /[.!?…]$/.test(solution) ? solution : `${solution}.`
+  return [
+    escapeNoteText(`${values.company.trim()}: ${lead} Focus: ${areas}. Maturity: ${maturity}.`),
+    approvals.length > 0
+      ? markNote('positive', `Approvals listed: ${approvals.join(', ')}.`)
+      : markNote('attention', 'No regulatory approvals listed.'),
+  ].join(' ')
+}
+
 /** Turns a submitted vendor form into a new case waiting for the Partnership Admin */
 export const buildCaseFromForm = (
   values: VendorFormValues,
@@ -443,10 +584,15 @@ export const buildCaseFromForm = (
     tags: values.focusAreas,
     agentRecommendation: {
       status: 'proceed',
-      label: 'Recommended to Proceed',
+      label: 'Assessment points to proceed',
       confidence: 72,
       rationale:
         'The submission is complete and aligns with M42 focus areas. Regulatory evidence and baselines still need to be confirmed.',
+    },
+    summaryNote: {
+      html: buildSummaryNote(values, solution, maturity),
+      updatedBy: AGENT_ACTOR,
+      updatedOn: submittedOn,
     },
     workflowStages: [
       { id: 1, title: 'Submission', subheading: submittedOn, status: 'completed' },
@@ -509,7 +655,28 @@ export const buildCaseFromForm = (
 export const closeRequest = (r: PartnershipRequest, reason: string): PartnershipRequest =>
   appendAudit(
     { ...r, status: 'Closed', daysInStage: 0, closedReason: reason },
-    { title: 'Case closed', description: reason, actor: DIRECTOR_ACTOR, kind: 'critical' }
+    {
+      title: 'Request closed by Director',
+      description: reason,
+      actor: DIRECTOR_ACTOR,
+      kind: 'critical',
+    }
+  )
+
+/** The Director closes the request and emails the partner. Nothing is really emailed. */
+export const closeWithEmail = (
+  r: PartnershipRequest,
+  reason: string,
+  email: { to: string; subject: string; body: string }
+): PartnershipRequest =>
+  appendAudit(
+    { ...closeRequest(r, reason), closedEmail: { ...email, sentOn: todayLabel() } },
+    {
+      title: 'Closure email sent',
+      description: `Email sent to ${email.to}: ${email.subject}`,
+      actor: DIRECTOR_ACTOR,
+      kind: 'user',
+    }
   )
 
 const approveInternal = (r: PartnershipRequest, sponsors: { lead: string; co: string[] }) =>
@@ -704,7 +871,7 @@ export const addDiscoveryFile = (
 
 /** The Director hands the case to the sponsor for Value & Due Diligence, with or without extra context */
 export const proceedToValue = (r: PartnershipRequest): PartnershipRequest =>
-  r.discovery?.proceededOn
+  r.discovery?.proceededOn || !hasSignedNda(r)
     ? r
     : appendAudit(
         {
@@ -842,10 +1009,120 @@ export const finalizeSponsorship = (
   )
 }
 
+/* ---------- Internal Interest answers after submitting ---------- */
+
+/** The answer as it stands now: the last edit, or the original when there are none */
+export const currentAnswer = (a: QuestionAnswer): string => a.edits?.at(-1)?.answer ?? a.answer
+
+/**
+ * A reviewer changes one of their submitted answers. The original and every earlier edit stay on
+ * record; a reason is required and the answer must actually change. The decision is untouched.
+ */
+export const editInternalAnswer = (
+  r: PartnershipRequest,
+  memberId: string,
+  questionId: string,
+  answer: string,
+  reason: string,
+  by: string
+): PartnershipRequest => {
+  const member = r.internalInterests?.find((m) => m.id === memberId)
+  const index = member?.answers?.findIndex((a) => a.questionId === questionId) ?? -1
+  const target = index >= 0 ? member!.answers![index] : undefined
+  const why = reason.trim()
+  if (!member || !target || !why || answer === currentAnswer(target)) return r
+  const edit = { answer, reason: why, by, on: todayLabel() }
+  return appendAudit(
+    {
+      ...r,
+      internalInterests: r.internalInterests!.map((m) =>
+        m.id === memberId
+          ? {
+              ...m,
+              answers: m.answers!.map((a, i) =>
+                i === index ? { ...a, edits: [...(a.edits ?? []), edit] } : a
+              ),
+            }
+          : m
+      ),
+    },
+    {
+      title: 'Internal Interest answer changed',
+      description: `Question ${index + 1}: ${why}`,
+      actor: `${by} (Internal Interest)`,
+      kind: 'user',
+    }
+  )
+}
+
+/* ---------- Sponsor interest ---------- */
+
+/**
+ * Someone offers to sponsor the case, at any stage. A team and a reason are required; a person
+ * who already offered replaces their earlier offer.
+ */
+export const expressSponsorInterest = (
+  r: PartnershipRequest,
+  interest: { name: string; team: string; preference: SponsorPreference; note: string }
+): PartnershipRequest => {
+  const team = interest.team.trim()
+  const note = interest.note.trim()
+  if (!interest.name || !team || !note) return r
+  const entry = {
+    name: interest.name,
+    team,
+    preference: interest.preference,
+    note,
+    stage: getStageLabel(r),
+    on: todayLabel(),
+  }
+  return appendAudit(
+    {
+      ...r,
+      sponsorInterests: [
+        ...(r.sponsorInterests ?? []).filter((i) => i.name !== interest.name),
+        entry,
+      ],
+    },
+    {
+      title: 'Sponsor interest expressed',
+      description: `${interest.preference} at ${entry.stage}: ${note}`,
+      actor: `${interest.name} (${team})`,
+      kind: 'user',
+    }
+  )
+}
+
+/* ---------- Use case summary note ---------- */
+
+/** Saves an edited use case summary. Only text and highlights are kept. */
+export const updateSummaryNote = (
+  r: PartnershipRequest,
+  html: string,
+  editor: { name: string; role: string }
+): PartnershipRequest =>
+  appendAudit(
+    {
+      ...r,
+      summaryNote: {
+        html: sanitiseNoteHtml(html),
+        updatedBy: editor.name,
+        updatedOn: todayLabel(),
+      },
+    },
+    {
+      title: 'Summary note updated',
+      description: `${editor.name} edited the use case summary.`,
+      actor: `${editor.name} (${editor.role})`,
+      kind: 'user',
+    }
+  )
+
 /** Every change the late stages and the Internal Interest outcome can make to a case */
 export type CaseAction =
   | { type: 'internalScenario'; scenario: InternalScenario }
   | { type: 'closeCase'; reason: string }
+  | { type: 'closeWithEmail'; reason: string; email: { to: string; subject: string; body: string } }
   | { type: 'assignSponsors'; lead: string; co: string[] }
   | { type: 'uploadNda'; fileName: string }
   | { type: 'discoveryFile'; kind: DiscoveryFileKind; name: string }
@@ -855,13 +1132,30 @@ export type CaseAction =
   | { type: 'valueDecision'; status: 'proceeded' | 'rejected'; reason: string }
   | { type: 'generateTdd' }
   | { type: 'finalSponsor'; sponsor: boolean }
+  | { type: 'summaryNote'; html: string; editor: { name: string; role: string } }
+  | {
+      type: 'sponsorInterest'
+      interest: { name: string; team: string; preference: SponsorPreference; note: string }
+    }
+  | {
+      type: 'editInternalAnswer'
+      memberId: string
+      questionId: string
+      answer: string
+      reason: string
+      by: string
+    }
 
 export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): PartnershipRequest => {
+  // Hard gate: nothing after the NDA stage happens without the signed copy
+  if (AFTER_NDA.includes(action.type) && !hasSignedNda(r)) return r
   switch (action.type) {
     case 'internalScenario':
       return applyInternalScenario(r, action.scenario)
     case 'closeCase':
       return closeRequest(r, action.reason)
+    case 'closeWithEmail':
+      return closeWithEmail(r, action.reason, action.email)
     case 'assignSponsors':
       return assignSponsors(r, { lead: action.lead, co: action.co })
     case 'uploadNda':
@@ -880,5 +1174,18 @@ export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): Part
       return generateTddReport(r)
     case 'finalSponsor':
       return finalizeSponsorship(r, action.sponsor)
+    case 'summaryNote':
+      return updateSummaryNote(r, action.html, action.editor)
+    case 'sponsorInterest':
+      return expressSponsorInterest(r, action.interest)
+    case 'editInternalAnswer':
+      return editInternalAnswer(
+        r,
+        action.memberId,
+        action.questionId,
+        action.answer,
+        action.reason,
+        action.by
+      )
   }
 }

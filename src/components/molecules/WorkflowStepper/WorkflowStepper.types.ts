@@ -6,6 +6,11 @@ export interface WorkflowStep {
   state: WorkflowStepState
   /** Optional override for the line under the label */
   caption?: string
+  /**
+   * Why a locked step is locked. The step then stays clickable (aria-disabled) so the page can
+   * explain it, and shows this as its tooltip.
+   */
+  lockedHint?: string
 }
 
 export interface WorkflowStepperProps {

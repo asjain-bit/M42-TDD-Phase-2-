@@ -4,6 +4,7 @@
  * SponsorAssignModal — Organism
  * Shown when more than one reviewer is ready to sponsor: the Director picks the lead sponsor
  * and which of the others join as co-sponsors.
+ * Also opened from the Sponsor interest card, pre-filled with the person being assigned.
  * Used in: PartnershipDetail
  */
 
@@ -17,9 +18,10 @@ export const SponsorAssignModal: React.FC<SponsorAssignModalProps> = ({
   candidates,
   onConfirm,
   onClose,
+  initial,
 }) => {
-  const [lead, setLead] = useState('')
-  const [co, setCo] = useState<string[]>([])
+  const [lead, setLead] = useState(initial?.lead ?? '')
+  const [co, setCo] = useState<string[]>(initial?.co ?? [])
   const titleId = useId()
 
   useEffect(() => {

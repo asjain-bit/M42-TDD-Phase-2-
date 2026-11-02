@@ -21,9 +21,9 @@ describe('AssessmentBrief', () => {
   })
 
   it('splits the brief into sections with a side panel to navigate them', () => {
-    renderBrief({ showVerdict: true })
+    renderBrief({ showSummary: true })
     ;[
-      'Agent Verdict',
+      'Assessment Summary',
       'Company Information',
       'Company Experience',
       'Collaboration Proposal',
@@ -84,16 +84,14 @@ describe('AssessmentBrief', () => {
     expect(screen.getByText('Year Company Was Founded')).toBeInTheDocument()
   })
 
-  it('shows the agent verdict as a Proceed or Reject chip with a confidence level, only when asked', () => {
+  it('shows the assessment summary with its leaning and a confidence level, only when asked', () => {
     const { container, rerender } = render(
-      <AssessmentBrief request={request} showVerdict onOpenAnalysis={vi.fn()} />
+      <AssessmentBrief request={request} showSummary onOpenAnalysis={vi.fn()} />
     )
-    expect(screen.getByRole('heading', { name: 'Agent Verdict' })).toBeInTheDocument()
-    expect(screen.getByText('Proceed')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Assessment Summary' })).toBeInTheDocument()
+    expect(screen.getByText('Points to proceed')).toBeInTheDocument()
     expect(screen.getByText('High confidence')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Three things that would change this recommendation/)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/What would change this assessment/)).toBeInTheDocument()
     expect(
       screen.getByText('Clinical validation not reproduced on M42 patient data')
     ).toBeInTheDocument()
@@ -106,15 +104,15 @@ describe('AssessmentBrief', () => {
           agentRecommendation: { ...request.agentRecommendation!, status: 'reject' },
         }}
 
-        showVerdict
+        showSummary
         onOpenAnalysis={vi.fn()}
       />
     )
-    expect(screen.getByText('Reject')).toBeInTheDocument()
+    expect(screen.getByText('Points to reject')).toBeInTheDocument()
 
     rerender(<AssessmentBrief request={request} onOpenAnalysis={vi.fn()} />)
-    expect(screen.queryByRole('heading', { name: 'Agent Verdict' })).not.toBeInTheDocument()
-    expect(nav().queryByRole('button', { name: 'Agent Verdict' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Assessment Summary' })).not.toBeInTheDocument()
+    expect(nav().queryByRole('button', { name: 'Assessment Summary' })).not.toBeInTheDocument()
   })
 
   it('shows only the Agent Actions button, in the title colour, and opens it', async () => {

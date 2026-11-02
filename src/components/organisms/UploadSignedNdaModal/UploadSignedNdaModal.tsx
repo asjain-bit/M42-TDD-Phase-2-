@@ -70,7 +70,7 @@ export const UploadSignedNdaModal: React.FC<UploadSignedNdaModalProps> = ({
               {nextVersion > 1
                 ? ` to replace the current copy (it becomes version ${nextVersion})`
                 : ''}
-              .
+              . It is required to continue to the Discovery Call.
             </p>
           </div>
           <button

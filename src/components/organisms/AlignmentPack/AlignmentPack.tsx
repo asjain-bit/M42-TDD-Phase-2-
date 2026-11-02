@@ -24,7 +24,9 @@ import {
   Target,
   Users,
 } from 'lucide-react'
+import { AnswerHistory } from '@/components/molecules/AnswerHistory'
 import { buildAgentActions } from '@/components/organisms/AgentActions'
+import { currentAnswer } from '@/lib/caseActions'
 import { buildPreRead } from '@/lib/preRead'
 import {
   DEFAULT_INTERNAL_INTERESTS,
@@ -118,7 +120,9 @@ export const AlignmentPack: React.FC<AlignmentPackProps> = ({
     () => buildPreRead(request, strategy?.documents ?? []),
     [request, strategy?.documents]
   )
-  const answers = responded.flatMap((r) => (r.answers ?? []).map((x) => ({ ...x, by: r.name })))
+  const answers = responded.flatMap((r) =>
+    (r.answers ?? []).map((x) => ({ ...x, by: r.name, on: r.responseDate }))
+  )
   return (
     <section
       aria-labelledby="alignment-pack-heading"
@@ -302,8 +306,9 @@ export const AlignmentPack: React.FC<AlignmentPackProps> = ({
                     className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-1"
                   >
                     <span className="text-xs font-semibold text-[#0d212c]">{x.question}</span>
-                    <p className="text-sm text-[#475569] leading-relaxed">{x.answer}</p>
+                    <p className="text-sm text-[#475569] leading-relaxed">{currentAnswer(x)}</p>
                     <span className="text-xs text-[#64748b]">{x.by}</span>
+                    <AnswerHistory answer={x} originalOn={x.on} className="pt-1" />
                   </li>
                 ))}
               </ul>

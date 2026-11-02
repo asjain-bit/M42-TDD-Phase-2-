@@ -82,3 +82,61 @@ describe('ReviewQuestionnaire', () => {
     expect(screen.queryByText(/answered/)).not.toBeInTheDocument()
   })
 })
+
+describe('ReviewQuestionnaire after submitting', () => {
+  const submitted = [
+    { questionId: 'a', question: 'Problem?', cue: 'Describe it.', answer: 'Original A' },
+    {
+      questionId: 'b',
+      question: 'KPI?',
+      cue: 'Baseline.',
+      answer: 'Original B',
+      edits: [{ answer: 'Edited B', reason: 'Baseline', by: 'Mariam Al-Zaabi', on: '24 Oct 2026' }],
+    },
+  ]
+  const qs = [
+    { id: 'a', text: 'Problem?', cue: 'Describe it.', mandatory: true },
+    { id: 'b', text: 'KPI?', cue: 'Baseline.', mandatory: true },
+  ]
+
+  it('shows each current answer read-only, with the Edited chip on changed ones', () => {
+    render(
+      <ReviewQuestionnaire
+        questions={qs}
+        submission={{ answers: submitted, submittedOn: '22 Oct 2026' }}
+        readOnly
+      />
+    )
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Original A')).toBeInTheDocument()
+    expect(screen.getByText('Edited B')).toBeInTheDocument()
+    expect(screen.queryByText('Original B')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Edited')).toHaveLength(1)
+    // Read-only: no banner and no Edit answer
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit answer' })).not.toBeInTheDocument()
+  })
+
+  it('saves a change only when the answer differs and a reason is given', async () => {
+    const user = userEvent.setup()
+    const onEditAnswer = vi.fn()
+    render(
+      <ReviewQuestionnaire
+        questions={qs}
+        submission={{ answers: submitted, submittedOn: '22 Oct 2026' }}
+        onEditAnswer={onEditAnswer}
+      />
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('Submitted on 22 Oct 2026.')
+    await user.click(screen.getAllByRole('button', { name: 'Edit answer' })[1])
+    const answer = screen.getByRole('textbox', { name: 'KPI?' })
+    expect(answer).toHaveValue('Edited B')
+    const save = screen.getByRole('button', { name: 'Save change' })
+    await user.type(answer, '!')
+    expect(save).toBeDisabled()
+    await user.type(screen.getByRole('textbox', { name: 'Reason for change *' }), '  Typo  ')
+    await user.click(save)
+    expect(onEditAnswer).toHaveBeenCalledWith('b', 'Edited B!', 'Typo')
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+})

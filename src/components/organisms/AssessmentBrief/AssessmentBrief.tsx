@@ -3,7 +3,7 @@
 /**
  * AssessmentBrief — Organism
  * The initial assessment brief, split into sections with a side panel to jump between them.
- * Content comes from what the vendor filled in, with the agent verdict first.
+ * Content comes from what the vendor filled in, with the assessment summary first.
  * Used in: PartnershipDetail
  */
 
@@ -34,7 +34,7 @@ import type { AssessmentBriefProps } from './AssessmentBrief.types'
 const POPULATIONS = ['Adult patients', 'Pediatric patients', "Women's health"]
 
 const NAV = [
-  { id: 'verdict', label: 'Agent Verdict', icon: Sparkles },
+  { id: 'summary', label: 'Assessment Summary', icon: Sparkles },
   { id: 'company-info', label: 'Company Information', icon: Building2 },
   { id: 'company-experience', label: 'Company Experience', icon: Award },
   { id: 'collaboration-proposal', label: 'Collaboration Proposal', icon: HeartHandshake },
@@ -98,7 +98,7 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
   request,
   onOpenAnalysis,
   hideContact = false,
-  showVerdict = false,
+  showSummary = false,
   decision,
   footer,
   className = '',
@@ -106,7 +106,7 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
   const { assessmentAreas: a, companyInfo: info } = request
   const rec = request.agentRecommendation
   const isReject = rec?.status === 'reject'
-  const baseNav = showVerdict ? NAV : NAV.filter((item) => item.id !== 'verdict')
+  const baseNav = showSummary ? NAV : NAV.filter((item) => item.id !== 'summary')
   const nav = decision ? [...baseNav, DECISION_NAV] : baseNav
   const [active, setActive] = useState(nav[0].id)
   const populations = a.impactedPatientPopulations ?? []
@@ -129,7 +129,7 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
     })
     return () => observer.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Boolean(decision), showVerdict])
+  }, [Boolean(decision), showSummary])
 
   const scrollTo = (id: string) => {
     setActive(id)
@@ -202,8 +202,8 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
         </nav>
 
         <div className="flex-1 min-w-0 w-full flex flex-col divide-y divide-[#f1f5f9]">
-          {rec && showVerdict && (
-            <Section id="verdict" title="Agent Verdict" icon={Sparkles}>
+          {rec && showSummary && (
+            <Section id="summary" title="Assessment Summary" icon={Sparkles}>
               <div className="rounded-xl border border-[#e2e8f0] p-5 flex flex-col gap-4">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
@@ -213,14 +213,14 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
                         : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                     }`}
                   >
-                    {isReject ? 'Reject' : 'Proceed'}
+                    {isReject ? 'Points to reject' : 'Points to proceed'}
                   </span>
                   <ConfidenceBadge level={confidenceLevel(rec.confidence)} />
                 </div>
                 <Body>{rec.rationale}</Body>
                 <div className="flex flex-col gap-2 pt-3 border-t border-[#e2e8f0]">
                   <span className="text-xs font-semibold text-[#0d212c]">
-                    Three things that would change this recommendation
+                    What would change this assessment
                   </span>
                   <ol className="flex flex-col gap-1.5">
                     {getChangeFactors(request).map((factor, i) => (

@@ -10,8 +10,10 @@ import {
   ClipboardList,
   CheckCircle2,
   Briefcase,
+  NotebookPen,
 } from 'lucide-react'
 import { SearchBar } from '@/components/molecules/SearchBar'
+import { StageChip } from '@/components/molecules/StageChip'
 import { Pagination } from '@/components/molecules/Pagination'
 import { TableFilterMenu } from '@/components/molecules/TableFilterMenu'
 import {
@@ -22,6 +24,7 @@ import {
 } from '@/lib/caseStatus'
 import { StatusChip } from '@/components/atoms/StatusChip'
 import { PartnershipDetail } from '@/components/organisms/PartnershipDetail'
+import { CaseNotes } from '@/components/organisms/CaseNotes'
 import {
   type PartnershipRequest,
   type SlaStatus,
@@ -32,6 +35,8 @@ import {
   applyCaseAction,
   buildSplitCases,
   getStageLabel,
+  getStageProgress,
+  WORKFLOW_STAGES,
   holdRequest,
   proceedRequest,
   rejectRequest,
@@ -78,20 +83,16 @@ const CASE_ACTION_TOASTS: Partial<Record<CaseAction['type'], string>> = {
   valueDecision: 'Your decision has been recorded.',
   generateTdd: 'The TDD report has been generated.',
   finalSponsor: 'Your answer has been recorded.',
+  summaryNote: 'Notes saved.',
+  editInternalAnswer: 'Answer updated. Your original answer is kept on record.',
+  sponsorInterest: 'Your sponsor interest has been sent to the Director.',
 }
 
 const PAGE_SIZE = 7
 
 const STAGE_OPTIONS = [
   { value: 'all', label: 'All stages' },
-  ...[
-    'Initial Assessment Brief',
-    'Internal Canvas',
-    'Strategic Alignment',
-    'NDA',
-    'Discovery Call',
-    'Value & Due Diligence',
-  ].map((v) => ({ value: v, label: v })),
+  ...WORKFLOW_STAGES.map((v) => ({ value: v, label: v })),
 ]
 const SLA_OPTIONS = [
   { value: 'all', label: 'All SLA statuses' },
@@ -195,6 +196,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selectedRequest = requests.find((r) => r.id === selectedId) ?? null
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  // The case whose notes panel is open over the table
+  const [notesId, setNotesId] = useState<string | null>(null)
+  const notesRequest = requests.find((r) => r.id === notesId) ?? null
+  // Every column plus Notes
+  const columnCount = isNonDirector ? 9 : isAdmin ? 10 : 9
 
   // StatusChip colours for the five statuses
   const getStatusCategory = (status: DisplayStatus) =>
@@ -288,9 +294,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       }
       return next
     })
-    const message = CASE_ACTION_TOASTS[action.type]
+    const company = requests.find((r) => r.id === requestId)?.companyName ?? 'the partner'
+    const message =
+      action.type === 'closeWithEmail'
+        ? `Email sent to ${company}. The request is closed.`
+        : CASE_ACTION_TOASTS[action.type]
     if (message) notify(message)
   }
+
+  const handleSaveNote = (requestId: string, html: string) =>
+    handleCaseAction(requestId, {
+      type: 'summaryNote',
+      html,
+      editor: {
+        name: userProfile?.name ?? 'Zaid Al Ali',
+        role: userProfile?.designation ?? 'Director',
+      },
+    })
 
   // Partnership Admin routes the case
   const handleRoute = (requestId: string, routing: AdminRouting) => {
@@ -528,6 +548,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </div>
 
+      {/* Case notes panel, docked over the table */}
+      {notesRequest && (
+        <CaseNotes
+          request={notesRequest}
+          status={statusOf(notesRequest)}
+          showAssessment={!isNonDirector}
+          onSaveNote={(html) => handleSaveNote(notesRequest.id, html)}
+          onClose={() => setNotesId(null)}
+        />
+      )}
+
       {/* Partnership Requests Table — Referred by column removed from table per instruction */}
       <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden w-full flex flex-col">
         <div className="overflow-x-auto w-full">
@@ -541,6 +572,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <th className="py-4 px-4">Focus Area</th>
                     <th className="py-4 px-4">Solution Maturity</th>
                     <th className="py-4 px-4">Status</th>
+                    <th className="py-4 px-4">Stage</th>
                     <th className="py-4 px-4">Deadline</th>
                     <th className="py-4 px-4">Submitted Date</th>
                   </>
@@ -556,15 +588,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <th className="py-4 px-4">SLA status</th>
                   </>
                 )}
+                <th className="py-4 px-4">Notes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e2e8f0]/60">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={isNonDirector ? 7 : isAdmin ? 9 : 8}
-                    className="py-16 text-center text-[#64748b]"
-                  >
+                  <td colSpan={columnCount} className="py-16 text-center text-[#64748b]">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                       <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-1">
                         <Inbox className="w-6 h-6 stroke-[1.5]" />
@@ -580,110 +610,131 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </tr>
               ) : (
                 filteredRequests.map((req) => (
-                  <tr
-                    key={req.id}
-                    onClick={() => setSelectedId(req.id)}
-                    className="hover:bg-slate-50 transition-colors cursor-pointer group"
-                  >
-                    <td className="py-4.5 px-4 text-xs font-medium text-[#64748b] whitespace-nowrap">
-                      {req.requestCode}
-                    </td>
+                  <React.Fragment key={req.id}>
+                    <tr
+                      onClick={() => setSelectedId(req.id)}
+                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                    >
+                      <td className="py-4.5 px-4 text-xs font-medium text-[#64748b] whitespace-nowrap">
+                        {req.requestCode}
+                      </td>
 
-                    <td className="py-4.5 px-4 text-xs font-medium text-[#0d212c] group-hover:text-[#36c0c9]">
-                      {req.companyName}
-                    </td>
+                      <td className="py-4.5 px-4 text-xs font-medium text-[#0d212c] group-hover:text-[#36c0c9]">
+                        {req.companyName}
+                      </td>
 
-                    {isNonDirector ? (
-                      <>
-                        <td className="py-4.5 px-4 text-xs font-normal text-[#64748b]">
-                          <div className="flex flex-wrap gap-1.5 max-w-xs">
-                            {(req.assessmentAreas?.focusAreas &&
-                            req.assessmentAreas.focusAreas.length > 0
-                              ? req.assessmentAreas.focusAreas
-                              : req.tags && req.tags.length > 0
-                                ? req.tags
-                                : [req.focusArea]
-                            ).map((area, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-normal whitespace-nowrap"
-                              >
-                                {area}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-
-                        <td className="py-4.5 px-4 text-xs font-normal text-[#64748b]">
-                          {req.solutionMaturity}
-                        </td>
-
-                        <td className="py-4.5 px-4 text-xs font-normal">
-                          <StatusChip
-                            label={statusOf(req)}
-                            status={getStatusCategory(statusOf(req))}
-                            dot={false}
-                          />
-                        </td>
-
-                        <td className="py-4.5 px-4 text-xs font-normal text-[#64748b] whitespace-nowrap">
-                          {req.deadline || req.submittedOn}
-                        </td>
-
-                        <td className="py-4.5 px-4 text-xs font-normal text-[#64748b] whitespace-nowrap">
-                          {req.submittedOn}
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="py-4.5 px-4">
-                          <DescriptionCell
-                            text={
-                              req.assessmentAreas?.productPlatformServiceDetails || req.solution
-                            }
-                          />
-                        </td>
-
-                        <td className="py-4.5 px-4 text-xs font-normal">
-                          <StatusChip
-                            label={statusOf(req)}
-                            status={getStatusCategory(statusOf(req))}
-                            dot={false}
-                          />
-                        </td>
-
-                        {isAdmin && (
-                          <td className="py-4.5 px-4 text-xs font-normal text-[#0d212c] whitespace-nowrap">
-                            {req.caseType ? (
-                              <span className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs">
-                                {req.caseType}
-                              </span>
-                            ) : (
-                              <span className="text-[#94a3b8]">Unassigned</span>
-                            )}
+                      {isNonDirector ? (
+                        <>
+                          <td className="py-4.5 px-4 text-xs font-normal text-[#64748b]">
+                            <div className="flex flex-wrap gap-1.5 max-w-xs">
+                              {(req.assessmentAreas?.focusAreas &&
+                              req.assessmentAreas.focusAreas.length > 0
+                                ? req.assessmentAreas.focusAreas
+                                : req.tags && req.tags.length > 0
+                                  ? req.tags
+                                  : [req.focusArea]
+                              ).map((area, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-normal whitespace-nowrap"
+                                >
+                                  {area}
+                                </span>
+                              ))}
+                            </div>
                           </td>
-                        )}
 
-                        <td className="py-4.5 px-4 text-xs font-normal text-[#0d212c] whitespace-nowrap">
-                          {getStageLabel(req)}
-                        </td>
+                          <td className="py-4.5 px-4 text-xs font-normal text-[#64748b]">
+                            {req.solutionMaturity}
+                          </td>
 
-                        <td className="py-4.5 px-4 text-xs font-normal text-[#64748b] whitespace-nowrap">
-                          {req.daysInStage} {req.daysInStage === 1 ? 'day' : 'days'}
-                        </td>
+                          <td className="py-4.5 px-4 text-xs font-normal">
+                            <StatusChip
+                              label={statusOf(req)}
+                              status={getStatusCategory(statusOf(req))}
+                              dot={false}
+                            />
+                          </td>
 
-                        <td className="py-4.5 px-4 text-xs font-normal text-[#0d212c] whitespace-nowrap">
-                          {req.owner}
-                        </td>
+                          <td className="py-4.5 px-4 min-w-[11rem]">
+                            <StageChip progress={getStageProgress(req)} />
+                          </td>
 
-                        <td
-                          className={`py-4.5 px-4 text-xs font-medium whitespace-nowrap ${SLA_TEXT_COLOR[req.slaStatus]}`}
+                          <td className="py-4.5 px-4 text-xs font-normal text-[#64748b] whitespace-nowrap">
+                            {req.deadline || req.submittedOn}
+                          </td>
+
+                          <td className="py-4.5 px-4 text-xs font-normal text-[#64748b] whitespace-nowrap">
+                            {req.submittedOn}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-4.5 px-4">
+                            <DescriptionCell
+                              text={
+                                req.assessmentAreas?.productPlatformServiceDetails || req.solution
+                              }
+                            />
+                          </td>
+
+                          <td className="py-4.5 px-4 text-xs font-normal">
+                            <StatusChip
+                              label={statusOf(req)}
+                              status={getStatusCategory(statusOf(req))}
+                              dot={false}
+                            />
+                          </td>
+
+                          {isAdmin && (
+                            <td className="py-4.5 px-4 text-xs font-normal text-[#0d212c] whitespace-nowrap">
+                              {req.caseType ? (
+                                <span className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs">
+                                  {req.caseType}
+                                </span>
+                              ) : (
+                                <span className="text-[#94a3b8]">Unassigned</span>
+                              )}
+                            </td>
+                          )}
+
+                          <td className="py-4.5 px-4 min-w-[11rem]">
+                            <StageChip progress={getStageProgress(req)} />
+                          </td>
+
+                          <td className="py-4.5 px-4 text-xs font-normal text-[#64748b] whitespace-nowrap">
+                            {req.daysInStage} {req.daysInStage === 1 ? 'day' : 'days'}
+                          </td>
+
+                          <td className="py-4.5 px-4 text-xs font-normal text-[#0d212c] whitespace-nowrap">
+                            {req.owner}
+                          </td>
+
+                          <td
+                            className={`py-4.5 px-4 text-xs font-medium whitespace-nowrap ${SLA_TEXT_COLOR[req.slaStatus]}`}
+                          >
+                            {req.slaStatus}
+                          </td>
+                        </>
+                      )}
+
+                      <td className="py-4.5 px-4">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setNotesId(req.id)
+                          }}
+                          aria-label={`Open notes for ${req.companyName}`}
+                          aria-haspopup="dialog"
+                          title="Open notes"
+                          className="w-8 h-8 rounded-lg inline-flex items-center justify-center border border-border-default text-text-secondary hover:text-text-primary hover:bg-bg-hover cursor-pointer transition"
                         >
-                          {req.slaStatus}
-                        </td>
-                      </>
-                    )}
-                  </tr>
+                          <NotebookPen className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+                        </button>
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 ))
               )}
             </tbody>

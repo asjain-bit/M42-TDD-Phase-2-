@@ -11,11 +11,11 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
+import { FocusAreaSelect } from '@/components/molecules/FocusAreaSelect'
 import { runVendorFormCheck, type VendorFormSuggestion } from '@/lib/vendorFormCheck'
 import {
   DEVELOPMENT_APPROACH_OPTIONS,
   EMPTY_VENDOR_FORM,
-  FOCUS_AREA_OPTIONS,
   POPULATION_OPTIONS,
   SAMPLE_VENDOR_FORM,
   isFormEmpty,
@@ -148,7 +148,6 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
   const [suggestions, setSuggestions] = useState<VendorFormSuggestion[] | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [caseId, setCaseId] = useState<string | null>(null)
-  const [focusOpen, setFocusOpen] = useState(false)
   const [checkStep, setCheckStep] = useState(0)
   const [hasRunCheck, setHasRunCheck] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -430,78 +429,12 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
               error={isMissing('focusAreas')}
               suggestion={suggestionFor('focusAreas')}
             >
-              <div className="relative">
-                <button
-                  id="focusAreas"
-                  type="button"
-                  aria-haspopup="listbox"
-                  aria-expanded={focusOpen}
-                  onClick={() => setFocusOpen((o) => !o)}
-                  className={`${FIELD} min-h-10 pl-3 pr-10 py-1.5 text-left flex flex-wrap items-center gap-1.5 cursor-pointer ${
-                    isMissing('focusAreas') ? FIELD_ERROR : ''
-                  }`}
-                >
-                  {values.focusAreas.length === 0 ? (
-                    <span className="text-[#9aa8b5]">Select focus areas</span>
-                  ) : (
-                    values.focusAreas.map((f) => (
-                      <span
-                        key={f}
-                        className="px-2.5 py-0.5 rounded-lg bg-[#f0fdfa] text-[#0f766e] text-xs font-medium border border-[#ccfbf1]"
-                      >
-                        {f}
-                      </span>
-                    ))
-                  )}
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={`w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 transition-transform ${
-                      focusOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-                {focusOpen && (
-                  <ul
-                    role="listbox"
-                    aria-label="Focus areas"
-                    aria-multiselectable="true"
-                    className="absolute z-20 mt-1.5 w-full max-h-64 overflow-y-auto rounded-lg border border-[#e2e8f0] bg-white shadow-lg py-1.5 animate-in fade-in slide-in-from-top-1 duration-150"
-                  >
-                    {FOCUS_AREA_OPTIONS.map((opt) => {
-                      const selected = values.focusAreas.includes(opt)
-                      return (
-                        <li key={opt} role="option" aria-selected={selected}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              set(
-                                'focusAreas',
-                                selected
-                                  ? values.focusAreas.filter((f) => f !== opt)
-                                  : [...values.focusAreas, opt]
-                              )
-                            }
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-left hover:bg-slate-50 cursor-pointer"
-                          >
-                            <span
-                              className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                                selected
-                                  ? 'bg-[#36c0c9] border-[#36c0c9] text-white'
-                                  : 'border-slate-300'
-                              }`}
-                            >
-                              {selected && (
-                                <Check className="w-3 h-3 stroke-[3]" aria-hidden="true" />
-                              )}
-                            </span>
-                            {opt}
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
+              <FocusAreaSelect
+                id="focusAreas"
+                value={values.focusAreas}
+                onChange={(next) => set('focusAreas', next)}
+                error={isMissing('focusAreas')}
+              />
             </Field>
 
             {question('maturityAndRegulatory')}

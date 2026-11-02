@@ -3,6 +3,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import { PartnershipDetail } from './PartnershipDetail'
+import { applyCaseAction, currentAnswer, submitReview } from '@/lib/caseActions'
 import { INITIAL_PARTNERSHIP_REQUESTS, type PartnershipRequest } from '@/types/partnership.types'
 
 const profile = (id: string, roleTitle: string) => ({
@@ -233,7 +234,7 @@ describe('PartnershipDetail', () => {
   })
 
   describe('Director: Initial Assessment Brief', () => {
-    it('shows the verdict chip, the brief sections and a plain steps list', () => {
+    it('shows the assessment summary, the brief sections and a plain steps list', () => {
       renderDetail()
       expect(
         stepper()
@@ -252,8 +253,8 @@ describe('PartnershipDetail', () => {
       )
       expect(stepper().queryByRole('button', { name: /Approval/ })).not.toBeInTheDocument()
 
-      expect(screen.getByRole('heading', { name: 'Agent Verdict' })).toBeInTheDocument()
-      expect(screen.getByText('Proceed')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Assessment Summary' })).toBeInTheDocument()
+      expect(screen.getByText('Points to proceed')).toBeInTheDocument()
       expect(screen.getByText('Triage Agent Analysis')).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: 'Company Information' })).toBeInTheDocument()
     })
@@ -590,7 +591,8 @@ describe('PartnershipDetail', () => {
       // Internal response: the questions they were asked and their answers, same layout
       await user.click(stepper().getByRole('button', { name: /Internal Canvas/ }))
       await user.click(screen.getAllByRole('button', { name: /View member response/i })[0])
-      expect(screen.getByDisplayValue(/Sepsis is still recognised late/)).toBeDisabled()
+      expect(screen.getByText(/Sepsis is still recognised late/)).toBeInTheDocument()
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
       expect(
         screen.getByText(
           'Which KPI would move, what is the baseline today, and what change would matter?'
@@ -601,10 +603,10 @@ describe('PartnershipDetail', () => {
   })
 
   describe('Partnership Admin', () => {
-    it('shows every workflow stage, opens on the brief with the verdict', () => {
+    it('shows every workflow stage, opens on the brief with the assessment summary', () => {
       renderDetail({ userProfile: adminProfile, request: adminCase })
       expect(stepper().getAllByRole('button')).toHaveLength(6)
-      expect(screen.getByRole('heading', { name: 'Agent Verdict' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Assessment Summary' })).toBeInTheDocument()
     })
 
     it('can open the later stages to read them, with no way to act in them', async () => {
@@ -872,8 +874,8 @@ describe('PartnershipDetail', () => {
       // Only their own two stages open; the later ones show progress
       await user.click(stepper().getByRole('button', { name: /^NDA/ }))
       expect(screen.getByRole('heading', { name: 'Company Information' })).toBeInTheDocument()
-      // No verdict and no vendor contact details
-      expect(screen.queryByRole('heading', { name: 'Agent Verdict' })).not.toBeInTheDocument()
+      // No assessment summary and no vendor contact details
+      expect(screen.queryByRole('heading', { name: 'Assessment Summary' })).not.toBeInTheDocument()
       expect(screen.queryByText('sarah@medtechinnovations.com')).not.toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: /View vendor response/i }))
       expect(screen.queryByText('sarah@medtechinnovations.com')).not.toBeInTheDocument()
@@ -915,7 +917,7 @@ describe('PartnershipDetail', () => {
       await user.click(submit)
 
       const confirm = screen.getByRole('dialog', { name: 'Submit questionnaire?' })
-      expect(confirm).toHaveTextContent('After this you will not be able to edit them')
+      expect(confirm).toHaveTextContent('You can still change an answer afterwards, with a reason')
       await user.click(within(confirm).getByRole('button', { name: 'Submit' }))
       expect(onSubmitReview).toHaveBeenCalledWith(
         mockRequest.id,
@@ -930,8 +932,141 @@ describe('PartnershipDetail', () => {
           ]),
         })
       )
+    })
+
+    /** The case as it is once the reviewer has submitted, as the Dashboard stores it */
+    const submittedCase = () =>
+      submitReview(
+        {
+          ...mockRequest,
+          status: 'In Progress',
+          decision: { status: 'proceeded' },
+          sent: { internal: true },
+        },
+        'internal',
+        {
+          answers: [
+            { questionId: 'q1', question: 'Real problem?', cue: 'Describe it.', answer: 'First' },
+            { questionId: 'q2', question: 'Which KPI?', cue: 'Baseline.', answer: 'Second' },
+          ],
+        }
+      )
+
+    it('shows the submitted answers when the case is opened again', async () => {
+      const user = userEvent.setup()
+      renderDetail({ userProfile: internalProfile, request: submittedCase() })
+      await user.click(stepper().getByRole('button', { name: /Internal Canvas/ }))
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /^Submitted on \d{2} \w{3} \d{4}\. You can still edit an answer; each change needs a reason and your original answer stays on record\.$/
+      )
+      expect(screen.getByText('First')).toBeInTheDocument()
+      expect(screen.getByText('Second')).toBeInTheDocument()
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument()
-      screen.getAllByRole('textbox').forEach((b) => expect(b).toBeDisabled())
+      expect(screen.getAllByRole('button', { name: 'Edit answer' })).toHaveLength(2)
+    })
+
+    it('edits one answer at a time with a reason, keeping the original on record', async () => {
+      const user = userEvent.setup()
+      const request = submittedCase()
+      const { rerender } = renderDetail({ userProfile: internalProfile, request })
+      await user.click(stepper().getByRole('button', { name: /Internal Canvas/ }))
+      await user.click(screen.getAllByRole('button', { name: 'Edit answer' })[1])
+
+      // Only this card edits; the other Edit buttons step aside
+      expect(screen.queryByRole('button', { name: 'Edit answer' })).not.toBeInTheDocument()
+      const answer = screen.getByRole('textbox', { name: 'Which KPI?' })
+      expect(answer).toHaveFocus()
+      expect(answer).toHaveValue('Second')
+      expect(answer).toHaveAttribute('maxLength', '600')
+      expect(screen.getByText('6/600')).toBeInTheDocument()
+      const reason = screen.getByRole('textbox', { name: 'Reason for change *' })
+      expect(reason).toHaveAttribute('maxLength', '300')
+      expect(reason).toHaveAttribute('placeholder', 'Why are you changing this answer?')
+      const save = screen.getByRole('button', { name: 'Save change' })
+      expect(save).toBeDisabled()
+
+      await user.type(reason, 'Baseline confirmed')
+      expect(save).toBeDisabled()
+      await user.clear(answer)
+      await user.type(answer, 'Second, with a baseline')
+      expect(screen.getByText('18/300')).toBeInTheDocument()
+      await user.click(save)
+
+      const member = request.internalInterests![0]
+      const action = {
+        type: 'editInternalAnswer' as const,
+        memberId: member.id,
+        questionId: 'q2',
+        answer: 'Second, with a baseline',
+        reason: 'Baseline confirmed',
+        by: 'Internal Interest Team',
+      }
+      expect(onCaseAction).toHaveBeenCalledWith(mockRequest.id, action)
+
+      // The Dashboard applies it; the card shows the new answer and its history
+      const edited = applyCaseAction(request, action)
+      rerender(
+        <PartnershipDetail
+          request={edited}
+          onBack={onBack}
+          onProceed={onProceed}
+          onReject={onReject}
+          onCaseAction={onCaseAction}
+          userProfile={internalProfile}
+          animateAgentRun={false}
+        />
+      )
+      expect(currentAnswer(edited.internalInterests![0].answers![1])).toBe(
+        'Second, with a baseline'
+      )
+      expect(screen.getByText('Second, with a baseline')).toBeInTheDocument()
+      expect(screen.getByText('Edited')).toBeInTheDocument()
+      const toggle = screen.getByRole('button', { name: 'View original and changes (1)' })
+      await user.click(toggle)
+      const timeline = screen.getByRole('list', { name: 'Original answer and changes' })
+      expect(within(timeline).getAllByRole('listitem')[0]).toHaveTextContent(
+        /^Original · .*Second$/
+      )
+      expect(within(timeline).getAllByRole('listitem')[1]).toHaveTextContent(
+        'Reason: Baseline confirmed'
+      )
+      // The decision stays as submitted
+      expect(edited.internalInterests![0].decision).toBe(member.decision)
+    })
+
+    it('cancels an edit without saving', async () => {
+      const user = userEvent.setup()
+      renderDetail({ userProfile: internalProfile, request: submittedCase() })
+      await user.click(stepper().getByRole('button', { name: /Internal Canvas/ }))
+      await user.click(screen.getAllByRole('button', { name: 'Edit answer' })[0])
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(onCaseAction).not.toHaveBeenCalledWith(
+        mockRequest.id,
+        expect.objectContaining({ type: 'editInternalAnswer' })
+      )
+      expect(screen.getAllByRole('button', { name: 'Edit answer' })).toHaveLength(2)
+    })
+
+    it('shows the Director the current answer and its history, read-only', async () => {
+      const user = userEvent.setup()
+      const request = applyCaseAction(submittedCase(), {
+        type: 'editInternalAnswer',
+        memberId: submittedCase().internalInterests![0].id,
+        questionId: 'q1',
+        answer: 'First, revised',
+        reason: 'Clearer',
+        by: 'Mariam Al-Zaabi',
+      })
+      renderDetail({ request })
+      await user.click(stepper().getByRole('button', { name: /Internal Canvas/ }))
+      await user.click(screen.getAllByRole('button', { name: /View member response/i })[0])
+      expect(screen.getByText('First, revised')).toBeInTheDocument()
+      expect(screen.getByText('Edited')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Edit answer' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'View original and changes (1)' }))
+      expect(screen.getByText('Reason: Clearer')).toBeInTheDocument()
     })
 
     it('answers exactly the questions the Director sent, and may skip optional ones', async () => {
@@ -971,7 +1106,7 @@ describe('PartnershipDetail', () => {
       renderDetail({ userProfile: strategyProfile, animateAgentRun: true })
       expect(screen.queryByText('ANALYZING')).not.toBeInTheDocument()
       expect(screen.getByRole('heading', { name: 'Company Information' })).toBeInTheDocument()
-      expect(screen.queryByRole('heading', { name: 'Agent Verdict' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Assessment Summary' })).not.toBeInTheDocument()
       expect(screen.queryByText('sarah@medtechinnovations.com')).not.toBeInTheDocument()
       expect(
         stepper()
@@ -1327,5 +1462,81 @@ describe('PartnershipDetail', () => {
       expect((container.firstChild as HTMLElement).className).toContain('h-[calc(100vh-6.75rem)]')
       expect((container.firstChild as HTMLElement).className).toContain('overflow-hidden')
     })
+  })
+})
+
+describe('PartnershipDetail case notes', () => {
+  const request = INITIAL_PARTNERSHIP_REQUESTS[0]
+  const sponsorProfile = profile('sponsor', 'Sponsor')
+  const renderAs = (userProfile?: ReturnType<typeof profile>) => {
+    const onCaseAction = vi.fn()
+    render(
+      <PartnershipDetail
+        request={request}
+        onBack={vi.fn()}
+        onProceed={vi.fn()}
+        onReject={vi.fn()}
+        onCaseAction={onCaseAction}
+        userProfile={userProfile}
+        animateAgentRun={false}
+      />
+    )
+    return onCaseAction
+  }
+
+  it('sits under the header card and saves through a case action with the editor', async () => {
+    const user = userEvent.setup()
+    const onCaseAction = renderAs(strategyProfile)
+    const note = screen.getByRole('region', { name: 'Case notes' })
+    const header = screen.getByRole('heading', { name: request.companyName })
+    expect(header.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await user.click(within(note).getByRole('button', { name: 'Edit notes' }))
+    const editor = within(note).getByRole('textbox')
+    editor.innerHTML = 'Updated summary'
+    await user.click(within(note).getByRole('button', { name: 'Save' }))
+    expect(onCaseAction).toHaveBeenCalledWith(request.id, {
+      type: 'summaryNote',
+      html: 'Updated summary',
+      editor: { name: 'Strategy Team', role: 'Strategy Team' },
+    })
+  })
+
+  it('lets every profile edit the notes', () => {
+    const editable = (p?: ReturnType<typeof profile>) => {
+      const { unmount } = render(
+        <PartnershipDetail
+          request={request}
+          onBack={vi.fn()}
+          onProceed={vi.fn()}
+          onReject={vi.fn()}
+          userProfile={p}
+          animateAgentRun={false}
+        />
+      )
+      const note = screen.getByRole('region', { name: 'Case notes' })
+      const canEdit = within(note).queryByRole('button', { name: 'Edit notes' }) !== null
+      unmount()
+      return canEdit
+    }
+    ;[
+      profile('director', 'Director'),
+      adminProfile,
+      sponsorProfile,
+      internalProfile,
+      strategyProfile,
+    ].forEach((p) => expect(editable(p)).toBe(true))
+  })
+
+  it('opens the notes panel from the bar, with the assessment for the Director', async () => {
+    const user = userEvent.setup()
+    renderAs(profile('director', 'Director'))
+    const note = screen.getByRole('region', { name: 'Case notes' })
+    await user.click(within(note).getByRole('button', { name: 'Case notes' }))
+    const card = screen.getByRole('dialog', { name: request.companyName })
+    await user.click(within(card).getByRole('button', { name: 'Expand notes' }))
+    expect(within(card).getByRole('heading', { name: 'Assessment summary' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: request.companyName })).not.toBeInTheDocument()
   })
 })

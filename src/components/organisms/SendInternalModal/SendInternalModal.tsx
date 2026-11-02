@@ -14,6 +14,7 @@ import { QuestionnaireEditor } from '@/components/organisms/QuestionnaireEditor'
 import type { QuestionnaireVersion } from '@/components/organisms/QuestionnaireEditor/QuestionnaireEditor.types'
 import type { QuestionnaireQuestion } from '@/types/partnership.types'
 import { cloneQuestions, DEFAULT_QUESTIONNAIRE_ID, getQuestionnaire } from '@/types/questionnaires'
+import { formatDueDate, internalDueOn } from '@/lib/caseActions'
 import type { SendInternalModalProps } from './SendInternalModal.types'
 
 export const SendInternalModal: React.FC<SendInternalModalProps> = ({
@@ -187,7 +188,7 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
           <div className="flex flex-col gap-1">
             <span className="inline-flex items-center gap-1.5 text-xs text-[#64748b]">
               <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
-              SLA: 4 days to answer
+              Responses due by {formatDueDate(internalDueOn())}. Late responses are still accepted.
             </span>
             {hint && <span className="text-xs text-amber-700">{hint}</span>}
           </div>

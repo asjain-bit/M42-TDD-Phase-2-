@@ -32,11 +32,23 @@ export interface QuestionnaireQuestion {
   mandatory: boolean
 }
 
+/** A change to a submitted answer. The original answer is never overwritten. */
+export interface AnswerEdit {
+  answer: string
+  reason: string
+  by: string
+  /** Display date, e.g. 22 Oct 2026 */
+  on: string
+}
+
 export interface QuestionAnswer {
   questionId: string
   question: string
   cue: string
+  /** The answer as first submitted; edits are kept separately */
   answer: string
+  /** Later changes, oldest first. The last one is the current answer. */
+  edits?: AnswerEdit[]
 }
 
 /** What the Internal Interest team did, as simulated in the prototype */
@@ -141,7 +153,10 @@ export interface InternalInterestStakeholder {
   avatarColorBg: string
   avatarColorText: string
   status?: string
+  /** Strategy Team response window, e.g. 2-3 days */
   deadline?: string
+  /** Internal Interest: the date the response is due (ISO yyyy-mm-dd). Late answers are still accepted. */
+  dueOn?: string
   decision?: string
   /** Whether the reviewer is ready to sponsor the partnership */
   sponsor?: 'Yes' | 'No'
@@ -157,6 +172,27 @@ export interface AgentRecommendation {
   label: string
   confidence: number
   rationale: string
+}
+
+export type SponsorPreference = 'Lead' | 'Co-sponsor' | 'Either'
+
+/** Someone offering to sponsor the partnership, at any stage */
+export interface SponsorInterest {
+  name: string
+  team: string
+  preference: SponsorPreference
+  note: string
+  /** The workflow stage when the interest was expressed */
+  stage: string
+  /** Display date, e.g. 22 Oct 2026 */
+  on: string
+}
+
+/** Use case summary note. html holds only text and <mark data-tone="critical|attention|positive"> */
+export interface SummaryNote {
+  html: string
+  updatedBy: string
+  updatedOn: string
 }
 
 export interface PartnershipRequest {
@@ -188,6 +224,8 @@ export interface PartnershipRequest {
   internalInterests?: InternalInterestStakeholder[]
   strategyTeamMembers?: InternalInterestStakeholder[]
   agentRecommendation?: AgentRecommendation
+  /** Short use case summary; editable, with highlights to flag critical points and positives */
+  summaryNote?: SummaryNote
   decision?: {
     status: 'proceeded' | 'rejected'
     reason?: string
@@ -228,8 +266,12 @@ export interface PartnershipRequest {
   splitFrom?: string
   /** Who sponsors the partnership internally; set when the Internal Canvas stage ends */
   sponsors?: SponsorAssignment
+  /** People who offered to sponsor, newest last */
+  sponsorInterests?: SponsorInterest[]
   /** Why the case was closed after the brief was approved */
   closedReason?: string
+  /** The email the Director sent the partner when closing the request (nothing is really sent) */
+  closedEmail?: { to: string; subject: string; body: string; sentOn: string }
   /** Signed NDA copies, oldest first */
   nda?: { versions: NdaVersion[] }
   /** Generated when the first signed NDA is uploaded */
@@ -266,7 +308,7 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     avatarColorBg: '#dbeafe',
     avatarColorText: '#1e40af',
     status: 'Completed',
-    deadline: '4 days',
+    dueOn: '2026-10-16',
     decision: 'Proceed',
     sponsor: 'Yes',
     responseDate: '12 Oct 2026',
@@ -319,7 +361,7 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     avatarColorBg: '#f3e8ff',
     avatarColorText: '#6b21a8',
     status: 'Pending',
-    deadline: '4 days',
+    dueOn: '2026-10-16',
     decision: '-',
     source: 'ai',
   },
@@ -334,7 +376,7 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     avatarColorBg: '#d1fae5',
     avatarColorText: '#065f46',
     status: 'Pending',
-    deadline: '4 days',
+    dueOn: '2026-10-16',
     decision: '-',
     source: 'ai',
   },
@@ -349,7 +391,7 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     avatarColorBg: '#ffedd5',
     avatarColorText: '#9a3412',
     status: 'Pending',
-    deadline: '4 days',
+    dueOn: '2026-10-16',
     decision: '-',
     source: 'ai',
   },
@@ -364,7 +406,7 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     avatarColorBg: '#fce7f3',
     avatarColorText: '#9d174d',
     status: 'Pending',
-    deadline: '4 days',
+    dueOn: '2026-10-16',
     decision: '-',
     source: 'ai',
   },
@@ -392,6 +434,201 @@ export const DEFAULT_STRATEGY_MEMBERS: InternalInterestStakeholder[] = [
         'Proceed on the condition that the vendor commits to UAE hosting and registers a local entity.',
       submittedAt: 'Yesterday at 4:30 PM',
     },
+  },
+]
+
+/* ---------- Service line interests ---------- */
+
+export type ServiceLineUrgency = 'Low' | 'Medium' | 'High'
+
+/** A requirement a service line raises, so it can be matched with vendors */
+export interface ServiceLineInterest {
+  /** SL-001, SL-002, ... */
+  code: string
+  serviceLine: string
+  title: string
+  problem: string
+  focusAreas: string[]
+  outcome: string
+  urgency: ServiceLineUrgency
+  submittedBy: string
+  /** Display date, e.g. 22 Oct 2026 */
+  on: string
+  status: InterestStatus
+  /** Who approved or declined it, and when (Strategy Team) */
+  decidedBy?: string
+  decidedOn?: string
+  declineReason?: string
+  /** Result of the last overlap check */
+  overlaps?: Overlap[]
+}
+
+/** Strategy reviews every interest; only approved ones reach the Partnership Admin and Director */
+export type InterestStatus = 'Pending review' | 'Approved' | 'Declined'
+
+export type ProjectStatus = 'Live' | 'Pilot' | 'Completed' | 'Paused'
+
+/** A project M42 already runs, checked for overlap with new interests and requests */
+export interface ExistingProject {
+  id: string
+  name: string
+  team: string
+  focusArea: string
+  status: ProjectStatus
+  /** Display date, e.g. Mar 2025 */
+  started: string
+  vendors: string[]
+}
+
+/** Something an interest or project overlaps with, found by the overlap check */
+export interface Overlap {
+  kind: 'request' | 'project' | 'interest'
+  /** Case code, project id or interest code */
+  ref: string
+  /** Short flag text, e.g. Overlaps PR-123 (ongoing) */
+  label: string
+  /** Name of the related item */
+  title: string
+  /** Its status as shown elsewhere */
+  status: string
+  reasons: string[]
+  score: number
+}
+
+export const INITIAL_SERVICE_LINE_INTERESTS: ServiceLineInterest[] = [
+  {
+    code: 'SL-001',
+    serviceLine: 'Cardiology',
+    title: 'Earlier detection of heart failure in outpatients',
+    problem:
+      'Heart failure is often picked up only at admission. Clinics have echo and ECG data but no tool flags patients at risk early.',
+    focusAreas: ['Cardiology & Precision Health', 'AI & Diagnostics'],
+    outcome: 'Cut unplanned heart failure admissions by 15% within a year.',
+    urgency: 'High',
+    submittedBy: 'Hamad Al Suwaidi',
+    on: '06 Oct 2026',
+    status: 'Approved',
+    decidedBy: 'Dr. Zainab',
+    decidedOn: '08 Oct 2026',
+  },
+  {
+    code: 'SL-002',
+    serviceLine: 'Radiology',
+    title: 'AI triage for chest imaging backlog',
+    problem:
+      'Chest CT and X-ray reads queue for up to two days at peak times, and urgent findings wait with the routine ones.',
+    focusAreas: ['Medical Imaging', 'AI & Diagnostics'],
+    outcome: 'Urgent chest findings reported within 4 hours; report turnaround under 24 hours.',
+    urgency: 'High',
+    submittedBy: 'Hamad Al Suwaidi',
+    on: '13 Oct 2026',
+    status: 'Pending review',
+  },
+  {
+    code: 'SL-003',
+    serviceLine: 'Neurology',
+    title: 'Home seizure monitoring after discharge',
+    problem:
+      'Epilepsy patients go home without monitoring, and seizures between clinic visits are reported late or not at all.',
+    focusAreas: ['Neurology & Digital Health', 'Virtual Care & Remote Monitoring'],
+    outcome: 'Seizure events captured at home for 80% of enrolled patients.',
+    urgency: 'Medium',
+    submittedBy: 'Hamad Al Suwaidi',
+    on: '20 Oct 2026',
+    status: 'Approved',
+    decidedBy: 'Dr. Zainab',
+    decidedOn: '22 Oct 2026',
+  },
+  {
+    code: 'SL-004',
+    serviceLine: 'Genetics',
+    title: 'Faster rare disease variant reporting',
+    problem:
+      'Variant interpretation for suspected rare disease takes weeks, delaying diagnosis for children and their families.',
+    focusAreas: ['Genomics & Oncology', 'Rare Diseases'],
+    outcome: 'Median time to a variant report under 10 working days.',
+    urgency: 'Low',
+    submittedBy: 'Hamad Al Suwaidi',
+    on: '24 Oct 2026',
+    status: 'Declined',
+    decidedBy: 'Dr. Zainab',
+    decidedOn: '25 Oct 2026',
+    declineReason: 'Already covered by the genomics programme roadmap for 2027.',
+  },
+]
+
+export const EXISTING_PROJECTS: ExistingProject[] = [
+  {
+    id: 'PRJ-01',
+    name: 'Chest imaging AI triage',
+    team: 'Radiology',
+    focusArea: 'Medical Imaging',
+    status: 'Pilot',
+    started: 'Feb 2026',
+    vendors: ['Lumen Imaging Labs'],
+  },
+  {
+    id: 'PRJ-02',
+    name: 'Sepsis early warning on wards',
+    team: 'Critical Care',
+    focusArea: 'Clinical Decision Support',
+    status: 'Live',
+    started: 'Jun 2025',
+    vendors: ['WardWatch Analytics'],
+  },
+  {
+    id: 'PRJ-03',
+    name: 'Remote monitoring after cardiac discharge',
+    team: 'Cardiology',
+    focusArea: 'Virtual Care & Remote Monitoring',
+    status: 'Completed',
+    started: 'Jan 2024',
+    vendors: ['HomeBeat Health'],
+  },
+  {
+    id: 'PRJ-04',
+    name: 'Emirati Genome Programme variant pipeline',
+    team: 'Genomics',
+    focusArea: 'Genomics & Oncology',
+    status: 'Live',
+    started: 'Sep 2023',
+    vendors: ['Omics Core Systems', 'HelixWorks'],
+  },
+  {
+    id: 'PRJ-05',
+    name: 'Heart failure risk scoring in clinics',
+    team: 'Cardiology',
+    focusArea: 'Cardiology & Precision Health',
+    status: 'Paused',
+    started: 'Apr 2025',
+    vendors: ['CardioMetric AI'],
+  },
+  {
+    id: 'PRJ-06',
+    name: 'Discharge summary automation',
+    team: 'Clinical Operations',
+    focusArea: 'Clinical Workflow Automation',
+    status: 'Live',
+    started: 'Nov 2024',
+    vendors: ['Scribewell'],
+  },
+  {
+    id: 'PRJ-07',
+    name: 'Diabetes prevention coaching',
+    team: 'Population Health',
+    focusArea: 'Preventative Healthcare',
+    status: 'Completed',
+    started: 'Mar 2023',
+    vendors: ['Nudge Health'],
+  },
+  {
+    id: 'PRJ-08',
+    name: 'EEG reading support for neurology',
+    team: 'Neurology',
+    focusArea: 'Neurology & Digital Health',
+    status: 'Pilot',
+    started: 'Aug 2026',
+    vendors: ['NeuroSense Labs'],
   },
 ]
 
@@ -443,9 +680,14 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '3 days ago',
     tags: ['AI & Diagnostics', 'Medical Imaging', 'Clinical Decision Support'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
+    summaryNote: {
+      html: 'AI diagnostic platform that flags early signs of chronic disease from routine labs and imaging, proposed as a pilot in two M42 hospitals. <mark data-tone="positive">Active regional hospital deployments and strong fit with M42 diagnostics priorities.</mark> <mark data-tone="attention">Clinical validation has not yet been reproduced on M42 patient data.</mark>',
+      updatedBy: 'Triage Agent',
+      updatedOn: '12 Oct 2026',
+    },
     agentRecommendation: {
       status: 'proceed',
-      label: 'Recommended to Proceed',
+      label: 'Assessment points to proceed',
       confidence: 94,
       rationale:
         'AI evaluation confirms high clinical validation maturity, active regional hospital deployments, and strong alignment with M42 strategic healthcare priorities.',
@@ -623,9 +865,14 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '2 days ago',
     tags: ['Cardiology & Precision Health', 'Clinical Workflow Automation'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
+    summaryNote: {
+      html: 'CardioScan AI reads ECG and echo studies to triage cardiac patients, aimed at cardiology outpatient pathways. <mark data-tone="positive">Internal Interest approved with a named lead sponsor.</mark> <mark data-tone="attention">Overlap with the cardiology roadmap is still being checked by Strategy.</mark>',
+      updatedBy: 'Triage Agent',
+      updatedOn: '10 Oct 2026',
+    },
     agentRecommendation: {
       status: 'proceed',
-      label: 'Recommended to Proceed',
+      label: 'Assessment points to proceed',
       confidence: 88,
       rationale:
         'Demonstrated 94.2% diagnostic accuracy with strong primary care cardiovascular workflow alignment.',
@@ -845,9 +1092,14 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '11 days ago',
     tags: ['Genomics & Oncology', 'Precision Health & Diagnostics', 'Rare Diseases'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
+    summaryNote: {
+      html: 'Rare disease variant interpreter that speeds up genomic reporting for clinical geneticists across the M42 network. <mark data-tone="positive">NDA signed and two sponsors assigned.</mark> <mark data-tone="critical">UAE data hosting and a local entity are conditions before go-live.</mark>',
+      updatedBy: 'Triage Agent',
+      updatedOn: '01 Oct 2026',
+    },
     agentRecommendation: {
       status: 'proceed',
-      label: 'Recommended to Proceed',
+      label: 'Assessment points to proceed',
       confidence: 96,
       rationale:
         'Mature clinical bioinformatics solution with direct synergy for Emirati Genome Program partnerships.',
@@ -986,9 +1238,14 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '14 days ago',
     tags: ['Virtual Care & Remote Monitoring', 'Clinical Workflow Automation'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
+    summaryNote: {
+      html: 'Remote patient monitoring with automated triage for patients discharged after cardiac and respiratory admissions. <mark data-tone="critical">Rejected: the existing remote monitoring module can be extended at lower cost.</mark>',
+      updatedBy: 'Triage Agent',
+      updatedOn: '28 Sep 2026',
+    },
     agentRecommendation: {
       status: 'proceed',
-      label: 'Recommended to Proceed',
+      label: 'Assessment points to proceed',
       confidence: 91,
       rationale:
         'Established regional footprint with 25,000+ active chronic care patients and DoH licensure.',
@@ -1088,9 +1345,14 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '2 days ago',
     tags: ['Neurology & Digital Health', 'AI & Diagnostics'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
+    summaryNote: {
+      html: 'EEG-based platform that detects and monitors seizures, proposed for neurology wards and home monitoring. <mark data-tone="positive">Fills a gap in the neurology portfolio.</mark> <mark data-tone="attention">Regulatory status for the UAE is not yet clear.</mark>',
+      updatedBy: 'Triage Agent',
+      updatedOn: '20 Oct 2026',
+    },
     agentRecommendation: {
       status: 'proceed',
-      label: 'Recommended to Proceed',
+      label: 'Assessment points to proceed',
       confidence: 84,
       rationale:
         'Validated seizure detection accuracy in two European centres and a clear fit with M42 neurology and digital health priorities.',

@@ -7,7 +7,7 @@ export interface InfoEmail {
 }
 
 export interface BriefDecisionModalProps {
-  /** What the agent recommended, used to hint the choice */
+  /** What the assessment suggests, used to hint the choice */
   agentRecommendation?: 'proceed' | 'reject'
   /** Template shown when more information is requested */
   email: InfoEmail

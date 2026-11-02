@@ -4,6 +4,8 @@ import {
   buildCaseFromForm,
   formatTimestamp,
   getStageLabel,
+  getStageProgress,
+  closeRequest,
   hasDirectorDecided,
   buildInfoEmail,
   addDiscoveryFile,
@@ -23,6 +25,13 @@ import {
   routeRequest,
   sendReview,
   submitReview,
+  updateSummaryNote,
+  currentAnswer,
+  editInternalAnswer,
+  buildCloseEmail,
+  expressSponsorInterest,
+  getOverdueDays,
+  hasSignedNda,
 } from './caseActions'
 import { INITIAL_PARTNERSHIP_REQUESTS } from '@/types/partnership.types'
 import type { VendorFormValues } from '@/types/vendorForm'
@@ -567,5 +576,289 @@ describe('sponsor final answer', () => {
     expect(next.status).toBe('Closed')
     expect(next.value?.sponsoredOn).toBeUndefined()
     expect(next.value?.finalDecision?.status).toBe('declined')
+  })
+})
+
+describe('summary note', () => {
+  const when = new Date('2026-10-22T09:00:00Z')
+
+  it('seeds a use case summary on every seed case', () => {
+    INITIAL_PARTNERSHIP_REQUESTS.forEach((r) => {
+      expect(r.summaryNote?.html).toBeTruthy()
+      expect(r.summaryNote?.updatedBy).toBe('Triage Agent')
+    })
+  })
+
+  it('writes a summary for a new case from the form, flagging missing approvals', () => {
+    const c = buildCaseFromForm(form, 'PR-126', when)
+    expect(c.summaryNote).toEqual({
+      html: expect.stringContaining('PulseAI Health: Deploy our triage model'),
+      updatedBy: 'Triage Agent',
+      updatedOn: '22 Oct 2026',
+    })
+    expect(c.summaryNote?.html).toContain(
+      '<mark data-tone="positive">Approvals listed: FDA, CE.</mark>'
+    )
+    const none = buildCaseFromForm({ ...form, relevantApprovals: 'In progress' }, 'PR-1', when)
+    expect(none.summaryNote?.html).toContain(
+      '<mark data-tone="attention">No regulatory approvals listed.</mark>'
+    )
+  })
+
+  it('saves an edited note with its editor, sanitised, and logs it', () => {
+    const next = updateSummaryNote(
+      pending,
+      'Good <mark data-tone="critical">risk</mark><script>alert(1)</script><img src=x onerror=alert(1)>',
+      { name: 'Dr. Zainab', role: 'Strategy Team' }
+    )
+    expect(next.summaryNote?.html).toBe('Good <mark data-tone="critical">risk</mark>')
+    expect(next.summaryNote?.updatedBy).toBe('Dr. Zainab')
+    expect(next.summaryNote?.updatedOn).toMatch(/^\d{2} \w{3} \d{4}$/)
+    expect(next.auditLog.at(-1)).toMatchObject({
+      title: 'Summary note updated',
+      actor: 'Dr. Zainab (Strategy Team)',
+      kind: 'user',
+    })
+  })
+
+  it('is reachable as a case action', () => {
+    const next = applyCaseAction(pending, {
+      type: 'summaryNote',
+      html: 'Plain text',
+      editor: { name: 'Nadia Al-Farsi', role: 'Partnership Admin' },
+    })
+    expect(next.summaryNote?.html).toBe('Plain text')
+  })
+})
+
+describe('getStageProgress', () => {
+  const byCode = (code: string) => INITIAL_PARTNERSHIP_REQUESTS.find((r) => r.requestCode === code)!
+
+  it('places each seed case among the six stages', () => {
+    expect(
+      ['PR-125', 'PR-124', 'PR-123', 'PR-122', 'PR-121'].map((code) => [
+        code,
+        getStageProgress(byCode(code)),
+      ])
+    ).toEqual([
+      [
+        'PR-125',
+        { label: 'Initial Assessment Brief', index: 1, total: 6, kind: 'active', reached: 1 },
+      ],
+      [
+        'PR-124',
+        { label: 'Initial Assessment Brief', index: 1, total: 6, kind: 'active', reached: 1 },
+      ],
+      ['PR-123', { label: 'Strategic Alignment', index: 3, total: 6, kind: 'active', reached: 3 }],
+      ['PR-122', { label: 'Discovery Call', index: 5, total: 6, kind: 'active', reached: 5 }],
+      ['PR-121', { label: 'Exited', index: null, total: 6, kind: 'exited', reached: 1 }],
+    ])
+  })
+
+  it('keeps the label in step with getStageLabel', () => {
+    INITIAL_PARTNERSHIP_REQUESTS.forEach((r) =>
+      expect(getStageProgress(r).label).toBe(getStageLabel(r))
+    )
+  })
+
+  it('remembers where a closed case stopped', () => {
+    const closed = closeRequest(byCode('PR-123'), 'No sponsor')
+    expect(getStageProgress(closed)).toMatchObject({
+      label: 'Closed',
+      kind: 'closed',
+      index: null,
+      reached: 3,
+    })
+  })
+
+  it('has no position for routed cases', () => {
+    const routed = routeRequest(byCode('PR-125'), {
+      action: 'proceed',
+      type: 'Procure',
+      reason: '',
+    })
+    expect(getStageProgress(routed)).toMatchObject({
+      label: 'Routed to Procurement',
+      kind: 'routed',
+      index: null,
+    })
+  })
+
+  it('reaches Value & Due Diligence once discovery is handed over', () => {
+    const atValue = proceedToValue(byCode('PR-122'))
+    expect(getStageProgress(atValue)).toMatchObject({ index: 6, kind: 'active', reached: 6 })
+  })
+})
+
+describe('editInternalAnswer', () => {
+  const answers = [
+    { questionId: 'q1', question: 'Problem?', cue: '', answer: 'Original one' },
+    { questionId: 'q2', question: 'KPI?', cue: '', answer: 'Original two' },
+  ]
+  const submitted = submitReview(proceedRequest(pending, ''), 'internal', { answers })
+  const member = submitted.internalInterests![0]
+
+  it('keeps the original answer and appends the change with its reason', () => {
+    const once = editInternalAnswer(
+      submitted,
+      member.id,
+      'q2',
+      'Better two',
+      'Got the baseline',
+      'Mariam Al-Zaabi'
+    )
+    const twice = editInternalAnswer(once, member.id, 'q2', 'Best two', 'Typo', 'Mariam Al-Zaabi')
+    const q2 = twice.internalInterests![0].answers![1]
+    expect(q2.answer).toBe('Original two')
+    expect(q2.edits).toEqual([
+      {
+        answer: 'Better two',
+        reason: 'Got the baseline',
+        by: 'Mariam Al-Zaabi',
+        on: expect.stringMatching(/^\d{2} \w{3} \d{4}$/),
+      },
+      { answer: 'Best two', reason: 'Typo', by: 'Mariam Al-Zaabi', on: expect.any(String) },
+    ])
+    expect(currentAnswer(q2)).toBe('Best two')
+    expect(currentAnswer(twice.internalInterests![0].answers![0])).toBe('Original one')
+    expect(twice.auditLog.at(-1)).toMatchObject({
+      title: 'Internal Interest answer changed',
+      description: 'Question 2: Typo',
+      actor: 'Mariam Al-Zaabi (Internal Interest)',
+    })
+  })
+
+  it('leaves the decision and sponsor answer as submitted', () => {
+    const next = editInternalAnswer(submitted, member.id, 'q1', 'New', 'Why', 'Mariam Al-Zaabi')
+    expect(next.internalInterests![0]).toMatchObject({
+      decision: member.decision,
+      sponsor: member.sponsor,
+      responseDate: member.responseDate,
+    })
+  })
+
+  it('needs a reason and a real change', () => {
+    expect(editInternalAnswer(submitted, member.id, 'q1', 'New', '   ', 'Mariam Al-Zaabi')).toBe(
+      submitted
+    )
+    expect(
+      editInternalAnswer(submitted, member.id, 'q1', 'Original one', 'Why', 'Mariam Al-Zaabi')
+    ).toBe(submitted)
+    expect(editInternalAnswer(submitted, 'nobody', 'q1', 'New', 'Why', 'Mariam Al-Zaabi')).toBe(
+      submitted
+    )
+  })
+
+  it('is reachable as a case action', () => {
+    const next = applyCaseAction(submitted, {
+      type: 'editInternalAnswer',
+      memberId: member.id,
+      questionId: 'q1',
+      answer: 'New',
+      reason: 'Why',
+      by: 'Mariam Al-Zaabi',
+    })
+    expect(currentAnswer(next.internalInterests![0].answers![0])).toBe('New')
+  })
+})
+
+describe('getOverdueDays', () => {
+  const today = new Date(2026, 9, 20) // 20 Oct 2026
+
+  it('counts whole days a pending response is past its due date', () => {
+    expect(getOverdueDays('2026-10-16', 'Pending', today)).toBe(4)
+    expect(getOverdueDays('2026-10-19', 'Pending', today)).toBe(1)
+  })
+
+  it('is 0 on or before the due date, once answered, or without a date', () => {
+    expect(getOverdueDays('2026-10-20', 'Pending', today)).toBe(0)
+    expect(getOverdueDays('2026-10-24', 'Pending', today)).toBe(0)
+    expect(getOverdueDays('2026-10-16', 'Completed', today)).toBe(0)
+    expect(getOverdueDays(undefined, 'Pending', today)).toBe(0)
+  })
+})
+
+describe('expressSponsorInterest', () => {
+  const offer = {
+    name: 'Rashid Al-Nuaimi',
+    team: 'Sponsor',
+    preference: 'Co-sponsor' as const,
+    note: 'Owns the cardiology budget',
+  }
+
+  it('records the offer with the current stage and logs it', () => {
+    const next = expressSponsorInterest(inProgress, offer)
+    expect(next.sponsorInterests).toEqual([
+      {
+        ...offer,
+        stage: getStageLabel(inProgress),
+        on: expect.stringMatching(/^\d{2} \w{3} \d{4}$/),
+      },
+    ])
+    expect(next.auditLog.at(-1)).toMatchObject({
+      title: 'Sponsor interest expressed',
+      actor: 'Rashid Al-Nuaimi (Sponsor)',
+      kind: 'user',
+    })
+  })
+
+  it('replaces an earlier offer from the same person', () => {
+    const twice = expressSponsorInterest(expressSponsorInterest(inProgress, offer), {
+      ...offer,
+      preference: 'Lead',
+    })
+    expect(twice.sponsorInterests).toHaveLength(1)
+    expect(twice.sponsorInterests![0].preference).toBe('Lead')
+  })
+
+  it('needs a team and a reason', () => {
+    expect(expressSponsorInterest(inProgress, { ...offer, note: '  ' })).toBe(inProgress)
+    expect(expressSponsorInterest(inProgress, { ...offer, team: '' })).toBe(inProgress)
+  })
+})
+
+describe('buildCloseEmail', () => {
+  const email = buildCloseEmail(
+    inProgress,
+    'Zaid Al Ali',
+    '  The capability is already on our roadmap.  '
+  )
+
+  it('goes to the vendor with the case code in the subject', () => {
+    expect(email.to).toBe(inProgress.companyInfo.email)
+    expect(email.subject).toBe(`Update on your partnership request ${inProgress.requestCode}`)
+  })
+
+  it('is polite, includes the reason and is signed by the Director', () => {
+    expect(email.body).toMatch(new RegExp(`^Hi ${inProgress.companyInfo.name},`))
+    expect(email.body).toContain(`(${inProgress.requestCode})`)
+    expect(email.body).toContain('The capability is already on our roadmap.')
+    expect(email.body).not.toContain('  The capability')
+    expect(email.body.endsWith('Kind regards,\nZaid Al Ali\nDirector, Partnerships\nM42')).toBe(
+      true
+    )
+  })
+})
+
+describe('hasSignedNda', () => {
+  const version = (n: number, signed: boolean) => ({
+    version: n,
+    signed,
+    fileName: `nda-v${n}.pdf`,
+    uploadedOn: '20 Oct 2026',
+    uploadedBy: 'Zaid Al Ali',
+  })
+
+  it('is false with no NDA or only the unsigned template', () => {
+    expect(hasSignedNda({ ...pending, nda: undefined })).toBe(false)
+    expect(hasSignedNda({ ...pending, nda: { versions: [] } })).toBe(false)
+    expect(hasSignedNda({ ...pending, nda: { versions: [version(1, false)] } })).toBe(false)
+  })
+
+  it('is true once a signed copy is on file', () => {
+    expect(
+      hasSignedNda({ ...pending, nda: { versions: [version(1, false), version(2, true)] } })
+    ).toBe(true)
+    expect(hasSignedNda(uploadSignedNda(pending, 'signed.pdf'))).toBe(true)
   })
 })

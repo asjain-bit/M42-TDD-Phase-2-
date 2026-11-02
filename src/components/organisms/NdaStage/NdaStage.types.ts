@@ -8,5 +8,7 @@ export interface NdaStageProps {
   onAction: (action: CaseAction) => void
   /** Moves on to the Discovery Call stage from the alignment pack */
   onNext: () => void
+  /** Shown under the upload when the Director tried to move on without the signed NDA */
+  gateError?: string
   className?: string
 }

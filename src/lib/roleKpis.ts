@@ -65,7 +65,7 @@ export const internalInterestKpis = (
 export const strategyLeadKpis = (requests: PartnershipRequest[], now = new Date()): RoleKpi[] => [
   {
     title: 'Pending',
-    caption: 'Strategic assessments awaiting your verdict.',
+    caption: 'Strategic assessments awaiting your decision.',
     value: pendingFor(requests, 'strategy'),
   },
   {

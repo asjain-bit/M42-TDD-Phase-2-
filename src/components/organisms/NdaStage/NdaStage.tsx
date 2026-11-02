@@ -4,14 +4,25 @@
  * NdaStage — Organism
  * The NDA stage fills the page height: the content scrolls inside it and the action bar stays
  * fixed at the bottom. The Director sees the NDA template (download in the title row,
- * vendor-signed acknowledgement, upload the signed copy), then the signed NDA with its versions,
+ * vendor-signed acknowledgement, then the required upload of the signed copy), then the signed
+ * NDA with its versions,
  * then the alignment pack. Everyone else never sees the template: they open on the alignment
- * pack, and Back shows the signed NDA. Next moves on to the Discovery Call stage.
+ * pack, and Back shows the signed NDA. Next moves on to the Discovery Call stage, which needs the
+ * signed NDA (hasSignedNda).
  * Used in: PartnershipDetail
  */
 
 import React, { useState } from 'react'
-import { ArrowLeft, ChevronDown, Download, FileText, Film, Mic } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  ChevronDown,
+  Download,
+  FileText,
+  Film,
+  Mic,
+  Upload,
+} from 'lucide-react'
 import { AlignmentPack } from '@/components/organisms/AlignmentPack'
 import { NdaExecutionForm } from '@/components/organisms/NdaExecutionForm'
 import { ThinkingMode } from '@/components/organisms/ThinkingMode'
@@ -90,6 +101,7 @@ export const NdaStage: React.FC<NdaStageProps> = ({
   role,
   onAction,
   onNext,
+  gateError,
   className = '',
 }) => {
   const isDirector = role === 'director'
@@ -171,13 +183,33 @@ export const NdaStage: React.FC<NdaStageProps> = ({
             <NdaExecutionForm request={request} />
           </div>
           <StageFooter compact>
-            <Checkbox
-              checked={acknowledged}
-              onChange={setAcknowledged}
-              label="I acknowledge that the document has been signed by the vendor"
-            />
+            <div className="flex flex-col gap-2 min-w-0">
+              <div className="flex flex-col gap-0.5">
+                <span id="signed-nda-label" className="text-sm font-semibold text-text-primary">
+                  Signed NDA <span className="text-text-error">*</span>
+                </span>
+                <span id="signed-nda-help" className="text-xs text-text-secondary">
+                  Required to continue to the Discovery Call.
+                </span>
+              </div>
+              <Checkbox
+                checked={acknowledged}
+                onChange={setAcknowledged}
+                label="I acknowledge that the document has been signed by the vendor"
+              />
+              {gateError && (
+                <span
+                  role="alert"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-text-error"
+                >
+                  <AlertCircle className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
+                  {gateError}
+                </span>
+              )}
+            </div>
             <PrimaryButton disabled={!acknowledged} onClick={() => setUploading(true)}>
-              Proceed
+              <Upload className="w-4 h-4" aria-hidden="true" />
+              Upload signed NDA
             </PrimaryButton>
           </StageFooter>
         </>

@@ -1,2 +1,2 @@
 export { Sidebar } from './Sidebar'
-export type { SidebarProps } from './Sidebar.types'
+export type { SidebarNavItem, SidebarProps } from './Sidebar.types'

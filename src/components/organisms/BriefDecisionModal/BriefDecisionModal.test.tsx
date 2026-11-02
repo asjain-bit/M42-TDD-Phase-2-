@@ -32,7 +32,9 @@ describe('BriefDecisionModal', () => {
     const radios = screen.getAllByRole('radio')
     expect(
       radios.map((r) =>
-        (r as HTMLInputElement).closest('label')?.textContent?.replace('Agent recommended', '')
+        (r as HTMLInputElement)
+          .closest('label')
+          ?.textContent?.replace('Suggested by assessment', '')
       )
     ).toEqual(['Proceed', 'Reject', 'Request more info'])
     expect(radios.every((r) => !(r as HTMLInputElement).checked)).toBe(true)
@@ -95,14 +97,14 @@ describe('BriefDecisionModal', () => {
     expect(screen.getByRole('button', { name: 'Mark information requested' })).toBeDisabled()
   })
 
-  it('hints the agent recommendation, scrolls its body and closes', async () => {
+  it('hints the option the assessment suggests, scrolls its body and closes', async () => {
     const user = userEvent.setup()
     const { onClose } = renderModal({ agentRecommendation: 'reject' })
-    // The recommendation is a chip on the matching option itself
+    // The suggestion is a chip on the matching option itself
     const reject = screen.getByRole('radio', { name: /^Reject/ }).closest('label')!
-    expect(within(reject).getByText('Agent recommended')).toBeInTheDocument()
+    expect(within(reject).getByText('Suggested by assessment')).toBeInTheDocument()
     const proceed = screen.getByRole('radio', { name: /^Proceed/ }).closest('label')!
-    expect(within(proceed).queryByText('Agent recommended')).not.toBeInTheDocument()
+    expect(within(proceed).queryByText('Suggested by assessment')).not.toBeInTheDocument()
     expect(screen.getByRole('dialog').className).toContain('max-h-[90vh]')
     await user.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalled()

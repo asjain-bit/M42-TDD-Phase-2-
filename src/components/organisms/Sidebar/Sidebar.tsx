@@ -11,6 +11,7 @@ import type { SidebarProps } from './Sidebar.types'
  * Used in: HomePage, AppShell
  */
 export const Sidebar: React.FC<SidebarProps> = ({
+  items,
   activeTab,
   onTabChange,
   collapsed,
@@ -51,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [showLogoutConfirm])
 
-  const navItems = [
+  const navItems = items ?? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'usage', label: 'Usage', icon: BarChart3 },
   ]

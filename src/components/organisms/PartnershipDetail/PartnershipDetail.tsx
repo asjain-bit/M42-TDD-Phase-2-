@@ -21,8 +21,19 @@ import {
   ArrowLeftRight,
   Clock,
   Eye,
+  HandHeart,
+  Check,
+  XCircle,
+  Mail,
 } from 'lucide-react'
+import { Badge } from '@/components/atoms/Badge'
+import { Button } from '@/components/atoms/Button'
+import { Input } from '@/components/atoms/Input'
+import { Radio } from '@/components/atoms/Radio'
 import { StatusChip } from '@/components/atoms/StatusChip'
+import { Textarea } from '@/components/atoms/Textarea'
+import { AppDialog } from '@/components/molecules/AppDialog'
+import { CopyButton } from '@/components/molecules/CopyButton'
 import {
   buildAdminAgentActions,
   buildAgentActions,
@@ -40,8 +51,12 @@ import { SponsorAssignModal } from '@/components/organisms/SponsorAssignModal'
 import { PrototypeScenarioSelect } from '@/components/molecules/PrototypeScenarioSelect'
 import { AnalysisDrawer } from '@/components/organisms/AnalysisDrawer'
 import {
+  buildCloseEmail,
   buildInfoEmail,
+  formatDueDate,
+  getOverdueDays,
   getStageLabel,
+  hasSignedNda,
   hasDirectorDecided,
   type AdminRouting,
 } from '@/lib/caseActions'
@@ -49,6 +64,7 @@ import { getDisplayStatus, type DisplayStatus } from '@/lib/caseStatus'
 import { AssessmentBrief } from '@/components/organisms/AssessmentBrief'
 import { BriefDecisionModal } from '@/components/organisms/BriefDecisionModal'
 import { ReviewersLoading } from '@/components/molecules/ReviewersLoading'
+import { SummaryNote } from '@/components/molecules/SummaryNote'
 import { WorkflowStepper, type WorkflowStep } from '@/components/molecules/WorkflowStepper'
 import {
   KnowledgeBaseUpload,
@@ -60,8 +76,10 @@ import { StrategyDecisionModal } from '@/components/organisms/StrategyDecisionMo
 import {
   isQuestionnaireComplete,
   ReviewQuestionnaire,
+  questionsFromAnswers,
   type QuestionAnswerValue,
 } from '@/components/organisms/ReviewQuestionnaire'
+import { CaseNotes } from '@/components/organisms/CaseNotes'
 import { VendorFormResponse } from '@/components/organisms/VendorFormResponse'
 import { sampleAnswersFor } from '@/lib/sampleAnswers'
 import { DEFAULT_QUESTIONNAIRE_ID, getQuestionnaire } from '@/types/questionnaires'
@@ -70,6 +88,8 @@ import {
   DEFAULT_INTERNAL_INTERESTS,
   DEFAULT_STRATEGY_MEMBERS,
   type InternalInterestStakeholder,
+  type SponsorInterest,
+  type SponsorPreference,
   type StrategyDecision,
   type QuestionAnswer,
   type StrategyMemberResponse,
@@ -233,7 +253,14 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     request.sentQuestionnaire?.questions ?? getQuestionnaire(DEFAULT_QUESTIONNAIRE_ID).questions
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, QuestionAnswerValue>>({})
   const [showQuestionnaireConfirmModal, setShowQuestionnaireConfirmModal] = useState(false)
-  const [questionnaireSubmitted, setQuestionnaireSubmitted] = useState(false)
+  // This reviewer's submitted response lives on the case, so it survives reopening the case.
+  // Submitting approves the Internal Interest stage and records the answers on the first reviewer.
+  const myResponse = request.internalInterests?.[0]
+  const submittedResponse =
+    request.stageApprovals?.internal?.status === 'approved' && myResponse?.answers?.length
+      ? myResponse
+      : null
+  const questionnaireSubmitted = Boolean(submittedResponse)
 
   const patchAnswer = (id: string, patch: Partial<QuestionAnswerValue>) =>
     setQuestionAnswers((prev) => ({ ...prev, [id]: { ...(prev[id] ?? { answer: '' }), ...patch } }))
@@ -257,7 +284,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     }))
     onSubmitReview?.(request.id, 'internal', { answers })
     setShowQuestionnaireConfirmModal(false)
-    setQuestionnaireSubmitted(true)
     completeStep('questionnaire')
     setReviewToast('Questionnaire submitted successfully for Director Review.')
   }
@@ -393,30 +419,35 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   const completeStep = (id: StepId) =>
     setCompletedSteps((prev) => (prev.includes(id) ? prev : [...prev, id]))
 
+  // Hard gate: the Discovery Call and later need a vendor-signed NDA, not just the acknowledgement
+  const ndaSigned = hasSignedNda(request)
+  const [ndaGateError, setNdaGateError] = useState(false)
+  const NDA_GATE_MESSAGE = 'Upload the signed NDA to continue.'
+
   const isStepCompleted = (id: StepId) => {
     if (isStrategyTeam) {
       // The case only reaches the Strategy lead once the Internal Interest stage is behind it
       if (id === 'canvas') return true
       if (id === 'preread') return strategyDone
-      if (id === 'nda') return Boolean(request.alignmentPackOn)
-      if (id === 'discovery') return Boolean(request.discovery?.proceededOn)
-      if (id === 'value') return Boolean(request.value?.sponsoredOn)
+      if (id === 'nda') return ndaSigned && Boolean(request.alignmentPackOn)
+      if (id === 'discovery') return ndaSigned && Boolean(request.discovery?.proceededOn)
+      if (id === 'value') return ndaSigned && Boolean(request.value?.sponsoredOn)
       return completedSteps.includes(id)
     }
     if (isInternalTeam) {
       if (id === 'alignment') return strategyApproved
-      if (id === 'nda') return Boolean(request.alignmentPackOn)
-      if (id === 'discovery') return Boolean(request.discovery?.proceededOn)
-      if (id === 'value') return Boolean(request.value?.sponsoredOn)
+      if (id === 'nda') return ndaSigned && Boolean(request.alignmentPackOn)
+      if (id === 'discovery') return ndaSigned && Boolean(request.discovery?.proceededOn)
+      if (id === 'value') return ndaSigned && Boolean(request.value?.sponsoredOn)
       if (id === 'questionnaire') return completedSteps.includes(id) || internalApproved
     }
     if (!isFlowView) return completedSteps.includes(id)
     if (id === 'brief') return briefApproved || isRejected
     if (id === 'canvas') return internalApproved
     if (id === 'alignment') return strategyApproved
-    if (id === 'nda') return Boolean(request.alignmentPackOn)
-    if (id === 'discovery') return Boolean(request.discovery?.proceededOn)
-    if (id === 'value') return Boolean(request.value?.sponsoredOn)
+    if (id === 'nda') return ndaSigned && Boolean(request.alignmentPackOn)
+    if (id === 'discovery') return ndaSigned && Boolean(request.discovery?.proceededOn)
+    if (id === 'value') return ndaSigned && Boolean(request.value?.sponsoredOn)
     return false
   }
 
@@ -444,13 +475,27 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     if (isStrategyTeam && ['nda', 'discovery', 'value'].includes(d.id) && !completed) {
       // NDA needs the Director's upload; the discovery call follows it, then the sponsor's stage
       const unlocked =
-        d.id === 'value'
-          ? Boolean(request.discovery?.proceededOn)
-          : Boolean(request.alignmentPackOn)
+        d.id === 'nda'
+          ? Boolean(request.alignmentPackOn)
+          : ndaSigned &&
+            (d.id === 'value'
+              ? Boolean(request.discovery?.proceededOn)
+              : Boolean(request.alignmentPackOn))
       return { id: d.id, label: d.label, state: unlocked ? 'current' : 'upcoming', caption }
     }
     if (isStrategyTeam && d.id === 'preread' && strategyDone) {
       caption = strategyOutcome === 'Reject' ? 'Declined' : 'Approved'
+    }
+    // Without the signed NDA the later stages stay locked, whatever else has happened
+    if ((d.id === 'discovery' || d.id === 'value') && !ndaSigned) {
+      return {
+        id: d.id,
+        label: d.label,
+        state: state === 'closed' ? 'closed' : 'upcoming',
+        caption,
+        // The Director, who uploads it, gets the reason on hover and on click
+        lockedHint: isDirector && strategyApproved ? NDA_GATE_MESSAGE : undefined,
+      }
     }
     return { id: d.id, label: d.label, state, caption }
   })
@@ -495,9 +540,22 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     setActiveStep('nda')
   }
 
+  /** Moves to the Discovery Call or later only with the signed NDA; otherwise explains why not */
+  const guardNda = (id: string) => {
+    if ((id === 'discovery' || id === 'value') && !ndaSigned) {
+      if (isDirector) {
+        setNdaGateError(true)
+        setActiveStep('nda')
+      }
+      return false
+    }
+    return true
+  }
+
   const goToStep = (id: string) => {
     const target = stepperSteps.find((st) => st.id === id)
     if (!target) return
+    if (!guardNda(id)) return
     // The Internal Interest reviewer only opens their own two stages
     if (isInternalTeam && id !== 'brief' && id !== 'questionnaire') return
     // The Admin can look at every stage; the others unlock one at a time
@@ -611,6 +669,95 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     onRoute?.(request.id, routing)
   }
 
+  // Case notes: every profile on the dashboard can edit the key notes
+  const [showCaseNotes, setShowCaseNotes] = useState(false)
+  const saveSummaryNote = (html: string) =>
+    onCaseAction?.(request.id, {
+      type: 'summaryNote',
+      html,
+      editor: {
+        name: userProfile?.name ?? 'Zaid Al Ali',
+        role: userProfile?.designation ?? 'Director',
+      },
+    })
+
+  // Sponsor interest: anyone but the Director can offer to sponsor until the case has ended
+  const [interestOpen, setInterestOpen] = useState(false)
+  const [interestTeam, setInterestTeam] = useState(userProfile?.designation ?? '')
+  const [interestPreference, setInterestPreference] = useState<SponsorPreference>('Either')
+  const [interestNote, setInterestNote] = useState('')
+  const [assignFromInterest, setAssignFromInterest] = useState<SponsorInterest | null>(null)
+  const myInterest = request.sponsorInterests?.find((i) => i.name === userProfile?.name)
+  const sendInterest = () => {
+    onCaseAction?.(request.id, {
+      type: 'sponsorInterest',
+      interest: {
+        name: userProfile?.name ?? '',
+        team: interestTeam,
+        preference: interestPreference,
+        note: interestNote,
+      },
+    })
+    setInterestOpen(false)
+  }
+  /** Everyone who could sponsor: the current sponsors and everyone who offered */
+  const interestCandidates = (): InternalInterestStakeholder[] => {
+    const people = [
+      ...(request.sponsors ? [request.sponsors.lead, ...request.sponsors.co] : []).map((name) => ({
+        name,
+        team: 'Current sponsor',
+      })),
+      ...(request.sponsorInterests ?? []),
+    ]
+    return people
+      .filter((p, i) => p.name && people.findIndex((x) => x.name === p.name) === i)
+      .map((p) => ({
+        id: `sponsor-${p.name}`,
+        name: p.name,
+        initials: p.name
+          .split(' ')
+          .map((w) => w[0])
+          .join('')
+          .slice(0, 2),
+        role: p.team,
+        department: p.team,
+        expertise: '',
+        avatarColorBg: '',
+        avatarColorText: '',
+      }))
+  }
+  /** Pre-fills the sponsor popup: a Lead offer (or no lead yet) takes the lead, otherwise co-sponsor */
+  const assignmentFor = (i: SponsorInterest) => {
+    const current = request.sponsors
+    if (!current?.lead || i.preference === 'Lead') {
+      const co = [...(current?.co ?? []), ...(current?.lead ? [current.lead] : [])]
+      return { lead: i.name, co: co.filter((n) => n !== i.name) }
+    }
+    return { lead: current.lead, co: [...current.co.filter((n) => n !== i.name), i.name] }
+  }
+
+  // Closing the request: only the Director, with a reason and an email to the partner
+  const [closeStep, setCloseStep] = useState<'reason' | 'email' | null>(null)
+  const [closeReason, setCloseReason] = useState('')
+  const [closeEmail, setCloseEmail] = useState({ to: '', subject: '', body: '' })
+  const directorName = userProfile?.name ?? 'Zaid Al Ali'
+  const openClose = (reason = '') => {
+    setCloseReason(reason)
+    setCloseStep('reason')
+  }
+  const toCloseEmail = () => {
+    setCloseEmail(buildCloseEmail(request, directorName, closeReason))
+    setCloseStep('email')
+  }
+  const sendCloseEmail = () => {
+    onCaseAction?.(request.id, {
+      type: 'closeWithEmail',
+      reason: closeReason.trim(),
+      email: closeEmail,
+    })
+    setCloseStep(null)
+  }
+
   // The status as this profile sees it: Pending when it waits on them, otherwise In Progress
   const displayStatus = getDisplayStatus(
     request,
@@ -624,6 +771,20 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             ? 'strategy'
             : 'director'
   )
+  /** The Director can close the request at any stage until it has ended */
+  const canClose = isDirector && displayStatus !== 'Closed' && displayStatus !== 'Completed'
+  const closeButton = canClose && (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => openClose()}
+      className="gap-1.5 border-status-error-border text-status-error-text hover:bg-status-error-bg"
+    >
+      <XCircle className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+      Close request
+    </Button>
+  )
+
   const getStatusCategory = (status: DisplayStatus) =>
     ({
       Pending: 'warning',
@@ -988,7 +1149,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 {internalRequestSent ? (
                   <>
                     <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Deadline</th>
+                    <th className="py-3 px-4">Due</th>
                     <th className="py-3 px-4">Decision</th>
                     <th className="py-3 px-4">Sponsor</th>
                     <th className="py-3 px-4">Response Date</th>
@@ -1055,8 +1216,18 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                         </td>
 
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="text-xs sm:text-[13px] font-medium text-[#0d212c]">
-                            {person.deadline || '4 days'}
+                          <span className="inline-flex items-center gap-2">
+                            <span className="text-xs sm:text-[13px] font-medium text-text-primary">
+                              {person.dueOn ? formatDueDate(person.dueOn) : '-'}
+                            </span>
+                            {getOverdueDays(person.dueOn, person.status) > 0 && (
+                              <StatusChip
+                                status="warning"
+                                label={`Overdue · ${getOverdueDays(person.dueOn, person.status)} ${
+                                  getOverdueDays(person.dueOn, person.status) === 1 ? 'day' : 'days'
+                                }`}
+                              />
+                            )}
                           </span>
                         </td>
 
@@ -1404,27 +1575,33 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       )}
 
       {/* Tabs sit directly under the back link */}
-      <div role="tablist" className="flex items-center gap-8 border-b border-[#e2e8f0] pb-0">
-        {(
-          [
-            { id: 'review', label: 'Review' },
-            { id: 'audit', label: 'Audit Log' },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`pb-3.5 text-sm font-medium transition-all relative cursor-pointer ${
-              activeTab === tab.id
-                ? 'text-[#36c0c9] font-semibold border-b-2 border-[#36c0c9]'
-                : 'text-[#64748b] hover:text-[#0d212c] border-b-2 border-transparent'
-            }`}
-          >
-            <span>{tab.label}</span>
-          </button>
-        ))}
+      <div className="flex items-end justify-between gap-4 border-b border-[#e2e8f0]">
+        <div role="tablist" className="flex items-center gap-8 pb-0">
+          {(
+            [
+              { id: 'review', label: 'Review' },
+              { id: 'audit', label: 'Audit Log' },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`pb-3.5 text-sm font-medium transition-all relative cursor-pointer ${
+                activeTab === tab.id
+                  ? 'text-[#36c0c9] font-semibold border-b-2 border-[#36c0c9]'
+                  : 'text-[#64748b] hover:text-[#0d212c] border-b-2 border-transparent'
+              }`}
+            >
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+        {/* Later stages have no header card, so Close request sits by the tabs */}
+        {!(activeTab !== 'audit' && !reviewersLoading && showHeaderCard) && !reviewersLoading && (
+          <div className="pb-2">{closeButton}</div>
+        )}
       </div>
 
       {activeTab !== 'audit' && !reviewersLoading && showHeaderCard && (
@@ -1512,6 +1689,26 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 <Eye className="w-4 h-4" aria-hidden="true" />
                 View vendor response
               </button>
+              {(isInternalTeam || isStrategyTeam || isSponsor || isAdmin) &&
+                displayStatus !== 'Completed' &&
+                displayStatus !== 'Closed' &&
+                (myInterest ? (
+                  <Button variant="outline" size="sm" disabled className="gap-1.5">
+                    <Check className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+                    Interest sent
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setInterestOpen(true)}
+                    className="gap-1.5"
+                  >
+                    <HandHeart className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+                    Express sponsor interest
+                  </Button>
+                ))}
+              {closeButton}
               {adminCanChange && request.adminDecision && (
                 <button
                   type="button"
@@ -1524,6 +1721,49 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             </div>
           </div>
         </>
+      )}
+
+      {/* The email the Director sent when closing the request, read-only */}
+      {activeTab !== 'audit' && !reviewersLoading && request.closedEmail && (
+        <section
+          aria-labelledby="closure-email-heading"
+          className="rounded-xl border border-border-default bg-bg-surface-1 p-5 flex flex-col gap-3"
+        >
+          <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-text-secondary" strokeWidth={2} aria-hidden="true" />
+            <h3 id="closure-email-heading" className="text-sm font-semibold text-text-primary">
+              Closure email sent on {request.closedEmail.sentOn}
+            </h3>
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            <dt className="text-text-tertiary">To</dt>
+            <dd className="text-text-primary">{request.closedEmail.to}</dd>
+            <dt className="text-text-tertiary">Subject</dt>
+            <dd className="text-text-primary">{request.closedEmail.subject}</dd>
+          </dl>
+          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+            {request.closedEmail.body}
+          </p>
+        </section>
+      )}
+
+      {/* Case notes bar, under the header card; its chevron opens the CaseNotes panel */}
+      {activeTab !== 'audit' && !reviewersLoading && (
+        <SummaryNote
+          note={request.summaryNote}
+          canEdit
+          onSave={saveSummaryNote}
+          onOpen={() => setShowCaseNotes(true)}
+        />
+      )}
+      {showCaseNotes && (
+        <CaseNotes
+          request={request}
+          status={displayStatus}
+          showAssessment={isFlowView}
+          onSaveNote={saveSummaryNote}
+          onClose={() => setShowCaseNotes(false)}
+        />
       )}
 
       {/* Information requested: waiting for the vendor to send more information */}
@@ -1570,6 +1810,75 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               fixedStage ? 'flex-1 min-h-0' : ''
             }`}
           >
+            {isDirector && !reviewersLoading && (
+              <section
+                aria-labelledby="sponsor-interest-heading"
+                className="rounded-xl border border-border-default bg-bg-surface-1 p-5 flex flex-col gap-3"
+              >
+                <div className="flex items-center gap-2">
+                  <HandHeart
+                    className="w-5 h-5 text-text-secondary"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  />
+                  <h3
+                    id="sponsor-interest-heading"
+                    className="text-sm font-semibold text-text-primary"
+                  >
+                    Sponsor interest
+                  </h3>
+                  {(request.sponsorInterests?.length ?? 0) > 0 && (
+                    <Badge size="sm">{request.sponsorInterests!.length}</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Current sponsors:{' '}
+                  {request.sponsors?.lead ? (
+                    <>
+                      <span className="font-medium text-text-primary">{request.sponsors.lead}</span>{' '}
+                      (lead)
+                      {request.sponsors.co.length > 0 && `, ${request.sponsors.co.join(', ')}`}
+                    </>
+                  ) : (
+                    'none assigned yet'
+                  )}
+                </p>
+                {request.sponsorInterests?.length ? (
+                  <ul className="flex flex-col divide-y divide-border-subtle">
+                    {request.sponsorInterests.map((i) => (
+                      <li
+                        key={i.name}
+                        className="py-3 first:pt-0 last:pb-0 flex items-start justify-between gap-4 flex-wrap"
+                      >
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-text-primary">{i.name}</span>
+                            <span className="text-xs text-text-tertiary">{i.team}</span>
+                            <Badge size="sm" variant="info">
+                              {i.preference}
+                            </Badge>
+                            <span className="text-xs text-text-tertiary">
+                              {i.stage} · {i.on}
+                            </span>
+                          </div>
+                          <p className="text-xs text-text-secondary leading-relaxed">{i.note}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAssignFromInterest(i)}
+                        >
+                          Assign as sponsor
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-text-tertiary">No one has expressed interest yet.</p>
+                )}
+              </section>
+            )}
+
             {stepperSteps.length > 1 &&
               (!isNonDirector || isStrategyTeam || isInternalTeam) &&
               !reviewersLoading && (
@@ -1587,7 +1896,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 <AssessmentBrief
                   request={request}
                   hideContact={isNonDirector}
-                  showVerdict={isDirectorView || isAdmin}
+                  showSummary={isDirectorView || isAdmin}
                   onOpenAnalysis={() => setShowAnalysis(true)}
                 />
               )}
@@ -1760,8 +2069,12 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 <NdaStage
                   request={request}
                   role={stageRole}
-                  onAction={(action) => onCaseAction?.(request.id, action)}
-                  onNext={() => setActiveStep('discovery')}
+                  onAction={(action) => {
+                    if (action.type === 'uploadNda') setNdaGateError(false)
+                    onCaseAction?.(request.id, action)
+                  }}
+                  onNext={() => guardNda('discovery') && setActiveStep('discovery')}
+                  gateError={ndaGateError && !ndaSigned ? NDA_GATE_MESSAGE : undefined}
                 />
               )}
 
@@ -1771,7 +2084,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                   request={request}
                   role={stageRole}
                   onAction={(action) => onCaseAction?.(request.id, action)}
-                  onNext={() => setActiveStep('value')}
+                  onNext={() => guardNda('value') && setActiveStep('value')}
                 />
               )}
 
@@ -1800,13 +2113,47 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                     </p>
                   </div>
 
-                  <ReviewQuestionnaire
-                    questions={reviewQuestions}
-                    answers={questionAnswers}
-                    onChange={patchAnswer}
-                    readOnly={questionnaireSubmitted}
-                    hideSubmit
-                  />
+                  {!submittedResponse &&
+                    myResponse?.dueOn &&
+                    getOverdueDays(myResponse.dueOn, myResponse.status) > 0 && (
+                      <div
+                        role="status"
+                        className="flex items-start gap-2 px-3 py-2 rounded-lg border border-status-warning-border bg-status-warning-bg text-xs text-status-warning-text leading-relaxed"
+                      >
+                        <Clock className="w-4 h-4 shrink-0 mt-px" aria-hidden="true" />
+                        <span>
+                          This response was due on {formatDueDate(myResponse.dueOn)}. You can still
+                          submit it.
+                        </span>
+                      </div>
+                    )}
+
+                  {submittedResponse ? (
+                    <ReviewQuestionnaire
+                      questions={questionsFromAnswers(submittedResponse.answers!)}
+                      submission={{
+                        answers: submittedResponse.answers!,
+                        submittedOn: submittedResponse.responseDate,
+                      }}
+                      onEditAnswer={(questionId, answer, reason) =>
+                        onCaseAction?.(request.id, {
+                          type: 'editInternalAnswer',
+                          memberId: submittedResponse.id,
+                          questionId,
+                          answer,
+                          reason,
+                          by: userProfile?.name ?? 'Mariam Al-Zaabi',
+                        })
+                      }
+                    />
+                  ) : (
+                    <ReviewQuestionnaire
+                      questions={reviewQuestions}
+                      answers={questionAnswers}
+                      onChange={patchAnswer}
+                      hideSubmit
+                    />
+                  )}
                 </div>
               )}
 
@@ -2189,31 +2536,30 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       {/* INTERNAL INTEREST OUTCOMES: close the case, or assign the lead sponsor and co-sponsors */}
       {showNotReadyConfirm && (
         <ConfirmDialog
-          title="Close this case?"
-          description="No one from the Internal Interest team is ready to sponsor this request. Do you want to close this case? After your approval the case will be closed."
-          confirmLabel="Close case"
+          title="No one is ready to sponsor"
+          description="No one from the Internal Interest team is ready to sponsor this request."
+          cancelLabel="Keep open"
+          confirmLabel="Close request"
+          danger
           onCancel={() => setScenarioPrompt('dismissed')}
-          onConfirm={() =>
-            onCaseAction?.(request.id, {
-              type: 'closeCase',
-              reason: 'No one from the Internal Interest team is ready to sponsor this request.',
-            })
-          }
+          onConfirm={() => {
+            setScenarioPrompt('dismissed')
+            openClose('No one from the Internal Interest team is ready to sponsor this request.')
+          }}
         />
       )}
       {showNoResponseClose && (
         <ConfirmDialog
           title="Nobody responded"
-          description="No one from the Internal Interest team responded, so this case has been closed."
-          confirmLabel="Close Case"
-          hideCancel
+          description="No one from the Internal Interest team responded."
+          cancelLabel="Keep open"
+          confirmLabel="Close request"
+          danger
           onCancel={() => setScenarioPrompt('dismissed')}
-          onConfirm={() =>
-            onCaseAction?.(request.id, {
-              type: 'closeCase',
-              reason: 'No one from the Internal Interest team responded.',
-            })
-          }
+          onConfirm={() => {
+            setScenarioPrompt('dismissed')
+            openClose('No one from the Internal Interest team responded.')
+          }}
         />
       )}
       {showSponsorReady && (
@@ -2266,6 +2612,185 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           }}
         />
       )}
+
+      {/* SPONSOR INTEREST: assign someone who offered, reusing the sponsor popup and split cases */}
+      {assignFromInterest && (
+        <SponsorAssignModal
+          candidates={interestCandidates()}
+          initial={assignmentFor(assignFromInterest)}
+          onClose={() => setAssignFromInterest(null)}
+          onConfirm={({ lead, co }) => {
+            onCaseAction?.(request.id, { type: 'assignSponsors', lead, co })
+            setAssignFromInterest(null)
+          }}
+        />
+      )}
+
+      {/* CLOSE REQUEST: step 1 the reason, step 2 the email to the partner */}
+      <AppDialog
+        isOpen={closeStep === 'reason'}
+        title="Close this request?"
+        description="You will check the email to the partner in the next step."
+        onClose={() => setCloseStep(null)}
+        actions={
+          <>
+            <Button variant="outline" size="md" onClick={() => setCloseStep(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={toCloseEmail}
+              disabled={!closeReason.trim()}
+            >
+              Next
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="close-reason" className="text-xs font-semibold text-text-secondary">
+            Reason for closing <span className="text-text-error">*</span>
+          </label>
+          <Textarea
+            id="close-reason"
+            rows={3}
+            maxLength={300}
+            resize="none"
+            value={closeReason}
+            onChange={(e) => setCloseReason(e.target.value)}
+            placeholder="Explain why this request is being closed..."
+          />
+          <span className="text-[11px] text-text-tertiary self-end">{closeReason.length}/300</span>
+        </div>
+      </AppDialog>
+      <AppDialog
+        isOpen={closeStep === 'email'}
+        title="Email to the partner"
+        description="Check the draft, then send it. The request closes when the email is sent."
+        onClose={() => setCloseStep(null)}
+        actions={
+          <>
+            <Button variant="outline" size="md" onClick={() => setCloseStep('reason')}>
+              Back
+            </Button>
+            <Button
+              variant="destructive"
+              size="md"
+              onClick={sendCloseEmail}
+              disabled={!closeEmail.subject.trim() || !closeEmail.body.trim()}
+            >
+              Send email and close
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4" role="group" aria-label="Email to the partner">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-text-secondary">To</span>
+              <CopyButton text={closeEmail.to} label="recipient" />
+            </div>
+            <div className="px-3 py-2 rounded-md border border-border-default bg-bg-surface-1 text-sm text-text-primary">
+              {closeEmail.to}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="close-subject" className="text-xs font-semibold text-text-secondary">
+                Subject
+              </label>
+              <CopyButton text={closeEmail.subject} label="subject" />
+            </div>
+            <Input
+              id="close-subject"
+              value={closeEmail.subject}
+              onChange={(e) => setCloseEmail((m) => ({ ...m, subject: e.target.value }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="close-body" className="text-xs font-semibold text-text-secondary">
+                Message
+              </label>
+              <CopyButton text={closeEmail.body} label="message" />
+            </div>
+            <Textarea
+              id="close-body"
+              rows={10}
+              resize="none"
+              value={closeEmail.body}
+              onChange={(e) => setCloseEmail((m) => ({ ...m, body: e.target.value }))}
+            />
+          </div>
+        </div>
+      </AppDialog>
+
+      {/* SPONSOR INTEREST: offer to sponsor */}
+      <AppDialog
+        isOpen={interestOpen}
+        title="Express sponsor interest"
+        description="The Director sees your offer and can assign you as a sponsor."
+        onClose={() => setInterestOpen(false)}
+        actions={
+          <>
+            <Button variant="outline" size="md" onClick={() => setInterestOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={sendInterest}
+              disabled={!interestTeam.trim() || !interestNote.trim()}
+            >
+              Send interest
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="interest-team" className="text-xs font-semibold text-text-secondary">
+              Team <span className="text-text-error">*</span>
+            </label>
+            <Input
+              id="interest-team"
+              value={interestTeam}
+              onChange={(e) => setInterestTeam(e.target.value)}
+              placeholder="Your team"
+            />
+          </div>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-xs font-semibold text-text-secondary mb-1">Preference</legend>
+            {(['Lead', 'Co-sponsor', 'Either'] as const).map((p) => (
+              <Radio
+                key={p}
+                name="sponsor-preference"
+                checked={interestPreference === p}
+                onChange={() => setInterestPreference(p)}
+                label={p}
+              />
+            ))}
+          </fieldset>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="interest-note" className="text-xs font-semibold text-text-secondary">
+              Why <span className="text-text-error">*</span>
+            </label>
+            <Textarea
+              id="interest-note"
+              rows={3}
+              maxLength={300}
+              resize="none"
+              value={interestNote}
+              onChange={(e) => setInterestNote(e.target.value)}
+              placeholder="What would you bring as a sponsor?"
+            />
+            <span className="text-[11px] text-text-tertiary self-end">
+              {interestNote.length}/300
+            </span>
+          </div>
+        </div>
+      </AppDialog>
 
       {/* SEND TO INTERNAL INTEREST: reviewers and questions */}
       {sendTeam === 'internal' && (
@@ -2675,15 +3200,11 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             {viewingResponseMember.answers ? (
               <ReviewQuestionnaire
                 readOnly
-                questions={viewingResponseMember.answers.map((a) => ({
-                  id: a.questionId,
-                  text: a.question,
-                  cue: a.cue,
-                  mandatory: true,
-                }))}
-                answers={Object.fromEntries(
-                  viewingResponseMember.answers.map((a) => [a.questionId, { answer: a.answer }])
-                )}
+                questions={questionsFromAnswers(viewingResponseMember.answers)}
+                submission={{
+                  answers: viewingResponseMember.answers,
+                  submittedOn: viewingResponseMember.responseDate,
+                }}
               />
             ) : viewingResponseMember.strategyResponse ? (
               <div className="flex flex-col gap-6">
@@ -2749,7 +3270,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       {showQuestionnaireConfirmModal && (
         <ConfirmDialog
           title="Submit questionnaire?"
-          description="Your answers go to the Director. After this you will not be able to edit them."
+          description="Your answers go to the Director. You can still change an answer afterwards, with a reason; your original answer stays on record."
           confirmLabel="Submit"
           onCancel={() => setShowQuestionnaireConfirmModal(false)}
           onConfirm={handleConfirmSubmitQuestionnaire}

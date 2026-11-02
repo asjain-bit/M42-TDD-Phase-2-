@@ -35,7 +35,9 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
             <li className="shrink-0">
               <button
                 type="button"
-                disabled={locked}
+                disabled={locked && !step.lockedHint}
+                aria-disabled={locked && step.lockedHint ? true : undefined}
+                title={locked ? step.lockedHint : undefined}
                 aria-current={isActive ? 'step' : undefined}
                 onClick={() => onSelect(step.id)}
                 className={`group flex items-start gap-3 text-left ${

@@ -6,8 +6,8 @@ export interface AssessmentBriefProps {
   onOpenAnalysis: () => void
   /** Hide the vendor's personal contact details (Internal and Strategy reviewers) */
   hideContact?: boolean
-  /** Show the agent verdict (Partnership Admin and Director only) */
-  showVerdict?: boolean
+  /** Show the assessment summary (Partnership Admin, Director and Sponsor only) */
+  showSummary?: boolean
   /** Decision form. When given it becomes the last section of the brief. */
   decision?: ReactNode
   /** Step actions shown under the brief, such as a Continue button */

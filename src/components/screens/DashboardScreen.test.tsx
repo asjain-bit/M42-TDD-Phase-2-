@@ -95,6 +95,7 @@ describe('DashboardScreen', () => {
       'Days in stage',
       'Owner',
       'SLA status',
+      'Notes',
     ])
     expect(screen.queryByRole('columnheader', { name: 'Request ID' })).not.toBeInTheDocument()
     expect(screen.queryByRole('columnheader', { name: 'Vendor Name' })).not.toBeInTheDocument()
@@ -375,7 +376,7 @@ describe('DashboardScreen', () => {
     render(<DashboardScreen userProfile={strategyProfile} />)
 
     expectKpis([
-      ['Pending', 'Strategic assessments awaiting your verdict.'],
+      ['Pending', 'Strategic assessments awaiting your decision.'],
       ['Completed', 'Completed this month.'],
       ['Proceeded', 'Requests you responded to with Proceed.'],
       ['SLA Breached', 'Requests past their SLA.'],
@@ -407,7 +408,7 @@ describe('DashboardScreen', () => {
     expect(screen.getByText('AlphaHealth BioTech')).toBeInTheDocument()
   })
 
-  it('hides vendor details and the verdict for the internal team, who see the workflow progress', async () => {
+  it('hides vendor details and the assessment summary for the internal team, who see the workflow progress', async () => {
     const user = setup()
     render(<DashboardScreen userProfile={internalProfile} />)
 
@@ -415,7 +416,7 @@ describe('DashboardScreen', () => {
     finishThinking()
 
     expect(screen.queryByText(/Referred by:/i)).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Agent Verdict' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Assessment Summary' })).not.toBeInTheDocument()
 
     // The workflow stages show progress, with no Director decision steps
     expect(screen.getByRole('navigation', { name: 'Review progress' })).toBeInTheDocument()
@@ -941,5 +942,152 @@ describe('Table filters and pagination', () => {
     const row = screen.getByText('MedTech Innovations').closest('tr')!
     const chips = within(row).getAllByText('Closed')
     expect(chips.some((c) => c.closest('[class*="c5221f"]') !== null)).toBe(true)
+  })
+})
+
+describe('Case notes panel on the Dashboard', () => {
+  const sponsorProfile = {
+    id: 'sponsor',
+    name: 'Rashid Al-Nuaimi',
+    designation: 'Sponsor',
+    email: 'rashid.alnuaimi@m42.ae',
+    roleTitle: 'Sponsor',
+  }
+
+  /** The Dashboard with shared state, exposing the latest cases */
+  const renderShared = (profile: typeof directorProfile) => {
+    const state = { latest: INITIAL_PARTNERSHIP_REQUESTS }
+    const Shared = () => {
+      const [requests, setRequests] = useState<PartnershipRequest[]>(INITIAL_PARTNERSHIP_REQUESTS)
+      state.latest = requests
+      return (
+        <DashboardScreen userProfile={profile} requests={requests} onRequestsChange={setRequests} />
+      )
+    }
+    render(<Shared />)
+    return state
+  }
+
+  it('opens the case on a row click, and the notes panel from the Notes button only', async () => {
+    const user = userEvent.setup()
+    renderShared(directorProfile)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Open notes for MedTech Innovations' }))
+    // Still on the table, with the card over it
+    expect(screen.getByPlaceholderText('Search partnership requests...')).toBeInTheDocument()
+    const card = screen.getByRole('dialog', { name: 'MedTech Innovations' })
+    expect(within(card).getByText('PR-124')).toBeInTheDocument()
+
+    await user.click(within(card).getByRole('button', { name: 'Close notes' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Case notes' })).not.toBeInTheDocument()
+
+    // A plain row click opens the case, as before
+    await user.click(screen.getByText('MedTech Innovations'))
+    expect(screen.queryByPlaceholderText('Search partnership requests...')).not.toBeInTheDocument()
+  })
+
+  it('lets the Director edit the key notes in the card, with an audit event', async () => {
+    const user = userEvent.setup()
+    const state = renderShared(directorProfile)
+    await user.click(screen.getByRole('button', { name: 'Open notes for MedTech Innovations' }))
+    const card = screen.getByRole('dialog', { name: 'MedTech Innovations' })
+    await user.click(within(card).getByRole('button', { name: 'Edit' }))
+    const editor = within(card).getByRole('textbox', { name: 'Edit key notes' })
+    editor.innerHTML = 'Pilot <mark data-tone="critical">blocked on hosting</mark>'
+    await user.click(within(card).getByRole('button', { name: 'Save' }))
+
+    expect(screen.getByText('Notes saved.')).toBeInTheDocument()
+    expect(within(card).getByText('blocked on hosting')).toHaveAttribute('data-tone', 'critical')
+    expect(within(card).getByText(/Last updated by/)).toHaveTextContent(
+      /Last updated by Zaid Al Ali on \d{2} \w{3} \d{4}/
+    )
+    const saved = state.latest.find((r) => r.requestCode === 'PR-124')!
+    expect(saved.auditLog.at(-1)).toMatchObject({
+      title: 'Summary note updated',
+      actor: 'Zaid Al Ali (Director)',
+    })
+  })
+
+  it('lets every profile on the dashboard edit the key notes', async () => {
+    const user = userEvent.setup()
+    for (const profile of [adminProfile, internalProfile, strategyProfile, sponsorProfile]) {
+      const { unmount } = render(<DashboardScreen userProfile={profile} />)
+      await user.click(screen.getAllByRole('button', { name: /^Open notes for/ })[0])
+      const card = screen.getByRole('dialog')
+      expect(within(card).getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('hides the assessment summary in the card from the Internal Interest team', async () => {
+    const user = userEvent.setup()
+    render(<DashboardScreen userProfile={internalProfile} />)
+    await user.click(screen.getAllByRole('button', { name: /^Open notes for/ })[0])
+    const card = screen.getByRole('dialog')
+    await user.click(within(card).getByRole('button', { name: 'Expand notes' }))
+    expect(within(card).getByRole('heading', { name: 'Key notes' })).toBeInTheDocument()
+    expect(
+      within(card).queryByRole('heading', { name: 'Assessment summary' })
+    ).not.toBeInTheDocument()
+  })
+})
+
+describe('Stage chips on the Dashboard', () => {
+  it('shows each case stage as a chip with its position', () => {
+    render(<DashboardScreen userProfile={directorProfile} />)
+    const row = (company: string) => screen.getByText(company).closest('tr')!
+    expect(
+      within(row('MedTech Innovations')).getByRole('group', {
+        name: 'Stage 1 of 6: Initial Assessment Brief',
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(row('AlphaHealth BioTech')).getByRole('group', {
+        name: 'Stage 3 of 6: Strategic Alignment',
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(row('GenomicX MENA FZ-LLC')).getByRole('group', {
+        name: 'Stage 5 of 6: Discovery Call',
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(row('CarePulse Technologies')).getByRole('group', {
+        name: 'Exited at stage 1 of 6: Initial Assessment Brief',
+      })
+    ).toBeInTheDocument()
+  })
+
+  it('adds the Stage column for the Internal Interest and Strategy teams', () => {
+    for (const profile of [internalProfile, strategyProfile]) {
+      const { unmount } = render(<DashboardScreen userProfile={profile} />)
+      expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+        'Case ID',
+        'Company name',
+        'Focus Area',
+        'Solution Maturity',
+        'Status',
+        'Stage',
+        'Deadline',
+        'Submitted Date',
+        'Notes',
+      ])
+      expect(screen.getAllByRole('group', { name: /^Stage \d of 6/ }).length).toBeGreaterThan(0)
+      unmount()
+    }
+  })
+
+  it('shows a routed case as Routed · Procurement for the Partnership Admin', () => {
+    const routed = {
+      ...INITIAL_PARTNERSHIP_REQUESTS[4],
+      queue: 'routed' as const,
+      caseType: 'Procure' as const,
+    }
+    render(<DashboardScreen userProfile={adminProfile} requests={[routed]} />)
+    expect(screen.getByRole('group', { name: 'Routed to Procurement' })).toHaveTextContent(
+      'Routed · Procurement'
+    )
   })
 })
