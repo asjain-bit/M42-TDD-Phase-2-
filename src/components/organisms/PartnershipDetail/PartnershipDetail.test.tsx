@@ -20,6 +20,10 @@ const adminProfile = profile('partnership-admin', 'Partnership Admin')
 /** AlphaHealth once Leena Thomas has decided */
 const STRATEGY_DONE: PartnershipRequest = {
   ...INITIAL_PARTNERSHIP_REQUESTS[1],
+  // The seeded Strategy reviewer who answered (there is no default reviewer any more)
+  strategyTeamMembers: INITIAL_PARTNERSHIP_REQUESTS.flatMap((r) => r.strategyTeamMembers ?? [])
+    .filter((m) => m.strategyResponse?.finalDecision)
+    .slice(0, 1),
   stageApprovals: {
     internal: { status: 'approved', by: 'Mariam Al-Zaabi', date: 'Done' },
     strategy: { status: 'approved', by: 'Leena Thomas', date: 'Done' },
@@ -550,7 +554,11 @@ describe('PartnershipDetail', () => {
 
     it('lets the Director replace the only strategy member', async () => {
       const user = userEvent.setup()
-      renderDetail({ request: afterInternal() })
+      // Nobody is preselected any more, so the case starts with the reviewer the Director picked
+      const picked = INITIAL_PARTNERSHIP_REQUESTS.flatMap((r) => r.strategyTeamMembers ?? [])[0]!
+      renderDetail({
+        request: afterInternal({ strategyTeamMembers: [{ ...picked, status: undefined }] }),
+      })
       await user.click(screen.getByRole('button', { name: /Delete respondent/i }))
       await user.click(screen.getByRole('button', { name: 'Delete' }))
       expect(screen.getByRole('button', { name: 'Send Request' })).toBeDisabled()
@@ -634,7 +642,13 @@ describe('PartnershipDetail', () => {
       expect(screen.queryByText('Action required: decide where this case goes.')).toBeNull()
       await user.click(stepper().getByRole('button', { name: /^NDA/ }))
       expect(screen.getByRole('heading', { level: 2, name: 'NDA' })).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Proceed' })).not.toBeInTheDocument()
+      // Read-only: nothing to acknowledge or upload. Proceed only moves on to the next stage.
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Upload signed NDA/ })).not.toBeInTheDocument()
+      onCaseAction.mockClear()
+      await user.click(screen.getByRole('button', { name: 'Proceed' }))
+      expect(onCaseAction).not.toHaveBeenCalled()
+      expect(screen.getByRole('heading', { level: 2, name: 'Discovery Call' })).toBeInTheDocument()
     })
 
     it('shows the admin checks in Agent Actions', async () => {
@@ -1292,11 +1306,14 @@ describe('PartnershipDetail', () => {
       expect(stepper().getByRole('button', { name: /^NDA/ })).toBeEnabled()
       expect(stepper().getByRole('button', { name: /Value & Due Diligence/ })).toBeDisabled()
       await user.click(stepper().getByRole('button', { name: /^NDA/ }))
-      expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
+      // The signed NDA, read-only; there is no alignment pack screen
+      expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Alignment Pack' })).not.toBeInTheDocument()
+      expect(screen.queryByText('ADHDS-NDA-Execution-Form-v1.0.docx')).not.toBeInTheDocument()
       expect(screen.queryByRole('link', { name: /Download/ })).not.toBeInTheDocument()
       expect(screen.queryByText('Upload meeting notes')).not.toBeInTheDocument()
-      // Next shows the discovery call, which waits for the Director
-      await user.click(screen.getByRole('button', { name: /Next/ }))
+      // Proceed shows the discovery call, which waits for the Director
+      await user.click(screen.getByRole('button', { name: 'Proceed' }))
       expect(screen.getByRole('heading', { name: 'Discovery Call' })).toBeInTheDocument()
       expect(
         screen.getByText(/Waiting for the Director to hold the discovery call/)
@@ -1367,13 +1384,14 @@ describe('PartnershipDetail', () => {
       expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
     })
 
-    it('keeps the NDA and alignment pack view-only once the sponsor has moved on', async () => {
+    it('keeps the signed NDA view-only once the sponsor has moved on', async () => {
       const user = userEvent.setup()
       renderDetail({ userProfile: sponsorProfile, request: AT_VALUE })
       await user.click(stepper().getByRole('button', { name: /^NDA/ }))
-      expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
-      // Next opens the discovery call, then the value stage
-      await user.click(screen.getByRole('button', { name: /Next/ }))
+      expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+      // Proceed opens the discovery call, then Next the value stage
+      await user.click(screen.getByRole('button', { name: 'Proceed' }))
       expect(screen.getByRole('heading', { name: 'Discovery Call' })).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: /Next/ }))
       expect(
@@ -1402,9 +1420,13 @@ describe('PartnershipDetail', () => {
       ).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Proceed' })).not.toBeInTheDocument()
       await user.click(stepper().getByRole('button', { name: /^NDA/ }))
-      // Signed already: the alignment pack, with the signed NDA behind Back
-      expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: /Back to signed NDA/ }))
+      // Signed already: the signed NDA, with the acknowledgement ticked and locked
+      expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('checkbox', {
+          name: 'I acknowledge that the document has been signed by the vendor',
+        })
+      ).toBeDisabled()
       // Once signed, no new copy can be uploaded
       expect(screen.queryByRole('button', { name: 'Upload new version' })).not.toBeInTheDocument()
     })
@@ -1483,77 +1505,18 @@ describe('PartnershipDetail', () => {
 })
 
 describe('PartnershipDetail case notes', () => {
-  const request = INITIAL_PARTNERSHIP_REQUESTS[0]
-  const sponsorProfile = profile('sponsor', 'Sponsor')
-  const renderAs = (userProfile?: ReturnType<typeof profile>) => {
-    const onCaseAction = vi.fn()
+  it('has no case notes bar on the case page; notes open from the dashboard', () => {
     render(
       <PartnershipDetail
-        request={request}
+        request={INITIAL_PARTNERSHIP_REQUESTS[0]}
         onBack={vi.fn()}
         onProceed={vi.fn()}
         onReject={vi.fn()}
-        onCaseAction={onCaseAction}
-        userProfile={userProfile}
+        userProfile={profile('director', 'Director')}
         animateAgentRun={false}
       />
     )
-    return onCaseAction
-  }
-
-  it('sits under the header card and saves through a case action with the editor', async () => {
-    const user = userEvent.setup()
-    const onCaseAction = renderAs(strategyProfile)
-    const note = screen.getByRole('region', { name: 'Case notes' })
-    const header = screen.getByRole('heading', { name: request.companyName })
-    expect(header.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    await user.click(within(note).getByRole('button', { name: 'Edit notes' }))
-    const editor = within(note).getByRole('textbox')
-    editor.innerHTML = 'Updated summary'
-    await user.click(within(note).getByRole('button', { name: 'Save' }))
-    expect(onCaseAction).toHaveBeenCalledWith(request.id, {
-      type: 'summaryNote',
-      html: 'Updated summary',
-      editor: { name: 'Strategy Team', role: 'Strategy Team' },
-    })
-  })
-
-  it('lets every profile edit the notes', () => {
-    const editable = (p?: ReturnType<typeof profile>) => {
-      const { unmount } = render(
-        <PartnershipDetail
-          request={request}
-          onBack={vi.fn()}
-          onProceed={vi.fn()}
-          onReject={vi.fn()}
-          userProfile={p}
-          animateAgentRun={false}
-        />
-      )
-      const note = screen.getByRole('region', { name: 'Case notes' })
-      const canEdit = within(note).queryByRole('button', { name: 'Edit notes' }) !== null
-      unmount()
-      return canEdit
-    }
-    ;[
-      profile('director', 'Director'),
-      adminProfile,
-      sponsorProfile,
-      internalProfile,
-      strategyProfile,
-    ].forEach((p) => expect(editable(p)).toBe(true))
-  })
-
-  it('opens the notes panel from the bar, with the assessment for the Director', async () => {
-    const user = userEvent.setup()
-    renderAs(profile('director', 'Director'))
-    const note = screen.getByRole('region', { name: 'Case notes' })
-    await user.click(within(note).getByRole('button', { name: 'Case notes' }))
-    const card = screen.getByRole('dialog', { name: request.companyName })
-    await user.click(within(card).getByRole('button', { name: 'Expand notes' }))
-    expect(within(card).getByRole('heading', { name: 'Assessment summary' })).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog', { name: request.companyName })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Case notes' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit notes' })).not.toBeInTheDocument()
   })
 })

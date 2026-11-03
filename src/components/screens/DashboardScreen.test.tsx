@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
@@ -291,7 +291,7 @@ describe('DashboardScreen', () => {
     expect(screen.getByLabelText(/Simulate the team/)).toBeInTheDocument()
     // Everyone starts as Pending, with Sponsor and Response Date columns
     expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(
-      expect.arrayContaining(['Status', 'Deadline', 'Decision', 'Sponsor', 'Response Date'])
+      expect.arrayContaining(['Status', 'Due', 'Decision', 'Sponsor', 'Response Date'])
     )
     const table = within(screen.getByRole('table'))
     expect(table.getAllByText('Pending')).toHaveLength(5)
@@ -567,6 +567,14 @@ const openCase = async (user: ReturnType<typeof setup>, name = 'MedTech Innovati
 const simulate = (user: ReturnType<typeof setup>, option: string) =>
   user.selectOptions(screen.getByLabelText(/Simulate the team/), option)
 
+/** Close request: the reason comes pre-filled, then the email to the partner is sent */
+const sendCloseRequest = async (user: ReturnType<typeof setup>) => {
+  const reason = screen.getByRole('dialog', { name: 'Close this request?' })
+  await user.click(within(reason).getByRole('button', { name: 'Next' }))
+  const email = screen.getByRole('dialog', { name: 'Email to the partner' })
+  await user.click(within(email).getByRole('button', { name: 'Send email and close' }))
+}
+
 describe('Internal Interest outcomes', () => {
   afterEach(() => vi.useRealTimers())
 
@@ -593,10 +601,14 @@ describe('Internal Interest outcomes', () => {
     render(<Shared profile={directorProfile} initial={[sentToInternal]} />)
     await openCase(user)
     await simulate(user, 'none')
-    // A popup says nobody responded, and the case closes with its button
+    // A popup says nobody responded; Close request goes through the reason and the email
     const popup = screen.getByRole('dialog', { name: 'Nobody responded' })
-    expect(within(popup).queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
-    await user.click(within(popup).getByRole('button', { name: 'Close Case' }))
+    expect(within(popup).getByRole('button', { name: 'Keep open' })).toBeInTheDocument()
+    await user.click(within(popup).getByRole('button', { name: 'Close request' }))
+    expect(screen.getByLabelText(/reason/i)).toHaveValue(
+      'No one from the Internal Interest team responded.'
+    )
+    await sendCloseRequest(user)
     expect(
       screen.getByText('This case was closed: No one from the Internal Interest team responded.')
     ).toBeInTheDocument()
@@ -619,21 +631,25 @@ describe('Internal Interest outcomes', () => {
     await openCase(user)
     await simulate(user, 'not-ready')
     await user.click(
-      within(screen.getByRole('dialog', { name: 'Close this case?' })).getByRole('button', {
-        name: 'Cancel',
-      })
+      within(screen.getByRole('dialog', { name: 'No one is ready to sponsor' })).getByRole(
+        'button',
+        { name: 'Keep open' }
+      )
     )
     const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1)
     const cells = (i: number) =>
       within(rows[i])
         .getAllByRole('cell')
         .map((c) => c.textContent)
-    // Status, Deadline, Decision, Sponsor, Response Date
-    expect(cells(0).slice(1, 4)).toEqual(['Completed', '4 days', 'Proceed'])
+    // Status, Due, Decision, Sponsor, Response Date
+    expect(cells(0)[1]).toBe('Completed')
+    expect(cells(0)[2]).not.toBe('-')
+    expect(cells(0)[3]).toBe('Proceed')
     expect(cells(0)[4]).toBe('No')
     expect(cells(0)[5]).not.toBe('-')
     expect(cells(1)[3]).toBe('Reject')
-    expect(cells(2).slice(1, 6)).toEqual(['Pending', '4 days', '-', '-', '-'])
+    expect(cells(2)[1]).toBe('Pending')
+    expect(cells(2).slice(3, 6)).toEqual(['-', '-', '-'])
   })
 
   it('asks before closing when someone responds but no one is ready to sponsor', async () => {
@@ -641,18 +657,20 @@ describe('Internal Interest outcomes', () => {
     render(<Shared profile={directorProfile} initial={[sentToInternal]} />)
     await openCase(user)
     await simulate(user, 'not-ready')
-    const confirm = screen.getByRole('dialog', { name: 'Close this case?' })
+    const confirm = screen.getByRole('dialog', { name: 'No one is ready to sponsor' })
     expect(confirm).toHaveTextContent(
-      'No one from the Internal Interest team is ready to sponsor this request. Do you want to close this case?'
+      'No one from the Internal Interest team is ready to sponsor this request.'
     )
-    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }))
+    await user.click(within(confirm).getByRole('button', { name: 'Keep open' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await simulate(user, 'not-ready')
     await user.click(
-      within(screen.getByRole('dialog', { name: 'Close this case?' })).getByRole('button', {
-        name: 'Close case',
-      })
+      within(screen.getByRole('dialog', { name: 'No one is ready to sponsor' })).getByRole(
+        'button',
+        { name: 'Close request' }
+      )
     )
+    await sendCloseRequest(user)
     expect(
       screen.getByText(
         /This case was closed: No one from the Internal Interest team is ready to sponsor/
@@ -767,7 +785,7 @@ describe('Internal Interest outcomes', () => {
 describe('NDA & Discovery, Value and the Sponsor profile', () => {
   afterEach(() => vi.useRealTimers())
 
-  it('takes the Director from the NDA template, through the signed copy, to the alignment pack', async () => {
+  it('takes the Director from the NDA template, through the signed copy, to the Discovery Call', async () => {
     const user = setup()
     const approved = INITIAL_PARTNERSHIP_REQUESTS.map((r) =>
       r.id === 'req-002'
@@ -783,36 +801,32 @@ describe('NDA & Discovery, Value and the Sponsor profile', () => {
     render(<Shared profile={directorProfile} initial={approved} />)
     await openCase(user, 'AlphaHealth BioTech')
     expect(screen.getByRole('heading', { level: 2, name: 'NDA' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'NDA Execution Form' })).toBeInTheDocument()
+    // The template shows as a file card
+    expect(screen.getByText('ADHDS-NDA-Execution-Form-v1.0.docx')).toBeInTheDocument()
     await user.click(
       screen.getByRole('checkbox', {
         name: 'I acknowledge that the document has been signed by the vendor',
       })
     )
-    await user.click(screen.getByRole('button', { name: /Proceed/ }))
+    await user.click(screen.getByRole('button', { name: /Upload signed NDA/ }))
     await user.upload(screen.getByLabelText('Signed NDA file'), new File(['x'], 'signed.pdf'))
     await user.click(screen.getByRole('button', { name: 'Upload' }))
 
-    // The template is replaced by the signed copy: version 2, the template kept as version 1
-    expect(screen.getByRole('heading', { name: 'Signed NDA Execution Form' })).toBeInTheDocument()
+    // The signed copy is version 2, with the template kept as version 1
+    expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
     expect(screen.getByLabelText('NDA version')).toHaveValue('2')
-    await user.click(screen.getByRole('button', { name: /Proceed/ }))
-
-    // The same animation as everywhere else, then the alignment pack
-    expect(screen.getByText('GENERATING')).toBeInTheDocument()
-    finishThinking()
-    expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
+    // Proceed goes straight to the Discovery Call; there is no alignment pack screen
+    await user.click(screen.getByRole('button', { name: 'Proceed' }))
+    expect(screen.queryByRole('heading', { name: 'Alignment Pack' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Discovery Call' })).toBeInTheDocument()
     // The Director adds context (or skips) and hands the case to the sponsor
-    await user.click(screen.getByRole('button', { name: /Next/ }))
     await user.click(screen.getByRole('button', { name: 'Skip' }))
     expect(
       screen.getByRole('heading', { level: 2, name: 'Value & Due Diligence' })
     ).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Audit Log' }))
     const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-    expect(titles).toEqual(
-      expect.arrayContaining(['Signed NDA uploaded', 'Alignment pack generated'])
-    )
+    expect(titles).toEqual(expect.arrayContaining(['Signed NDA uploaded']))
   })
 
   it('shows the Sponsor only the cases they sponsor, with their own KPI cards', () => {
@@ -890,7 +904,7 @@ describe('NDA & Discovery, Value and the Sponsor profile', () => {
     )
   })
 
-  it('opens the Sponsor on the alignment pack, with the signed NDA behind Back and no template', async () => {
+  it('shows the Sponsor the signed NDA read-only, with no template and no alignment pack', async () => {
     const user = setup()
     render(<Shared profile={sponsorProfile} initial={[...INITIAL_PARTNERSHIP_REQUESTS]} />)
     await user.click(screen.getByText('GenomicX MENA FZ-LLC'))
@@ -899,10 +913,9 @@ describe('NDA & Discovery, Value and the Sponsor profile', () => {
         name: /^NDA/,
       })
     )
-    expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'NDA Execution Form' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Back to signed NDA/ }))
-    expect(screen.getByRole('heading', { name: 'Signed NDA Execution Form' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Alignment Pack' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
+    expect(screen.queryByText('ADHDS-NDA-Execution-Form-v1.0.docx')).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Download/ })).not.toBeInTheDocument()
   })
@@ -998,7 +1011,8 @@ describe('Case notes panel on the Dashboard', () => {
     expect(within(card).getByText('PR-124')).toBeInTheDocument()
 
     await user.click(within(card).getByRole('button', { name: 'Close notes' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // Closes after its short closing motion
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(screen.queryByRole('region', { name: 'Case notes' })).not.toBeInTheDocument()
 
     // A plain row click opens the case, as before

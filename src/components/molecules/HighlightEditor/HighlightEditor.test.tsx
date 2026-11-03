@@ -24,18 +24,22 @@ describe('HighlightEditor', () => {
     const editor = screen.getByRole('textbox', { name: 'Edit case notes' })
     expect(editor).toHaveFocus()
     selectText(editor, 'beta')
-    await user.click(screen.getByRole('button', { name: 'Highlight as needs attention' }))
+    await user.click(screen.getByRole('button', { name: 'Needs attention' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(onSave).toHaveBeenCalledWith('Alpha <mark data-tone="attention">beta</mark>')
   })
 
-  it('shows the legend, cancels, and cannot save an empty note', async () => {
+  it('labels each highlight pill, cancels, and cannot save an empty note', async () => {
     const user = userEvent.setup()
     const onCancel = vi.fn()
     render(<HighlightEditor label="Notes" onSave={vi.fn()} onCancel={onCancel} />)
+    // The pills carry their own labels, so the editor has no separate legend
     expect(
-      within(screen.getByRole('list', { name: 'Highlight legend' })).getAllByRole('listitem')
-    ).toHaveLength(3)
+      within(screen.getByRole('toolbar', { name: 'Highlight' }))
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    ).toEqual(['Critical', 'Needs attention', 'Positive', 'Clear'])
+    expect(screen.queryByRole('list', { name: 'Highlight legend' })).not.toBeInTheDocument()
     const editor = screen.getByRole('textbox', { name: 'Notes' })
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
     editor.innerHTML = 'Text'

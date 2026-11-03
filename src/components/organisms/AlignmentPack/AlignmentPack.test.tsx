@@ -56,7 +56,11 @@ describe('AlignmentPack', () => {
   })
 
   it('turns strategy conditions into an open question', () => {
-    const questions = buildOpenQuestions(INITIAL_PARTNERSHIP_REQUESTS[1])
+    // The seeded case whose Strategy reviewer proceeded with a condition
+    const withCondition = INITIAL_PARTNERSHIP_REQUESTS.find((r) =>
+      r.strategyTeamMembers?.some((m) => m.strategyResponse?.finalDecisionNote)
+    )!
+    const questions = buildOpenQuestions(withCondition)
     expect(questions[0]).toMatch(/Has the vendor confirmed this condition/)
     expect(questions.length).toBeGreaterThanOrEqual(4)
   })

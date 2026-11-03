@@ -80,6 +80,11 @@ describe('role KPIs', () => {
         strategy: approval('approved'),
       },
       alignmentPackOn: 'x',
+      nda: {
+        versions: [
+          { version: 1, signed: true, fileName: 'NDA.pdf', uploadedOn: 'x', uploadedBy: 'x' },
+        ],
+      },
       discovery: { notes: [], recordings: [], proceededOn: 'x' },
       ...over,
     })

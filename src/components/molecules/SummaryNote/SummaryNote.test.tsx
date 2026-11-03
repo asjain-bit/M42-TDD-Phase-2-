@@ -58,31 +58,24 @@ describe('SummaryNote', () => {
     expect(screen.getByRole('button', { name: 'Add notes' })).toBeInTheDocument()
   })
 
-  it('edits with a highlight toolbar and legend, and saves sanitised HTML', async () => {
+  it('edits with a labelled highlight toolbar, and saves sanitised HTML', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn()
     render(<SummaryNote note={note} canEdit onSave={onSave} />)
     await user.click(screen.getByRole('button', { name: 'Edit notes' }))
 
     const toolbar = screen.getByRole('toolbar', { name: 'Highlight' })
-    ;[
-      'Highlight as critical',
-      'Highlight as needs attention',
-      'Highlight as positive',
-      'Clear highlight',
-    ].forEach((name) => expect(within(toolbar).getByRole('button', { name })).toBeInTheDocument())
-    const legend = screen.getByRole('list', { name: 'Highlight legend' })
-    expect(
-      within(legend)
-        .getAllByRole('listitem')
-        .map((li) => li.textContent)
-    ).toEqual(['Critical', 'Needs attention', 'Positive'])
+    ;['Critical', 'Needs attention', 'Positive', 'Clear highlight'].forEach((name) =>
+      expect(within(toolbar).getByRole('button', { name })).toBeInTheDocument()
+    )
+    // The pills are labelled, so the editor shows no separate legend
+    expect(screen.queryByRole('list', { name: 'Highlight legend' })).not.toBeInTheDocument()
 
     const editor = screen.getByRole('textbox', { name: 'Edit case notes' })
     expect(editor.innerHTML).toBe(note.html)
 
     selectText(editor, 'two hospitals')
-    await user.click(within(toolbar).getByRole('button', { name: 'Highlight as positive' }))
+    await user.click(within(toolbar).getByRole('button', { name: 'Positive' }))
     expect(editor.querySelector('mark[data-tone="positive"]')).toHaveTextContent('two hospitals')
 
     selectText(editor, 'Hosting')

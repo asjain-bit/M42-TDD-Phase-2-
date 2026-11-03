@@ -21,7 +21,8 @@ describe('UsageInsightsScreen', () => {
     expect(screen.getByText('20')).toBeInTheDocument()
     expect(screen.getByText('20 assessment calls')).toBeInTheDocument()
     expect(screen.getByText('18.6M')).toBeInTheDocument()
-    expect(screen.getByText('$155')).toBeInTheDocument()
+    // On the cost card, and again as Cost using AI in the figures column
+    expect(screen.getAllByText('$155')).toHaveLength(2)
     expect(screen.getByLabelText('Week')).toHaveValue('2')
     expect(screen.getByText('Web Search Credits')).toBeInTheDocument()
     expect(screen.getByText('2,500')).toBeInTheDocument()
@@ -41,29 +42,29 @@ describe('UsageInsightsScreen', () => {
   it('lets only the Partnership Admin recalculate, using the inputs they set', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<UsageInsightsScreen />)
-    // Everyone else sees the inputs, read-only, and no Recalculate button
-    expect(screen.queryByRole('button', { name: /Recalculate/i })).not.toBeInTheDocument()
+    // Everyone else sees the inputs in the drawer, read-only, and cannot edit them
+    await user.click(screen.getByRole('button', { name: /How costs are calculated/ }))
     expect(screen.getByLabelText(/Manual hours per output/)).toBeDisabled()
+    expect(screen.getByText('Only an admin can edit the inputs.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit inputs' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Recalculate/i })).not.toBeInTheDocument()
     unmount()
 
     render(<UsageInsightsScreen canRecalculate />)
-    // The six inputs of the calculation
-    expect(screen.getAllByRole('spinbutton').map((i) => (i as HTMLInputElement).value)).toEqual([
-      '6',
-      '35',
-      '1.25',
-      '10',
-      '0.13',
-      '0.008',
-    ])
-    expect(screen.getByText('Cost using AI includes model + web search')).toBeInTheDocument()
-    const hours = screen.getByLabelText(/Manual hours per output/)
-    expect(hours).toHaveValue(6)
-    expect(screen.getByLabelText(/Resource cost per hour/)).toHaveValue(35)
-    await user.click(screen.getByRole('button', { name: 'Summary' }))
     expect(screen.getByText('$4,200')).toBeInTheDocument()
     expect(screen.getByText('27x')).toBeInTheDocument()
     expect(screen.getByText('$4,045')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /How costs are calculated/ }))
+    // The six inputs of the calculation, read-only until Edit inputs
+    const inputs = screen.getAllByRole('spinbutton') as HTMLInputElement[]
+    expect(inputs.map((i) => i.value)).toEqual(['6', '35', '1.25', '10', '0.13', '0.008'])
+    inputs.forEach((i) => expect(i).toBeDisabled())
+    expect(screen.queryByRole('button', { name: /Recalculate/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit inputs' }))
+    const hours = screen.getByLabelText(/Manual hours per output/)
+    expect(hours).toBeEnabled()
+    expect(hours).toHaveValue(6)
+    expect(screen.getByLabelText(/Resource cost per hour/)).toHaveValue(35)
     // Nothing to recalculate until something changes, and an emptied field stays empty
     expect(screen.getByRole('button', { name: /Recalculate/i })).toBeDisabled()
     await user.clear(hours)
@@ -82,21 +83,30 @@ describe('UsageInsightsScreen', () => {
     vi.useRealTimers()
     expect(screen.queryByRole('status', { name: 'Recalculating' })).not.toBeInTheDocument()
     expect(screen.getByText('$1,400')).toBeInTheDocument()
-    expect(screen.getByText('Total hours 40 | Cost per hour $35')).toBeInTheDocument()
-    expect(screen.queryByText(/Last recalculated/)).not.toBeInTheDocument()
+    expect(screen.getByText('40 hours at $35/h')).toBeInTheDocument()
+    // The inputs lock again
+    expect(screen.getByLabelText(/Manual hours per output/)).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Edit inputs' })).toBeInTheDocument()
   })
 
-  it('switches between the chart and the summary', async () => {
+  it('shows the four figures beside the chart, with the drawer in the card footer', async () => {
     const user = userEvent.setup()
     render(<UsageInsightsScreen />)
-    expect(screen.getByRole('img', { name: /Cost without AI versus cost using AI/ })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Summary' }))
+    ;['Cost without AI', 'Cost using AI', 'Estimated ROI', 'Estimated savings'].forEach((label) =>
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0)
+    )
+    // There is no chart / summary switch any more
+    expect(screen.queryByRole('button', { name: 'Summary' })).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('img', { name: /Cost without AI versus cost using AI/ })
-    ).not.toBeInTheDocument()
-    expect(screen.getByText('Estimated savings')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Chart' }))
-    expect(screen.getByRole('img', { name: /Cost without AI versus cost using AI/ })).toBeInTheDocument()
+      screen.getByText(`Week of ${USAGE_WEEKS[2].full} · based on 6 inputs`)
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /How costs are calculated/ }))
+    expect(screen.getByRole('dialog', { name: 'How costs are calculated' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Close how costs are calculated' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /How costs are calculated/ }))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('lists the cases as Completed, In Progress and Closed, with their case ID', async () => {

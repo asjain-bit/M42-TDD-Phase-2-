@@ -1,7 +1,7 @@
 import React from 'react'
-import { act, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { NdaStage, NDA_TEMPLATE_URL } from './NdaStage'
 import { INITIAL_PARTNERSHIP_REQUESTS, type PartnershipRequest } from '@/types/partnership.types'
 
@@ -57,45 +57,55 @@ const renderStage = (
   )
 
 describe('NdaStage: the Director signs the NDA', () => {
-  afterEach(() => vi.useRealTimers())
-
-  it('puts Download in the same row as the title, and drops the template heading', () => {
+  it('shows the template as a file card, with no Download next to the title', () => {
     renderStage(base, 'director')
-    const title = screen.getByRole('heading', { level: 2, name: 'NDA' })
-    const download = screen.getByRole('link', { name: /Download/ })
-    expect(download.parentElement).toBe(title.parentElement)
-    expect(download).toHaveAttribute('href', NDA_TEMPLATE_URL)
-    expect(download).toHaveAttribute('download')
-    expect(screen.queryByRole('heading', { name: 'NDA template' })).not.toBeInTheDocument()
-    expect(
-      screen.queryByText(/Download the NDA template, complete it with the vendor/)
-    ).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'NDA' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Download/ })).not.toBeInTheDocument()
+    expect(screen.getByText('ADHDS-NDA-Execution-Form-v1.0.docx')).toBeInTheDocument()
+    expect(screen.getByText(/Version 1 · unsigned template/)).toBeInTheDocument()
   })
 
-  it('fills the page height: the form scrolls on its own and the footer stays', () => {
+  it('previews the template in a document viewer, with its download, closed by X or Esc', async () => {
+    const user = userEvent.setup()
+    renderStage(base, 'director')
+    await user.click(screen.getByRole('button', { name: /Preview/ }))
+    const viewer = screen.getByRole('dialog', { name: 'ADHDS-NDA-Execution-Form-v1.0.docx' })
+    const download = within(viewer).getByRole('link', { name: /Download/ })
+    expect(download).toHaveAttribute('href', NDA_TEMPLATE_URL)
+    expect(download).toHaveAttribute('download')
+    // Only the pages scroll, inside the viewer
+    const pages = within(viewer).getByLabelText('NDA execution form')
+    expect(pages.className).toContain('overflow-y-auto')
+    expect(pages.className).toContain('flex-1')
+    await user.click(within(viewer).getByRole('button', { name: 'Close preview' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Preview/ }))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('fills the page height, with the acknowledgement in the footer', () => {
     const { container } = renderStage(base, 'director')
     expect((container.firstChild as HTMLElement).className).toContain('h-full')
-    const form = screen.getByLabelText('NDA execution form')
-    expect(form.className).toContain('overflow-y-auto')
-    expect(form.className).toContain('flex-1')
     const checkbox = screen.getByRole('checkbox', {
       name: 'I acknowledge that the document has been signed by the vendor',
     })
     expect((checkbox.closest('div.sticky') as HTMLElement).className).toContain('bottom-0')
   })
 
-  it('asks for the signed copy in a popup before moving on', async () => {
+  it('asks for the signed copy in a popup once the signature is acknowledged', async () => {
     const user = userEvent.setup()
     const onAction = vi.fn()
     renderStage(base, 'director', { onAction })
-    const proceed = screen.getByRole('button', { name: /Proceed/ })
-    expect(proceed).toBeDisabled()
+    const upload = screen.getByRole('button', { name: /Upload signed NDA/ })
+    expect(upload).toBeDisabled()
     await user.click(
       screen.getByRole('checkbox', {
         name: 'I acknowledge that the document has been signed by the vendor',
       })
     )
-    await user.click(proceed)
+    await user.click(upload)
     const popup = screen.getByRole('dialog', { name: 'Upload signed NDA' })
     await user.upload(
       within(popup).getByLabelText('Signed NDA file'),
@@ -105,12 +115,13 @@ describe('NdaStage: the Director signs the NDA', () => {
     expect(onAction).toHaveBeenCalledWith({ type: 'uploadNda', fileName: 'MedTech_Signed_NDA.pdf' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
+})
 
-  it('lists the unsigned template and the signed copy as two versions in a dropdown', async () => {
+describe('NdaStage: once the NDA is signed', () => {
+  it('shows the signed copy as a file card, with the versions in a dropdown', async () => {
     const user = userEvent.setup()
     const two = { ...signedRequest, nda: { versions: signedRequest.nda!.versions.slice(0, 2) } }
     renderStage(two, 'director')
-    await user.click(screen.getByRole('button', { name: /Back to signed NDA/ }))
     const versions = screen.getByLabelText('NDA version')
     expect(versions).toHaveValue('2')
     expect(
@@ -119,68 +130,32 @@ describe('NdaStage: the Director signs the NDA', () => {
         .map((o) => o.textContent)
     ).toEqual(['v2 (current) · signed copy', 'v1 · unsigned template'])
     expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
+    expect(screen.getByText('nda_v2.pdf')).toBeInTheDocument()
+    expect(
+      screen.getByText('Version 2 · signed copy · Zaid Al Ali, 14 Oct 2026')
+    ).toBeInTheDocument()
     await user.selectOptions(versions, '1')
     expect(screen.getByRole('heading', { name: 'Unsigned template' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'NDA Execution Form' })).toBeInTheDocument()
+    expect(screen.getByText('ADHDS-NDA-Execution-Form-v1.0.docx')).toBeInTheDocument()
   })
 
-  it('offers no new version once the signed copy is uploaded', async () => {
-    const user = userEvent.setup()
+  it('offers no new version and no alignment pack', () => {
     renderStage(signedRequest, 'director')
-    await user.click(screen.getByRole('button', { name: /Back to signed NDA/ }))
     expect(screen.queryByRole('button', { name: 'Upload new version' })).not.toBeInTheDocument()
-  })
-
-  it('plays the generating animation before the alignment pack, only the first time', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    const two = { ...signedRequest, nda: { versions: signedRequest.nda!.versions.slice(0, 2) } }
-    const { rerender } = renderStage(base, 'director')
-    // sign: the request gets its signed copy
-    await user.click(
+    expect(screen.queryByRole('heading', { name: 'Alignment Pack' })).not.toBeInTheDocument()
+    expect(
       screen.getByRole('checkbox', {
         name: 'I acknowledge that the document has been signed by the vendor',
       })
-    )
-    await user.click(screen.getByRole('button', { name: /Proceed/ }))
-    await user.upload(screen.getByLabelText('Signed NDA file'), file('nda_v2.pdf'))
-    await user.click(screen.getByRole('button', { name: 'Upload' }))
-    rerender(<NdaStage request={two} role="director" onAction={vi.fn()} onNext={vi.fn()} />)
-
-    await user.click(screen.getByRole('button', { name: /Proceed/ }))
-    expect(screen.getByText('GENERATING')).toBeInTheDocument()
-    expect(screen.getByText('NDA').parentElement).toHaveClass('hidden')
-    expect(screen.getByText(/Collecting the brief and the Director decision/)).toBeInTheDocument()
-    for (let i = 0; i < 5; i++) act(() => vi.advanceTimersByTime(900))
-    expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
-
-    // Going back and forward again skips the animation
-    await user.click(screen.getByRole('button', { name: /Back to signed NDA/ }))
-    await user.click(screen.getByRole('button', { name: /Proceed/ }))
-    expect(screen.queryByText('GENERATING')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
-  })
-})
-
-describe('NdaStage: the alignment pack screen', () => {
-  it('opens on the alignment pack once signed, as one document with no side navigation', () => {
-    renderStage(signedRequest, 'director')
-    expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
-    expect(
-      screen.queryByRole('navigation', { name: 'Alignment pack sections' })
-    ).not.toBeInTheDocument()
-    expect(screen.queryByText('Sent to')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Executive Summary' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Open Questions' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Download/ })).not.toBeInTheDocument()
+    ).toBeDisabled()
   })
 
-  it('moves on to the Discovery Call with Next, for every role', async () => {
+  it('moves on to the Discovery Call with Proceed, for every role', async () => {
     const user = userEvent.setup()
     for (const role of ['director', 'sponsor', 'viewer'] as const) {
       const onNext = vi.fn()
       const { unmount } = renderStage(signedRequest, role, { onNext })
-      await user.click(screen.getByRole('button', { name: /Next/ }))
+      await user.click(screen.getByRole('button', { name: 'Proceed' }))
       expect(onNext).toHaveBeenCalledTimes(1)
       unmount()
     }
@@ -199,21 +174,17 @@ describe('NdaStage: everyone else', () => {
     expect(
       screen.getByText(/Waiting for the Director to upload the signed NDA/)
     ).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'NDA Execution Form' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Download/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('ADHDS-NDA-Execution-Form-v1.0.docx')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Preview/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
   })
 
-  it('opens straight on the alignment pack, and Back shows the signed NDA, read-only', async () => {
-    const user = userEvent.setup()
+  it('sees the signed NDA read-only once it is in', () => {
     renderStage(signedRequest, 'viewer')
-    expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Back to signed NDA/ }))
     expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
     expect(screen.getByLabelText('NDA version')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Upload new version' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Preview/ })).toBeInTheDocument()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Proceed/ }))
-    expect(screen.getByRole('heading', { name: 'Alignment Pack' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Upload new version' })).not.toBeInTheDocument()
   })
 })

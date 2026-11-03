@@ -88,8 +88,17 @@ describe('getStageLabel', () => {
       stageApprovals: { internal: approved, strategy: approved },
     }
     expect(getStageLabel(afterStrategy)).toBe('NDA')
-    // The signed NDA and alignment pack move it on to the discovery call
-    const withPack = { ...afterStrategy, alignmentPackOn: 'today' }
+    // The alignment pack alone does not move it on: the signed NDA has to be in too
+    const packOnly = { ...afterStrategy, alignmentPackOn: 'today' }
+    expect(getStageLabel(packOnly)).toBe('NDA')
+    const withPack = {
+      ...packOnly,
+      nda: {
+        versions: [
+          { version: 1, signed: true, fileName: 'NDA.pdf', uploadedOn: 'today', uploadedBy: 'x' },
+        ],
+      },
+    }
     expect(getStageLabel(withPack)).toBe('Discovery Call')
     expect(
       getStageLabel({
@@ -374,18 +383,20 @@ describe('review stages', () => {
     expect(next.auditLog.at(-1)?.description).toBe('2 questions answered.')
   })
 
-  it('falls back to the default reviewers when none were stored', () => {
+  it('falls back to the default reviewers when none were stored (Strategy has none)', () => {
     const bare = { ...pending, internalInterests: undefined, strategyTeamMembers: undefined }
     const internal = submitReview(bare, 'internal', {})
     expect(internal.internalInterests).toHaveLength(5)
     expect(internal.auditLog.at(-1)?.description).toBe('0 questions answered.')
     const strategy = submitReview(bare, 'strategy', {})
-    expect(strategy.strategyTeamMembers).toHaveLength(1)
+    expect(strategy.strategyTeamMembers).toHaveLength(0)
     expect(strategy.auditLog.at(-1)?.description).toBe('Decision submitted.')
   })
 
   it('approves the Strategy stage unless the decision is Reject', () => {
-    const approved = submitReview(pending, 'strategy', {
+    // There are no default Strategy reviewers, so the case brings its own
+    const reviewer = INITIAL_PARTNERSHIP_REQUESTS.flatMap((r) => r.strategyTeamMembers ?? [])[0]!
+    const approved = submitReview({ ...pending, strategyTeamMembers: [reviewer] }, 'strategy', {
       response: { finalDecision: 'Proceed', finalDecisionNote: 'If UAE hosting' },
     })
     expect(approved.stageApprovals?.strategy?.status).toBe('approved')

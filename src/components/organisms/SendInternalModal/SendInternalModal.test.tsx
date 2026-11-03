@@ -54,7 +54,9 @@ describe('SendInternalModal', () => {
     expect(screen.getByText('(5 selected)')).toBeInTheDocument()
     expect(screen.queryByLabelText('Questionnaire')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Note to Internal Interest')).not.toBeInTheDocument()
-    expect(screen.getByText('SLA: 4 days to answer')).toBeInTheDocument()
+    expect(
+      screen.getByText(/^Responses due by .+\. Late responses are still accepted\.$/)
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(screen.getByLabelText('Questionnaire')).toBeInTheDocument()
   })

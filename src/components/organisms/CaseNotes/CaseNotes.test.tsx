@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { CaseNotes } from './CaseNotes'
@@ -11,7 +11,7 @@ const [medTech, , genomicX, carePulse] = INITIAL_PARTNERSHIP_REQUESTS
 const renderCard = (props: Partial<React.ComponentProps<typeof CaseNotes>> = {}) => {
   const onClose = vi.fn()
   const onSaveNote = vi.fn()
-  render(
+  const { unmount } = render(
     <CaseNotes
       request={genomicX}
       status="Pending"
@@ -24,6 +24,7 @@ const renderCard = (props: Partial<React.ComponentProps<typeof CaseNotes>> = {})
   return {
     onClose,
     onSaveNote,
+    unmountCard: unmount,
     card: screen.getByRole('dialog', { name: (props.request ?? genomicX).companyName }),
   }
 }
@@ -65,7 +66,10 @@ describe('CaseNotes', () => {
       'aria-expanded',
       'true'
     )
-    expect(card.className).toContain('h-[85vh]')
+    // Expanded, it is capped at 70vh and at the room on its side of the icon
+    const maxHeight = parseFloat(card.style.maxHeight)
+    expect(maxHeight).toBeGreaterThan(0)
+    expect(maxHeight).toBeLessThanOrEqual(window.innerHeight * 0.7)
     expect(sectionTitles(card)).toEqual([
       'Solution description',
       'Proposal of collaboration',
@@ -125,17 +129,27 @@ describe('CaseNotes', () => {
 
   it('closes with X, Esc and a click outside; Esc leaves the editor first', async () => {
     const user = userEvent.setup()
-    const { card, onClose } = renderCard()
-    await user.click(within(card).getByRole('button', { name: 'Close notes' }))
-    await user.click(screen.getByTestId('case-notes-backdrop'))
-    expect(onClose).toHaveBeenCalledTimes(2)
+    // X, after the closing motion
+    const x = renderCard()
+    await user.click(within(x.card).getByRole('button', { name: 'Close notes' }))
+    await waitFor(() => expect(x.onClose).toHaveBeenCalledTimes(1))
+    x.unmountCard()
 
-    await user.click(within(card).getByRole('button', { name: 'Edit' }))
+    // A click anywhere outside the card (there is no backdrop)
+    const outside = renderCard()
+    expect(screen.queryByTestId('case-notes-backdrop')).not.toBeInTheDocument()
+    await user.click(document.body)
+    await waitFor(() => expect(outside.onClose).toHaveBeenCalledTimes(1))
+    outside.unmountCard()
+
+    // Esc leaves the editor first, then closes
+    const esc = renderCard()
+    await user.click(within(esc.card).getByRole('button', { name: 'Edit' }))
     await user.keyboard('{Escape}')
-    expect(within(card).queryByRole('textbox')).not.toBeInTheDocument()
-    expect(onClose).toHaveBeenCalledTimes(2)
+    expect(within(esc.card).queryByRole('textbox')).not.toBeInTheDocument()
+    expect(esc.onClose).not.toHaveBeenCalled()
     await user.keyboard('{Escape}')
-    expect(onClose).toHaveBeenCalledTimes(3)
+    await waitFor(() => expect(esc.onClose).toHaveBeenCalledTimes(1))
   })
 
   it('takes focus, keeps Tab inside, and gives focus back on close', async () => {
