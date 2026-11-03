@@ -40,7 +40,7 @@ export const SummaryNote: React.FC<SummaryNoteProps> = ({
       <div className="flex items-center gap-3 min-w-0">
         <button
           type="button"
-          onClick={() => (onOpen ? onOpen() : setExpanded((v) => !v))}
+          onClick={(e) => (onOpen ? onOpen(e.currentTarget) : setExpanded((v) => !v))}
           {...(onOpen ? { 'aria-haspopup': 'dialog' as const } : { 'aria-expanded': expanded })}
           disabled={editing}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-primary shrink-0 cursor-pointer disabled:cursor-default"

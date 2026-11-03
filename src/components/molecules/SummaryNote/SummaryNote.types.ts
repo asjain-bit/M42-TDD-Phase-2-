@@ -8,7 +8,7 @@ export interface SummaryNoteProps {
   /** Called with the sanitised HTML (text and <mark data-tone> only) */
   onSave?: (html: string) => void
   /** When given, the chevron opens the CaseNotes panel instead of expanding in place */
-  onOpen?: () => void
+  onOpen?: (anchor: HTMLElement) => void
   /** Start with the full note showing instead of one line */
   defaultExpanded?: boolean
   className?: string

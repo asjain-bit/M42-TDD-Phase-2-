@@ -124,24 +124,37 @@ export const matchVendors = (
     .slice(0, MAX_VENDOR_MATCHES)
 }
 
+export type InterestMatchField = 'title' | 'problem' | 'focus area' | 'service line'
+
+export interface InterestComparison {
+  /** What the two interests share, in a fixed order */
+  matches: InterestMatchField[]
+  /** 3-4 matches: Very similar; 1-2: Partly similar; none: not shown */
+  level: 'Very similar' | 'Partly similar' | null
+}
+
+const sharedWords = (a: string, b: string) => {
+  const bWords = keywords(b)
+  return [...keywords(a)].filter((w) => bWords.has(w)).length
+}
+
 /**
- * Earlier interests that look like the one being written: a shared focus area or two shared
- * title words. Similar ones come first; the rest keep their order.
+ * How much a draft interest looks like an existing one, on four things: the title and the
+ * problem (two shared words or more), the focus areas (any in common) and the service line
+ * (the same, ignoring case).
  */
-export const rankSimilarInterests = (
-  draft: { title: string; focusAreas: string[] },
-  interests: ServiceLineInterest[]
-): { interest: ServiceLineInterest; similar: boolean }[] => {
-  const words = keywords(draft.title)
-  const ranked = interests.map((interest, index) => {
-    const sharedFocus = interest.focusAreas.filter((f) => draft.focusAreas.includes(f)).length
-    const sharedWords = [...keywords(interest.title)].filter((w) => words.has(w)).length
-    const score = sharedFocus * 2 + sharedWords
-    return { interest, index, score, similar: sharedFocus > 0 || sharedWords >= 2 }
-  })
-  return ranked
-    .sort((a, b) => Number(b.similar) - Number(a.similar) || b.score - a.score || a.index - b.index)
-    .map(({ interest, similar }) => ({ interest, similar }))
+export const compareInterest = (
+  draft: Pick<ServiceLineInterest, 'title' | 'problem' | 'focusAreas' | 'serviceLine'>,
+  existing: Pick<ServiceLineInterest, 'title' | 'problem' | 'focusAreas' | 'serviceLine'>
+): InterestComparison => {
+  const matches: InterestMatchField[] = []
+  if (sharedWords(draft.title, existing.title) >= 2) matches.push('title')
+  if (sharedWords(draft.problem, existing.problem) >= 2) matches.push('problem')
+  if (draft.focusAreas.some((f) => existing.focusAreas.includes(f))) matches.push('focus area')
+  const line = draft.serviceLine.trim().toLowerCase()
+  if (line && line === existing.serviceLine.trim().toLowerCase()) matches.push('service line')
+  const level = matches.length >= 3 ? 'Very similar' : matches.length >= 1 ? 'Partly similar' : null
+  return { matches, level }
 }
 
 /** SL-005 after SL-004 */

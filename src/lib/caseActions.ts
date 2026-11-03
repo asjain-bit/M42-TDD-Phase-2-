@@ -14,7 +14,9 @@ import {
   type StrategyMemberResponse,
   type WorkflowStage,
 } from '@/types/partnership.types'
-import type { VendorFormValues } from '@/types/vendorForm'
+import { SAMPLE_VENDOR_FORM, type VendorFormValues } from '@/types/vendorForm'
+import { DEFAULT_QUESTIONNAIRE_ID, getQuestionnaire } from '@/types/questionnaires'
+import { sampleAnswersFor } from '@/lib/sampleAnswers'
 import { escapeNoteText, markNote, sanitiseNoteHtml } from '@/lib/summaryNote'
 
 const DIRECTOR_NAME = 'Zaid Al Ali'
@@ -944,14 +946,20 @@ export const buildCallSummary = (
 export const holdPlatformCall = (
   r: PartnershipRequest,
   callType: CallType,
-  attendees: CallAttendee[]
+  attendees: CallAttendee[],
+  questions?: { asked: string[]; notAsked: string[] }
 ): PartnershipRequest => {
   const on = todayLabel()
   const host = callType === 'discovery' ? DIRECTOR_NAME : SPONSOR_NAME
   const call = {
     format: 'platform' as const,
     attendees,
-    summary: buildCallSummary(r, callType, attendees),
+    summary: {
+      ...buildCallSummary(r, callType, attendees),
+      ...(questions
+        ? { questionsAsked: questions.asked, questionsNotAsked: questions.notAsked }
+        : {}),
+    },
     on,
   }
   const discovery = { notes: [], transcripts: [], recordings: [], ...r.discovery }
@@ -1250,7 +1258,12 @@ export type CaseAction =
   | { type: 'assignSponsors'; lead: string; co: string[] }
   | { type: 'uploadNda'; fileName: string }
   | { type: 'discoveryFile'; kind: DiscoveryFileKind; name: string }
-  | { type: 'platformCall'; callType: CallType; attendees: CallAttendee[] }
+  | {
+      type: 'platformCall'
+      callType: CallType
+      attendees: CallAttendee[]
+      questions?: { asked: string[]; notAsked: string[] }
+    }
   | { type: 'proceedToValue' }
   | { type: 'confirmValueCall' }
   | { type: 'businessCase'; name: string }
@@ -1286,7 +1299,7 @@ export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): Part
     case 'uploadNda':
       return uploadSignedNda(r, action.fileName)
     case 'platformCall':
-      return holdPlatformCall(r, action.callType, action.attendees)
+      return holdPlatformCall(r, action.callType, action.attendees, action.questions)
     case 'discoveryFile':
       return addDiscoveryFile(r, action.kind, action.name)
     case 'proceedToValue':
@@ -1315,4 +1328,72 @@ export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): Part
         action.by
       )
   }
+}
+
+/* ---------- Prototype: test cases that start at a chosen stage ---------- */
+
+const TEST_VENDORS = [
+  { company: 'Meridian Health AI', email: 'rania@meridianhealth.ai' },
+  { company: 'Lumen Diagnostics', email: 'hello@lumendiagnostics.ai' },
+  { company: 'Aster Care Analytics', email: 'team@astercare.ai' },
+]
+
+/** The Strategy reviewer the test case is sent to */
+const TEST_STRATEGY_REVIEWER: InternalInterestStakeholder = {
+  id: 'strat-2',
+  name: 'Leena Thomas',
+  initials: 'LT',
+  role: 'Senior Strategy Manager',
+  department: 'Strategy',
+  expertise: 'Growth & Expansion',
+  avatarColorBg: '#fce7f3',
+  avatarColorText: '#9d174d',
+  source: 'manual',
+}
+
+/**
+ * Prototype navigation only: a new case from the sample vendor form that lands on the chosen
+ * stage. Every earlier stage is filled by the real actions, so the audit log reads as if each
+ * step had been taken.
+ */
+export const buildTestCase = (
+  code: string,
+  stage: (typeof WORKFLOW_STAGES)[number]
+): PartnershipRequest => {
+  const target = WORKFLOW_STAGES.indexOf(stage) + 1
+  const vendor = TEST_VENDORS[(Number(code.replace(/\D/g, '')) || 0) % TEST_VENDORS.length]
+  let r = buildCaseFromForm({ ...SAMPLE_VENDOR_FORM, ...vendor }, code)
+  r = routeRequest(r, { action: 'proceed', type: 'Partnership', reason: 'Test case.' })
+  if (target >= 2) r = proceedRequest(r, 'Test case: brief approved.')
+  if (target >= 3) {
+    const questionnaire = getQuestionnaire(DEFAULT_QUESTIONNAIRE_ID)
+    const questions = questionnaire.questions
+    r = sendReview(r, 'internal', {
+      members: DEFAULT_INTERNAL_INTERESTS,
+      questionnaire: { name: questionnaire.name, questions },
+    })
+    const samples = sampleAnswersFor(questions)
+    r = submitReview(r, 'internal', {
+      answers: questions.map((q) => ({
+        questionId: q.id,
+        question: q.text,
+        cue: q.cue,
+        answer: samples[q.id] ?? '',
+      })),
+    })
+  }
+  if (target >= 4) {
+    r = sendReview(r, 'strategy', { members: [TEST_STRATEGY_REVIEWER] })
+    r = submitReview(r, 'strategy', {
+      response: {
+        documents: ['M42_Roadmap_Register.xlsx'],
+        finalDecision: 'Proceed',
+        finalDecisionNote: 'Proceed on the condition that the vendor commits to UAE data hosting.',
+        submittedAt: 'Just now',
+      },
+    })
+  }
+  if (target >= 5) r = uploadSignedNda(r, `Signed_NDA_${code}.pdf`)
+  if (target >= 6) r = proceedToValue(r)
+  return r
 }

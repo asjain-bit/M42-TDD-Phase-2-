@@ -56,7 +56,7 @@ describe('UsageInsightsScreen', () => {
       '0.13',
       '0.008',
     ])
-    expect(screen.getByText('AI cost includes model + web search')).toBeInTheDocument()
+    expect(screen.getByText('Cost using AI includes model + web search')).toBeInTheDocument()
     const hours = screen.getByLabelText(/Manual hours per output/)
     expect(hours).toHaveValue(6)
     expect(screen.getByLabelText(/Resource cost per hour/)).toHaveValue(35)
@@ -89,14 +89,14 @@ describe('UsageInsightsScreen', () => {
   it('switches between the chart and the summary', async () => {
     const user = userEvent.setup()
     render(<UsageInsightsScreen />)
-    expect(screen.getByRole('img', { name: /Manual cost versus AI cost/ })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Cost without AI versus cost using AI/ })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Summary' }))
     expect(
-      screen.queryByRole('img', { name: /Manual cost versus AI cost/ })
+      screen.queryByRole('img', { name: /Cost without AI versus cost using AI/ })
     ).not.toBeInTheDocument()
     expect(screen.getByText('Estimated savings')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Chart' }))
-    expect(screen.getByRole('img', { name: /Manual cost versus AI cost/ })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Cost without AI versus cost using AI/ })).toBeInTheDocument()
   })
 
   it('lists the cases as Completed, In Progress and Closed, with their case ID', async () => {

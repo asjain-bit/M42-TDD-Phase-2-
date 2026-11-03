@@ -18,6 +18,7 @@ import { ThinkingMode } from '@/components/organisms/ThinkingMode'
 import {
   CallFormatChoice,
   PlatformCallRoom,
+  defaultCallAttendees,
   type CallFormat,
 } from '@/components/organisms/PlatformCallRoom'
 import { StageFooter } from '@/components/molecules/StageFooter'
@@ -138,26 +139,29 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
               : 'The call happens outside the portal. Confirm it took place.'
         }
         badge={
-          value.callConfirmedOn && (
+          value.callConfirmedOn ? (
             <Chip tone="good">
               <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
               Value assessment call completed on {value.callConfirmedOn}
             </Chip>
+          ) : (
+            isSponsor && (
+              <CallFormatChoice name="value-call-format" value={format} onChange={setFormat} />
+            )
           )
         }
       >
-        {isSponsor && !value.callConfirmedOn && (
-          <CallFormatChoice name="value-call-format" value={format} onChange={setFormat} />
-        )}
         {held || (format === 'platform' && !value.callConfirmedOn) ? (
           <PlatformCallRoom
             callType="value"
             caseCode={request.requestCode}
+            request={request}
             hostName="Rashid Al-Nuaimi"
             canHost={isSponsor && !value.callConfirmedOn}
+            defaultAttendees={defaultCallAttendees(request, 'Rashid Al-Nuaimi')}
             saved={held}
-            onComplete={(attendees) =>
-              onAction({ type: 'platformCall', callType: 'value', attendees })
+            onComplete={(attendees, questions) =>
+              onAction({ type: 'platformCall', callType: 'value', attendees, questions })
             }
           />
         ) : value.callConfirmedOn ? null : isSponsor ? (

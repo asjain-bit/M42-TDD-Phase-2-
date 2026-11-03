@@ -16,6 +16,7 @@ import { StageFooter } from '@/components/molecules/StageFooter'
 import {
   CallFormatChoice,
   PlatformCallRoom,
+  defaultCallAttendees,
   type CallFormat,
 } from '@/components/organisms/PlatformCallRoom'
 import type { CaseFile } from '@/types/partnership.types'
@@ -77,7 +78,12 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
   return (
     <div className={`flex flex-col gap-4 w-full h-full min-h-0 ${className}`.trim()}>
       <div className="flex flex-col gap-1 shrink-0">
-        <h2 className="text-xl font-semibold text-[#0d212c]">Discovery Call</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-xl font-semibold text-[#0d212c]">Discovery Call</h2>
+          {canAdd && !held && (
+            <CallFormatChoice name="discovery-call-format" value={format} onChange={setFormat} />
+          )}
+        </div>
         <p className="text-sm text-[#64748b]">
           {canAdd && onPlatform
             ? 'Hold the discovery call here. The agent listens and adds a summary to the meeting notes, then you hand the case to the sponsor.'
@@ -90,18 +96,17 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
       </div>
 
       <div className="relative flex-1 min-h-0 overflow-y-auto flex flex-col gap-5 pr-1">
-        {canAdd && !held && (
-          <CallFormatChoice name="discovery-call-format" value={format} onChange={setFormat} />
-        )}
         {onPlatform && (
           <PlatformCallRoom
             callType="discovery"
             caseCode={request.requestCode}
+            request={request}
             hostName="Zaid Al Ali"
             canHost={canAdd}
+            defaultAttendees={defaultCallAttendees(request, 'Zaid Al Ali')}
             saved={held}
-            onComplete={(attendees) =>
-              onAction({ type: 'platformCall', callType: 'discovery', attendees })
+            onComplete={(attendees, questions) =>
+              onAction({ type: 'platformCall', callType: 'discovery', attendees, questions })
             }
           />
         )}
@@ -142,13 +147,16 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
         <span />
         {canAdd ? (
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={proceed}
-              className="h-10 px-5 rounded-lg border border-[#cbd5e1] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
-            >
-              Skip
-            </button>
+            {/* Once the call has been held here, there is nothing to skip */}
+            {!held && (
+              <button
+                type="button"
+                onClick={proceed}
+                className="h-10 px-5 rounded-lg border border-[#cbd5e1] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
+              >
+                Skip
+              </button>
+            )}
             <button
               type="button"
               onClick={proceed}

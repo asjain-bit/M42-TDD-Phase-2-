@@ -2,8 +2,9 @@
 
 /**
  * InternalInterestsScreen — Screen
- * Service line interests for the Strategy Team (all, to approve or decline) and for the
- * Partnership Admin and Director (approved only), with the overlap check.
+ * Service line interests for the Strategy Team (all, to approve or decline, with the overlap
+ * check) and for the Partnership Admin and Director (approved only, in the same table and drawer
+ * as the Service Line Owner's All interests).
  * Used in: HomePage (Strategy Team, Partnership Admin, Director)
  */
 
@@ -15,6 +16,8 @@ import { StatusChip } from '@/components/atoms/StatusChip'
 import { Textarea } from '@/components/atoms/Textarea'
 import { SearchBar } from '@/components/molecules/SearchBar'
 import { StatusFilterChips } from '@/components/molecules/StatusFilterChips'
+import { InterestDrawer } from '@/components/organisms/InterestDrawer'
+import { InterestTable } from '@/components/organisms/InterestTable'
 import { OverlapDrawer } from '@/components/organisms/OverlapDrawer'
 import { RecommendedVendors } from '@/components/organisms/RecommendedVendors'
 import { ThinkingMode } from '@/components/organisms/ThinkingMode'
@@ -143,6 +146,48 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
     onDecide?.(open.code, decision, decision === 'Declined' ? reason.trim() : undefined)
     setDeclining(false)
     setReason('')
+  }
+
+  // Partnership Admin and Director: approved interests, in the shared table and drawer
+  if (!isStrategy) {
+    return (
+      <div className="flex flex-col gap-6 w-full text-text-primary">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-semibold">Internal Interests</h2>
+            <p className="text-sm text-text-secondary">
+              Requirements raised by service lines and approved by the Strategy Team.
+            </p>
+          </div>
+          <div className="w-full sm:w-72">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search interests..."
+              showButton={false}
+            />
+          </div>
+        </div>
+        <InterestTable
+          interests={rows}
+          onOpen={setOpenCode}
+          selectedCode={openCode}
+          emptyText={
+            visible.length === 0
+              ? 'No interests have been approved yet.'
+              : 'No interests match your search.'
+          }
+        />
+        {open && (
+          <InterestDrawer
+            key={open.code}
+            interest={open}
+            requests={requests}
+            onClose={() => setOpenCode(null)}
+          />
+        )}
+      </div>
+    )
   }
 
   return (

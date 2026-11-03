@@ -2,14 +2,14 @@
 
 /**
  * HighlightEditor — Molecule
- * Small rich-text editor for a note: highlight toolbar, editable area, legend, Save and Cancel.
+ * Small rich-text editor for a note: labelled highlight pills (critical, needs attention,
+ * positive, clear), editable area, Save and Cancel.
  * Used in: SummaryNote, CaseNotes
  */
 
 import React, { useEffect, useRef, useState } from 'react'
 import { Eraser, Highlighter } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
-import { HighlightLegend } from '@/components/atoms/HighlightLegend'
 import {
   CLEAR_TONE,
   NOTE_TONE_CLASSES,
@@ -37,6 +37,10 @@ const highlightSelection = (editor: HTMLElement, tone: NoteTone | typeof CLEAR_T
   selection.removeAllRanges()
   return true
 }
+
+/** Labelled pill for the highlight toolbar: icon and text, in the tone's own colours */
+const PILL =
+  'h-8 px-2.5 rounded-lg border inline-flex items-center gap-1.5 text-[13px] font-medium whitespace-nowrap cursor-pointer transition'
 
 export const HighlightEditor: React.FC<HighlightEditorProps> = ({
   initialHtml = '',
@@ -90,18 +94,18 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
 
   return (
     <div className={`summary-note flex flex-col gap-2.5 ${className}`.trim()}>
-      <div role="toolbar" aria-label="Highlight" className="flex items-center gap-1.5 flex-wrap">
+      <div role="toolbar" aria-label="Highlight" className="flex items-center gap-2 flex-wrap">
         {NOTE_TONES.map(({ tone, label: toneLabel }) => (
           <button
             key={tone}
             type="button"
             onMouseDown={keepSelection}
             onClick={() => applyTone(tone)}
-            aria-label={`Highlight as ${toneLabel.toLowerCase()}`}
-            title={`Highlight as ${toneLabel.toLowerCase()}`}
-            className={`w-8 h-8 rounded-lg border inline-flex items-center justify-center cursor-pointer hover:opacity-80 transition ${NOTE_TONE_CLASSES[tone]}`}
+            aria-label={toneLabel}
+            className={`${PILL} hover:opacity-80 ${NOTE_TONE_CLASSES[tone]}`}
           >
-            <Highlighter className="w-4 h-4" aria-hidden="true" />
+            <Highlighter className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+            {toneLabel}
           </button>
         ))}
         <button
@@ -109,12 +113,12 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
           onMouseDown={keepSelection}
           onClick={() => applyTone(CLEAR_TONE)}
           aria-label="Clear highlight"
-          title="Clear highlight"
-          className="w-8 h-8 rounded-lg border border-border-default text-text-secondary inline-flex items-center justify-center cursor-pointer hover:bg-bg-hover transition"
+          className={`${PILL} bg-bg-default border-border-default text-text-secondary hover:bg-bg-hover`}
         >
-          <Eraser className="w-4 h-4" aria-hidden="true" />
+          <Eraser className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+          Clear
         </button>
-        <span className="text-[11px] text-text-tertiary ml-1">
+        <span className="text-[13px] leading-8 text-text-tertiary sm:whitespace-nowrap">
           Select text, then pick a colour.
         </span>
       </div>
@@ -131,13 +135,12 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
         className="min-h-24 max-h-64 overflow-y-auto rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm leading-relaxed text-text-primary whitespace-pre-wrap outline-none focus:border-border-focus"
       />
 
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <HighlightLegend />
+      <div className="flex items-center justify-end gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>
+          <Button variant="outline" size="md" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="primary" size="sm" onClick={save} disabled={draftEmpty}>
+          <Button variant="primary" size="md" onClick={save} disabled={draftEmpty}>
             Save
           </Button>
         </div>

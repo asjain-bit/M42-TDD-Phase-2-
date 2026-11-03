@@ -125,6 +125,13 @@ export const sanitiseNoteHtml = (html: string): string => {
     if (prev && prev.tone === s.tone) prev.text += s.text
     else merged.push({ ...s })
   }
+  // Drop leading spaces and blank lines, so the note starts with its first word
+  while (merged.length > 0) {
+    const first = merged[0]
+    first.text = first.text.replace(/^[\s\u00a0]+/, '')
+    if (first.text) break
+    merged.shift()
+  }
   // Drop trailing blank lines left over from the editor
   while (merged.length > 0) {
     const last = merged[merged.length - 1]

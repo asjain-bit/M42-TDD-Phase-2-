@@ -11,7 +11,7 @@ import { WORKFLOW_STAGES, type StageKind } from '@/lib/caseActions'
 import type { StageChipProps, StageState } from './StageChip.types'
 
 /** Plain text, like the other text cells in the table row */
-const LABEL_BASE = 'text-xs font-normal whitespace-nowrap'
+const LABEL_BASE = 'text-xs leading-4 font-normal whitespace-nowrap'
 
 const LABEL_TONE: Record<StageKind, string> = {
   active: 'text-text-primary',
@@ -104,7 +104,7 @@ export const StageChip: React.FC<StageChipProps> = ({
                 />
               ))}
             </span>
-            <span className="text-[11px] font-medium text-text-tertiary tabular-nums">
+            <span className="text-[11px] leading-4 font-normal text-text-tertiary tabular-nums">
               {count}/{progress.total}
             </span>
           </span>

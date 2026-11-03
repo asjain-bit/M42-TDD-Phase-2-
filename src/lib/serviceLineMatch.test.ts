@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MAX_VENDOR_MATCHES, matchVendors } from './serviceLineMatch'
+import { MAX_VENDOR_MATCHES, compareInterest, matchVendors } from './serviceLineMatch'
 import { INITIAL_PARTNERSHIP_REQUESTS, type PartnershipRequest } from '@/types/partnership.types'
 
 const base = INITIAL_PARTNERSHIP_REQUESTS[0]
@@ -91,5 +91,76 @@ describe('matchVendors', () => {
       vendor('PR-20', [], 'SCANS of the CHEST with a model'),
     ])
     expect(m.keywordMatches.sort()).toEqual(['chest', 'scan'])
+  })
+})
+
+describe('compareInterest', () => {
+  const existing = {
+    title: 'AI triage for chest imaging backlog',
+    problem: 'Chest scans wait two days to be read at peak times.',
+    focusAreas: ['Medical Imaging', 'AI & Diagnostics'],
+    serviceLine: 'Radiology',
+  }
+
+  it('is very similar with three or four matches', () => {
+    expect(compareInterest({ ...existing, serviceLine: ' radiology ' }, existing)).toEqual({
+      matches: ['title', 'problem', 'focus area', 'service line'],
+      level: 'Very similar',
+    })
+    expect(compareInterest({ ...existing, serviceLine: 'Emergency' }, existing)).toEqual({
+      matches: ['title', 'problem', 'focus area'],
+      level: 'Very similar',
+    })
+  })
+
+  it('is partly similar with one or two matches', () => {
+    expect(
+      compareInterest(
+        {
+          title: 'Faster chest imaging reads',
+          problem: 'Reports are slow.',
+          focusAreas: ['Rare Diseases'],
+          serviceLine: 'Cardiology',
+        },
+        existing
+      )
+    ).toEqual({ matches: ['title'], level: 'Partly similar' })
+    expect(
+      compareInterest(
+        {
+          title: 'Sepsis alerts',
+          problem: 'Late alerts.',
+          focusAreas: ['Medical Imaging'],
+          serviceLine: 'Radiology',
+        },
+        existing
+      )
+    ).toEqual({ matches: ['focus area', 'service line'], level: 'Partly similar' })
+  })
+
+  it('is not similar with nothing in common, including an empty draft', () => {
+    expect(
+      compareInterest(
+        {
+          title: 'Diabetes coaching',
+          problem: 'Patients drop out.',
+          focusAreas: [],
+          serviceLine: 'Endocrinology',
+        },
+        existing
+      ).level
+    ).toBeNull()
+    expect(
+      compareInterest({ title: '', problem: '', focusAreas: [], serviceLine: '' }, existing)
+    ).toEqual({ matches: [], level: null })
+  })
+
+  it('needs two shared words before the title or problem counts', () => {
+    expect(
+      compareInterest(
+        { ...existing, title: 'Imaging only', problem: 'Nothing alike here.' },
+        existing
+      ).matches
+    ).toEqual(['focus area', 'service line'])
   })
 })

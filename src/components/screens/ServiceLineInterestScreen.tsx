@@ -2,22 +2,22 @@
 
 /**
  * ServiceLineInterestScreen — Screen
- * Service line teams raise a requirement, see similar earlier ones while they type, and get the
- * vendors from every partnership request that could meet it.
- * Used in: HomePage (Service Line Team)
+ * New interest: a service line owner raises a requirement, sees similar earlier submissions as
+ * they type, and after submitting gets the vendors M42 already knows that may meet it.
+ * Used in: HomePage (Service Line Owner)
  */
 
 import React, { useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardList, Send } from 'lucide-react'
-import { Badge } from '@/components/atoms/Badge'
+import { ClipboardList, Send } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
 import { Input } from '@/components/atoms/Input'
 import { Select } from '@/components/atoms/Select'
 import { Textarea } from '@/components/atoms/Textarea'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { FocusAreaSelect } from '@/components/molecules/FocusAreaSelect'
+import { InterestDrawer } from '@/components/organisms/InterestDrawer'
 import { RecommendedVendors } from '@/components/organisms/RecommendedVendors'
-import { matchVendors, rankSimilarInterests } from '@/lib/serviceLineMatch'
+import { compareInterest, matchVendors } from '@/lib/serviceLineMatch'
 import type {
   PartnershipRequest,
   ServiceLineInterest,
@@ -86,11 +86,16 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
     showErrors &&
     (k === 'focusAreas' ? draft.focusAreas.length === 0 : missing.includes(k as never))
 
-  const ranked = useMemo(
-    () => rankSimilarInterests({ title: draft.title, focusAreas: draft.focusAreas }, interests),
-    [draft.title, draft.focusAreas, interests]
+  // Earlier interests that look like this one, most similar first; updates as the user types
+  const similar = useMemo(
+    () =>
+      interests
+        .map((interest) => ({ interest, ...compareInterest(draft, interest) }))
+        .filter((m) => m.level !== null)
+        .sort((a, b) => b.matches.length - a.matches.length),
+    [draft, interests]
   )
-  const firstSimilar = ranked.find((r) => r.similar)?.interest
+  const [viewing, setViewing] = useState<ServiceLineInterest | null>(null)
 
   const matches = useMemo(
     () => (submitted ? matchVendors(submitted.draft, requests) : []),
@@ -119,27 +124,17 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
 
   if (submitted) {
     return (
-      <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 animate-in fade-in duration-200">
-        <div className="rounded-2xl border border-border-default bg-bg-default shadow-xs p-8 flex flex-col items-center text-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-status-success-bg text-status-success-text flex items-center justify-center">
-            <CheckCircle2 className="w-8 h-8" strokeWidth={2} aria-hidden="true" />
-          </div>
+      <div className="w-full max-w-4xl mx-auto flex flex-col gap-8 animate-in fade-in duration-200">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
-            <h1 className="text-xl font-semibold text-text-primary">Interest submitted</h1>
-            <p className="text-sm text-text-secondary leading-relaxed">
-              Thank you. The partnerships team will review your requirement.
+            <h1 className="text-lg font-semibold text-text-primary">Interest submitted</h1>
+            <p className="text-sm text-text-tertiary">
+              {submitted.code} · {submitted.draft.title} · sent to the Partnership Admin and
+              Director
             </p>
           </div>
-          <div className="w-full max-w-sm rounded-xl border border-status-success-border bg-status-success-bg py-4 flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
-              Your interest ID
-            </span>
-            <span className="text-3xl font-semibold tracking-tight text-status-success-text">
-              {submitted.code}
-            </span>
-          </div>
-          <Button variant="ghost" size="sm" onClick={reset}>
-            Submit another interest
+          <Button variant="outline" size="md" onClick={reset}>
+            Raise another
           </Button>
         </div>
         <RecommendedVendors matches={matches} />
@@ -163,16 +158,6 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
             approached M42.
           </p>
         </div>
-
-        {firstSimilar && (
-          <div
-            role="status"
-            className="flex items-start gap-2 px-3 py-2 rounded-lg border border-status-warning-border bg-status-warning-bg text-xs text-status-warning-text"
-          >
-            <AlertTriangle className="w-4 h-4 shrink-0" strokeWidth={2} aria-hidden="true" />
-            <span>Looks similar to {firstSimilar.code}. Check it before submitting.</span>
-          </div>
-        )}
 
         <Field id="sl-service-line" label="Service line" required error={isMissing('serviceLine')}>
           <Input
@@ -232,74 +217,77 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
         <div className="flex justify-end pt-2">
           <Button variant="primary" size="md" onClick={handleSubmit} className="gap-1.5">
             <Send className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
-            Submit
+            Submit interest
           </Button>
         </div>
       </section>
 
-      {/* Right: earlier submissions, similar ones first */}
+      {/* Right: earlier submissions that look like this one */}
       <aside
-        aria-labelledby="sl-earlier-heading"
-        className="rounded-2xl border border-border-default bg-bg-default shadow-xs p-5 flex flex-col gap-3 lg:sticky lg:top-20"
+        aria-labelledby="sl-similar-heading"
+        className="rounded-2xl border border-border-default bg-bg-default shadow-xs flex flex-col lg:sticky lg:top-20"
       >
-        <div className="flex items-center gap-2">
-          <ClipboardList
-            className="w-4 h-4 text-text-secondary"
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-          <h2 id="sl-earlier-heading" className="text-sm font-semibold text-text-primary">
-            Earlier submissions
-          </h2>
+        <div className={`flex flex-col gap-1 px-5 pt-5 ${similar.length > 0 ? 'pb-3' : 'pb-5'}`}>
+          <div className="flex items-center gap-2">
+            <ClipboardList
+              className="w-4 h-4 text-text-secondary"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+            <h2 id="sl-similar-heading" className="text-sm font-semibold text-text-primary">
+              Similar earlier submissions
+            </h2>
+          </div>
+          <p className="text-xs text-text-secondary">
+            Earlier submissions like yours show here as you type. You can still submit.
+          </p>
         </div>
-        <ul className="flex flex-col gap-2">
-          {ranked.map(({ interest: i, similar }) => (
-            <li
-              key={i.code}
-              className={`rounded-lg border p-3 flex flex-col gap-1 ${
-                similar
-                  ? 'border-status-warning-border bg-status-warning-bg'
-                  : 'border-border-subtle bg-bg-surface-1'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-medium text-text-tertiary">{i.code}</span>
-                <span className="flex items-center gap-1.5">
-                  {similar && (
-                    <Badge size="sm" variant="warning">
-                      Similar
-                    </Badge>
-                  )}
-                  <Badge
-                    size="sm"
-                    variant={
-                      i.status === 'Approved'
-                        ? 'success'
-                        : i.status === 'Declined'
-                          ? 'error'
-                          : 'info'
-                    }
+        {similar.length > 0 && (
+          <ul className="flex flex-col divide-y divide-border-subtle border-t border-border-subtle">
+            {similar.map(({ interest: i, level, matches: fields }) => (
+              <li key={i.code} className="px-5 py-3 flex flex-col gap-1">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-sm font-semibold text-text-primary leading-snug">
+                    {i.title}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setViewing(i)}
+                    aria-label={`View ${i.code}`}
+                    className="text-xs font-medium text-text-link hover:underline cursor-pointer shrink-0"
                   >
-                    {i.status}
-                  </Badge>
+                    View
+                  </button>
+                </div>
+                <span className="text-xs text-text-tertiary">
+                  {i.code} · {i.submittedBy} · {i.on}
                 </span>
-              </div>
-              <span className="text-sm font-medium text-text-primary leading-snug">{i.title}</span>
-              <span className="text-xs text-text-secondary">
-                {i.serviceLine} · {i.on}
-              </span>
-            </li>
-          ))}
-        </ul>
+                <span className="text-xs">
+                  <span
+                    className={`font-medium ${level === 'Very similar' ? 'text-text-error' : 'text-text-warning'}`}
+                  >
+                    {level}
+                  </span>
+                  <span className="text-text-tertiary"> · same {fields.join(', ')}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </aside>
+
+      {viewing && (
+        <InterestDrawer interest={viewing} requests={requests} onClose={() => setViewing(null)} />
+      )}
 
       {confirming && (
         <ConfirmDialog
           title="Submit your interest?"
           description={
             <>
-              Your requirement will be sent to the partnerships team.
-              {firstSimilar && ` It looks similar to ${firstSimilar.code}.`}
+              Your requirement will be sent to the Partnership Admin and Director.
+              {similar[0]?.level === 'Very similar' &&
+                ` It is very similar to ${similar[0].interest.code}.`}
             </>
           }
           cancelLabel="Review again"

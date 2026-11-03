@@ -9,10 +9,18 @@ import {
   ServiceLineInterestScreen,
   type ServiceLineDraft,
 } from '@/components/screens/ServiceLineInterestScreen'
+import { ServiceLineAllInterestsScreen } from '@/components/screens/ServiceLineAllInterestsScreen'
 import { InternalInterestsScreen } from '@/components/screens/InternalInterestsScreen'
 import { ExistingProjectsScreen } from '@/components/screens/ExistingProjectsScreen'
 import { Sidebar } from '@/components/organisms/Sidebar'
-import { BarChart3, FolderKanban, Lightbulb, LayoutDashboard } from 'lucide-react'
+import {
+  BarChart3,
+  FolderKanban,
+  LayoutDashboard,
+  Lightbulb,
+  ListChecks,
+  CirclePlus,
+} from 'lucide-react'
 import { TddAdminApp } from '@/tdd-admin/TddAdminApp'
 import {
   INITIAL_PARTNERSHIP_REQUESTS,
@@ -27,16 +35,24 @@ import { nextInterestCode } from '@/lib/serviceLineMatch'
 import { findOverlaps } from '@/lib/overlaps'
 import type { StatusRole } from '@/lib/caseStatus'
 import { DEFAULT_ASSUMPTIONS, type UsageAssumptions } from '@/lib/usageInsights'
+import type { CustomKpi } from '@/lib/customKpi'
 import type { VendorFormValues } from '@/types/vendorForm'
 
-type MainTab = 'dashboard' | 'usage' | 'internal-interests' | 'existing-projects' | 'interests'
+type MainTab =
+  | 'dashboard'
+  | 'usage'
+  | 'internal-interests'
+  | 'existing-projects'
+  | 'new-interest'
+  | 'all-interests'
 
 const TAB_TITLES: Record<MainTab, string> = {
   dashboard: 'Dashboard',
-  usage: 'Usage',
+  usage: 'Value and ROI Insights',
   'internal-interests': 'Internal Interests',
   'existing-projects': 'Existing Projects',
-  interests: 'Interests',
+  'new-interest': 'New interest',
+  'all-interests': 'All interests',
 }
 
 export default function HomePage() {
@@ -57,11 +73,13 @@ export default function HomePage() {
   const [projectOverlaps, setProjectOverlaps] = useState<Record<string, Overlap[]>>({})
   // The Value/ROI inputs the Partnership Admin last recalculated, shown to every profile
   const [usageAssumptions, setUsageAssumptions] = useState<UsageAssumptions>(DEFAULT_ASSUMPTIONS)
+  // KPIs the Partnership Admin built, shown to every profile for the session
+  const [customKpis, setCustomKpis] = useState<CustomKpi[]>([])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
 
   const handleLogin = (profile: UserProfile) => {
     setUserProfile(profile)
-    setActiveTab(profile.id === 'service-line' ? 'interests' : 'dashboard')
+    setActiveTab(profile.id === 'service-line' ? 'new-interest' : 'dashboard')
     setIsAuthenticated(true)
   }
 
@@ -124,10 +142,13 @@ export default function HomePage() {
           ? 'director'
           : null
   const navItems = isServiceLine
-    ? [{ id: 'interests', label: 'Interests', icon: Lightbulb }]
+    ? [
+        { id: 'new-interest', label: 'New interest', icon: CirclePlus },
+        { id: 'all-interests', label: 'All interests', icon: ListChecks },
+      ]
     : [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'usage', label: 'Usage', icon: BarChart3 },
+        { id: 'usage', label: 'Value & ROI', icon: BarChart3 },
         ...(portfolioRole
           ? [
               { id: 'internal-interests', label: 'Internal Interests', icon: Lightbulb },
@@ -194,7 +215,13 @@ export default function HomePage() {
 
         {/* Full-Width Dashboard Content */}
         <main className="flex-1 w-full p-6">
-          {isServiceLine ? (
+          {isServiceLine && activeTab === 'all-interests' ? (
+            <ServiceLineAllInterestsScreen
+              interests={serviceLineInterests}
+              requests={requests}
+              userName={userProfile.name}
+            />
+          ) : isServiceLine ? (
             <ServiceLineInterestScreen
               interests={serviceLineInterests}
               requests={requests}
@@ -222,6 +249,15 @@ export default function HomePage() {
               onRecalculate={(next) => {
                 setUsageAssumptions(next)
               }}
+              customKpis={customKpis}
+              onSaveKpi={(kpi) =>
+                setCustomKpis((prev) =>
+                  prev.some((k) => k.id === kpi.id)
+                    ? prev.map((k) => (k.id === kpi.id ? kpi : k))
+                    : [...prev, kpi]
+                )
+              }
+              onDeleteKpi={(id) => setCustomKpis((prev) => prev.filter((k) => k.id !== id))}
             />
           ) : (
             <DashboardScreen

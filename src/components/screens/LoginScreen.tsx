@@ -76,9 +76,9 @@ export const AVAILABLE_PROFILES: UserProfile[] = [
   {
     id: 'service-line',
     name: 'Hamad Al Suwaidi',
-    designation: 'Service Line Team',
+    designation: 'Service Line Owner',
     email: 'hamad.alsuwaidi@m42.ae',
-    roleTitle: 'Service Line Team',
+    roleTitle: 'Service Line Owner',
   },
   {
     id: 'tdd-admin',

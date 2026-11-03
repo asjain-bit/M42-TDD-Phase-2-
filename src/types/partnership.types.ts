@@ -90,6 +90,9 @@ export interface MeetingSummary {
   openQuestions: string[]
   risks: string[]
   nextSteps: string[]
+  /** Questions the host ticked off on the call, and the suggested ones left unasked */
+  questionsAsked?: string[]
+  questionsNotAsked?: string[]
 }
 
 /** A discovery or value call held on the platform, with the agent's summary */
@@ -522,7 +525,7 @@ export const M42_PEOPLE: { name: string; role: string; email: string }[] = [
     role: 'Lead Clinical Bioinformatician',
     email: 'fatima.alzaabi@m42.ae',
   },
-  { name: 'Hamad Al Suwaidi', role: 'Service Line Team', email: 'hamad.alsuwaidi@m42.ae' },
+  { name: 'Hamad Al Suwaidi', role: 'Service Line Owner', email: 'hamad.alsuwaidi@m42.ae' },
   { name: 'Aisha Al Dhaheri', role: 'Procurement Lead', email: 'aisha.aldhaheri@m42.ae' },
 ]
 
@@ -594,7 +597,7 @@ export const INITIAL_SERVICE_LINE_INTERESTS: ServiceLineInterest[] = [
     focusAreas: ['Cardiology & Precision Health', 'AI & Diagnostics'],
     outcome: 'Cut unplanned heart failure admissions by 15% within a year.',
     urgency: 'High',
-    submittedBy: 'Hamad Al Suwaidi',
+    submittedBy: 'Dr. Tariq Al Nuaimi',
     on: '06 Oct 2026',
     status: 'Approved',
     decidedBy: 'Leena Thomas',
@@ -609,7 +612,7 @@ export const INITIAL_SERVICE_LINE_INTERESTS: ServiceLineInterest[] = [
     focusAreas: ['Medical Imaging', 'AI & Diagnostics'],
     outcome: 'Urgent chest findings reported within 4 hours; report turnaround under 24 hours.',
     urgency: 'High',
-    submittedBy: 'Hamad Al Suwaidi',
+    submittedBy: 'Parag Agarwal',
     on: '13 Oct 2026',
     status: 'Pending review',
   },
@@ -637,7 +640,7 @@ export const INITIAL_SERVICE_LINE_INTERESTS: ServiceLineInterest[] = [
     focusAreas: ['Genomics & Oncology', 'Rare Diseases'],
     outcome: 'Median time to a variant report under 10 working days.',
     urgency: 'Low',
-    submittedBy: 'Hamad Al Suwaidi',
+    submittedBy: 'Fatima Al Zaabi',
     on: '24 Oct 2026',
     status: 'Declined',
     decidedBy: 'Leena Thomas',

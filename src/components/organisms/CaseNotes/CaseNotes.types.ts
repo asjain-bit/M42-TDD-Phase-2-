@@ -11,8 +11,10 @@ export interface CaseNotesProps {
   canEditNotes?: boolean
   /** Called with the sanitised key notes HTML */
   onSaveNote?: (html: string) => void
-  /** X, Esc or a click on the overlay */
+  /** X, Esc, a click outside, or the opening icon clicked again (after the closing motion) */
   onClose: () => void
+  /** The Notes icon or button it opened from; the popover points at it */
+  anchor?: HTMLElement | null
   /** Open with every section showing */
   defaultExpanded?: boolean
 }

@@ -9,10 +9,14 @@ import {
   Inbox,
   ClipboardList,
   CheckCircle2,
+  FlaskConical,
   Briefcase,
   NotebookPen,
 } from 'lucide-react'
 import { SearchBar } from '@/components/molecules/SearchBar'
+import { AppDialog } from '@/components/molecules/AppDialog'
+import { Button } from '@/components/atoms/Button'
+import { Select } from '@/components/atoms/Select'
 import { StageChip } from '@/components/molecules/StageChip'
 import { Pagination } from '@/components/molecules/Pagination'
 import { TableFilterMenu } from '@/components/molecules/TableFilterMenu'
@@ -34,6 +38,8 @@ import {
   appendAudit,
   applyCaseAction,
   buildSplitCases,
+  buildTestCase,
+  nextCaseCode,
   getStageLabel,
   getStageProgress,
   WORKFLOW_STAGES,
@@ -198,8 +204,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const selectedRequest = requests.find((r) => r.id === selectedId) ?? null
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   // The case whose notes panel is open over the table
-  const [notesId, setNotesId] = useState<string | null>(null)
-  const notesRequest = requests.find((r) => r.id === notesId) ?? null
+  // Prototype navigation only: the Director creates a case that starts at a chosen stage
+  const [testCaseOpen, setTestCaseOpen] = useState(false)
+  const [testStage, setTestStage] = useState<(typeof WORKFLOW_STAGES)[number]>(WORKFLOW_STAGES[0])
+  const createTestCase = () => {
+    const testCase = buildTestCase(nextCaseCode(requests), testStage)
+    setRequests((prev) => [testCase, ...prev])
+    setTestCaseOpen(false)
+    setSelectedId(testCase.id)
+  }
+
+  // The case whose notes popover is open, and the Notes icon it points at
+  const [openNotes, setOpenNotes] = useState<{ id: string; anchor: HTMLElement } | null>(null)
+  const notesRequest = requests.find((r) => r.id === openNotes?.id) ?? null
   // Every column plus Notes
   const columnCount = isNonDirector ? 9 : isAdmin ? 10 : 9
 
@@ -535,6 +552,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             activeCount={activeFilterCount}
             onClear={clearFilters}
           />
+          {statusRole === 'director' && (
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setTestCaseOpen(true)}
+              title="Prototype navigation only"
+              className="gap-1.5 whitespace-nowrap"
+            >
+              <FlaskConical className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+              Add test case
+            </Button>
+          )}
           <div className="w-full sm:w-72">
             <SearchBar
               value={searchTerm}
@@ -549,14 +578,47 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </div>
 
+      {/* Prototype navigation only: a new case that starts at the chosen stage */}
+      <AppDialog
+        isOpen={testCaseOpen}
+        title="Add test case"
+        description="Prototype navigation only. Earlier stages are filled with sample data."
+        onClose={() => setTestCaseOpen(false)}
+        actions={
+          <>
+            <Button variant="outline" size="md" onClick={() => setTestCaseOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="md" onClick={createTestCase}>
+              Create
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="test-case-stage" className="text-xs font-semibold text-text-secondary">
+            Start at stage
+          </label>
+          <Select
+            id="test-case-stage"
+            value={testStage}
+            onChange={(e) => setTestStage(e.target.value as (typeof WORKFLOW_STAGES)[number])}
+            options={WORKFLOW_STAGES.map((st) => ({ value: st, label: st }))}
+          />
+        </div>
+      </AppDialog>
+
       {/* Case notes panel, docked over the table */}
       {notesRequest && (
         <CaseNotes
+          // A new row's icon moves the popover: a fresh one opens, pointing at that icon
+          key={notesRequest.id}
           request={notesRequest}
           status={statusOf(notesRequest)}
           showAssessment={!isNonDirector}
           onSaveNote={(html) => handleSaveNote(notesRequest.id, html)}
-          onClose={() => setNotesId(null)}
+          onClose={() => setOpenNotes(null)}
+          anchor={openNotes?.anchor}
         />
       )}
 
@@ -724,12 +786,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setNotesId(req.id)
+                            // Clicking the open icon again is handled by the popover, which closes
+                            if (openNotes?.id === req.id) return
+                            setOpenNotes({ id: req.id, anchor: e.currentTarget })
                           }}
                           aria-label={`Open notes for ${req.companyName}`}
                           aria-haspopup="dialog"
+                          aria-expanded={openNotes?.id === req.id}
                           title="Open notes"
-                          className="w-8 h-8 rounded-lg inline-flex items-center justify-center border border-border-default text-text-secondary hover:text-text-primary hover:bg-bg-hover cursor-pointer transition"
+                          className={`w-8 h-8 rounded-lg inline-flex items-center justify-center border cursor-pointer transition ${
+                            openNotes?.id === req.id
+                              ? 'border-[var(--app-accent)] bg-[var(--app-accent-soft)] text-[var(--app-accent)]'
+                              : 'border-border-default text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                          }`}
                         >
                           <NotebookPen className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
                         </button>

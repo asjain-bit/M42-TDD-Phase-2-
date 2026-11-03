@@ -3,7 +3,7 @@
 /**
  * FocusAreaSelect — Molecule
  * Multi-select of the M42 focus areas: chips in the trigger, a checkbox list below.
- * Used in: VendorWebForm, ServiceLineInterestScreen
+ * Used in: VendorWebForm, ServiceLineInterestScreen (New interest)
  */
 
 import React, { useState } from 'react'

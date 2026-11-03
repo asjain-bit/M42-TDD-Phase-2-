@@ -2,13 +2,16 @@
 
 /**
  * UsageInsightsScreen — Screen
- * Weekly usage of the assessment agent: KPI cards, the value/ROI inputs with a manual cost vs
- * AI cost comparison (chart or table), and assessments grouped by status.
+ * Value and ROI Insights: weekly usage of the assessment agent (KPI cards, plus the Partnership
+ * Admin's own KPIs), the cost without AI vs cost using AI chart with the four figures beside it,
+ * a side drawer with the inputs behind them (read-only until the Admin edits them), and
+ * assessments grouped by status.
  * Used in: HomePage
  */
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import {
+  ArrowRight,
   Calendar,
   ChevronDown,
   ChevronLeft,
@@ -16,8 +19,11 @@ import {
   ChevronUp,
   Coins,
   Info,
-  LineChart,
-  List,
+  Pencil,
+  Plus,
+  Sigma,
+  Trash2,
+  X,
   PhoneCall,
   Search,
   Hash,
@@ -33,6 +39,15 @@ import {
   type UsageAssumptions,
 } from '@/lib/usageInsights'
 import { INITIAL_PARTNERSHIP_REQUESTS, type PartnershipRequest } from '@/types/partnership.types'
+import { Button } from '@/components/atoms/Button'
+import { CreateKpiModal } from '@/components/organisms/CreateKpiModal'
+import {
+  describeCustomKpi,
+  evaluateCustomKpi,
+  formatKpiValue,
+  kpiValuesFor,
+  type CustomKpi,
+} from '@/lib/customKpi'
 
 const TEAL = '#36c0c9'
 // The dark navy of the M42 logo
@@ -95,6 +110,40 @@ const INPUT_ROWS: {
   },
 ]
 
+/** What each figure in the summary means */
+const TIPS = {
+  withoutAi:
+    'What it would cost for people to produce the same results by hand: outputs × hours per output × hourly cost of the employee.',
+  usingAi:
+    'What the AI actually cost to produce these results: tokens used × price per 1M tokens, plus embedding tokens and web search credits.',
+  roi: 'How many times cheaper using AI was: cost without AI ÷ cost using AI.',
+  savings: 'Money saved by using AI: cost without AI − cost using AI.',
+}
+
+/** Info icon with a tooltip on hover and keyboard focus */
+const InfoTip: React.FC<{ label: string; text: string }> = ({ label, text }) => {
+  const id = useId()
+  return (
+    <span className="relative inline-flex group">
+      <button
+        type="button"
+        aria-label={`About ${label}`}
+        aria-describedby={id}
+        className="inline-flex rounded-full text-text-tertiary hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus cursor-help"
+      >
+        <Info className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
+      </button>
+      <span
+        id={id}
+        role="tooltip"
+        className="pointer-events-none absolute left-1/2 bottom-full mb-2 -translate-x-1/2 z-20 w-64 rounded-lg bg-bg-tooltip px-3 py-2 text-xs font-normal leading-relaxed text-text-inverse shadow-lg opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
 const KpiCard: React.FC<{
   title: string
   value: string
@@ -114,14 +163,35 @@ const KpiCard: React.FC<{
   </div>
 )
 
+/** The cost chart keeps this height whatever its width */
+const CHART_HEIGHT = 190
+
+/** Width of an element, kept up to date as it resizes */
+const useWidth = <T extends HTMLElement>() => {
+  const ref = useRef<T>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    setWidth(el.clientWidth)
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  return [ref, width] as const
+}
+
 const CostChart: React.FC<{
   manual: number[]
   ai: number[]
   selected: number
   labels: string[]
-}> = ({ manual, ai, selected, labels }) => {
-  const W = 600
-  const H = 280
+  /** Measured width of the chart area; the height is fixed */
+  width: number
+}> = ({ manual, ai, selected, labels, width }) => {
+  const W = Math.max(width, 320)
+  const H = CHART_HEIGHT
   const left = 44
   const right = 124
   const top = 16
@@ -137,7 +207,7 @@ const CostChart: React.FC<{
     <svg
       viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label="Manual cost versus AI cost by week"
+      aria-label="Cost without AI versus cost using AI by week"
       className="w-full h-auto"
     >
       {ticks.map((t) => (
@@ -165,10 +235,10 @@ const CostChart: React.FC<{
         <circle key={`a${i}`} cx={x(i)} cy={y(v)} r={i === selected ? 5 : 3.5} fill={DARK} />
       ))}
       <text x={x(last) + 12} y={y(manual[last]) + 4} fontSize="12" fontWeight="600" fill="#0d212c">
-        Manual {formatUsd(manual[last])}
+        Without AI {formatUsd(manual[last])}
       </text>
       <text x={x(last) + 12} y={y(ai[last]) + 4} fontSize="12" fontWeight="600" fill="#0d212c">
-        AI {formatUsd(ai[last])}
+        Using AI {formatUsd(ai[last])}
       </text>
       {labels.map((label, i) => (
         <text
@@ -188,6 +258,11 @@ const CostChart: React.FC<{
 }
 
 export interface UsageInsightsScreenProps {
+  /** KPIs the Partnership Admin built, kept by the page; shown as extra Overview cards */
+  customKpis?: CustomKpi[]
+  /** Save a new or edited KPI (Partnership Admin) */
+  onSaveKpi?: (kpi: CustomKpi) => void
+  onDeleteKpi?: (id: string) => void
   /** The cases behind the assessments by status; the seed cases when omitted */
   requests?: PartnershipRequest[]
   /** Only the Partnership Admin can change the Value/ROI inputs and recalculate */
@@ -200,6 +275,9 @@ export interface UsageInsightsScreenProps {
 export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
   requests = INITIAL_PARTNERSHIP_REQUESTS,
   canRecalculate = false,
+  customKpis = [],
+  onSaveKpi,
+  onDeleteKpi,
   assumptions: sharedAssumptions,
   onRecalculate,
 }) => {
@@ -223,7 +301,27 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
   const changed =
     valid &&
     (Object.keys(parsed) as (keyof UsageAssumptions)[]).some((k) => parsed[k] !== assumptions[k])
-  const [view, setView] = useState<'chart' | 'table'>('chart')
+  // The inputs start collapsed and read-only; the Partnership Admin unlocks them with Edit inputs
+  // How costs are calculated: a side drawer with the inputs, read-only until the Admin edits them
+  const [inputsOpen, setInputsOpen] = useState(false)
+  const [editingInputs, setEditingInputs] = useState(false)
+  const cancelEdit = () => {
+    setDraft(toDraft(assumptions))
+    setEditingInputs(false)
+  }
+  const closeInputs = () => {
+    cancelEdit()
+    setInputsOpen(false)
+  }
+  const latestClose = useRef(closeInputs)
+  latestClose.current = closeInputs
+  useEffect(() => {
+    if (!inputsOpen) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && latestClose.current()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [inputsOpen])
+  const [chartRef, chartWidth] = useWidth<HTMLDivElement>()
   const [showAll, setShowAll] = useState(false)
 
   const week = USAGE_WEEKS[weekIndex]
@@ -248,8 +346,13 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
         setOwnAssumptions(parsed)
       }
       setRecalculating(false)
+      setEditingInputs(false)
     }, 1500)
   }
+
+  // Custom KPIs: the popup, and the selected week's figures they are worked out from
+  const [kpiModal, setKpiModal] = useState<{ kpi?: CustomKpi } | null>(null)
+  const kpiValues = kpiValuesFor(week, assumptions)
 
   const groups = groupAssessmentsByStatus(requests)
 
@@ -264,6 +367,16 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
             Overview
           </h2>
           <div className="flex items-center gap-2">
+            {canRecalculate && onSaveKpi && (
+              <button
+                type="button"
+                onClick={() => setKpiModal({})}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-default bg-bg-default text-xs font-medium text-text-primary hover:bg-bg-hover cursor-pointer transition"
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
+                Create KPI
+              </button>
+            )}
             <button
               type="button"
               aria-label="Previous week"
@@ -321,7 +434,7 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
             icon={<Hash className="w-5 h-5 text-[#6366f1] stroke-[2]" />}
           />
           <KpiCard
-            title="Estimated AI Cost"
+            title="Estimated cost using AI"
             value={formatUsd(ai)}
             caption={`week of ${week.short}, 2026 · Text & Voice tokens`}
             icon={<Coins className="w-5 h-5 text-[#d97706] stroke-[2]" />}
@@ -332,7 +445,69 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
             caption="Search, extract & page reads"
             icon={<Search className="w-5 h-5 text-[#d97706] stroke-[2]" />}
           />
+          {customKpis.map((kpi) => {
+            const result = evaluateCustomKpi(kpi, kpiValues)
+            return (
+              <div
+                key={kpi.id}
+                className="relative bg-bg-default p-4 sm:p-5 rounded-2xl border border-border-default shadow-xs flex flex-col justify-between gap-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.06em] truncate">
+                    {kpi.name}
+                  </span>
+                  {canRecalculate ? (
+                    <span className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setKpiModal({ kpi })}
+                        aria-label={`Edit ${kpi.name}`}
+                        className="p-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-hover cursor-pointer transition"
+                      >
+                        <Pencil className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteKpi?.(kpi.id)}
+                        aria-label={`Delete ${kpi.name}`}
+                        className="p-1 rounded-md text-text-tertiary hover:text-text-error hover:bg-bg-hover cursor-pointer transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
+                      </button>
+                    </span>
+                  ) : (
+                    <Sigma
+                      className="w-5 h-5 text-text-tertiary shrink-0"
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+                  )}
+                </div>
+                <div className="text-4xl font-medium text-text-primary leading-none my-1">
+                  {'value' in result ? formatKpiValue(result.value, kpi.unit) : '-'}
+                </div>
+                <div className="h-[1px] bg-border-subtle w-full" />
+                <div
+                  className={`text-xs font-medium ${'value' in result ? 'text-text-secondary' : 'text-text-error'}`}
+                >
+                  {'value' in result ? describeCustomKpi(kpi) : result.error}
+                </div>
+              </div>
+            )
+          })}
         </div>
+        {kpiModal && onSaveKpi && (
+          <CreateKpiModal
+            initial={kpiModal.kpi}
+            values={kpiValues}
+            weekLabel={week.full}
+            onSave={(kpi) => {
+              onSaveKpi(kpi)
+              setKpiModal(null)
+            }}
+            onClose={() => setKpiModal(null)}
+          />
+        )}
       </section>
 
       {/* Value / ROI */}
@@ -340,22 +515,162 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
         <h2 id="usage-roi" className="text-lg font-semibold text-[#0d212c]">
           Value/ROI
         </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-5 sm:p-6 flex flex-col">
-            <ul className="flex flex-col divide-y divide-[#f1f5f9]">
+        <div className="relative bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-5 sm:p-6 flex flex-col gap-4">
+          {recalculating && (
+            <div
+              role="status"
+              aria-label="Recalculating"
+              className="absolute inset-0 z-10 rounded-2xl bg-white/90 flex flex-col items-center justify-center gap-3"
+            >
+              <svg viewBox="0 0 48 48" className="w-12 h-12 animate-spin" aria-hidden="true">
+                <circle cx="24" cy="24" r="20" fill="none" stroke="#e2e8f0" strokeWidth="4" />
+                <circle
+                  cx="24"
+                  cy="24"
+                  r="20"
+                  fill="none"
+                  stroke={TEAL}
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeDasharray="42 126"
+                />
+              </svg>
+              <span className="text-sm font-medium text-[#475569]">Recalculating…</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-4 flex-wrap">
+              <h3 className="text-base font-semibold text-[#0d212c]">
+                Cost without AI vs cost using AI
+              </h3>
+              <div className="flex items-center gap-3 text-xs text-[#64748b]">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-4 h-0.5" style={{ backgroundColor: TEAL }} />
+                  Cost without AI
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-4 h-0.5" style={{ backgroundColor: DARK }} />
+                  Cost using AI
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_15rem] gap-6 items-center">
+            <div ref={chartRef} className="min-w-0" style={{ height: CHART_HEIGHT }}>
+              {chartWidth > 0 && (
+                <CostChart
+                  manual={manualSeries}
+                  ai={aiSeries}
+                  selected={weekIndex}
+                  labels={USAGE_WEEKS.map((w) => w.short)}
+                  width={chartWidth}
+                />
+              )}
+            </div>
+            <dl className="flex flex-col divide-y divide-border-subtle lg:border-l lg:border-border-subtle lg:pl-6">
+              {[
+                {
+                  label: 'Cost without AI',
+                  value: formatUsd(manual),
+                  tip: TIPS.withoutAi,
+                  note: `${week.calls * assumptions.hoursPerAssessment} hours at ${formatUsd(assumptions.costPerHour)}/h`,
+                },
+                {
+                  label: 'Cost using AI',
+                  value: formatUsd(ai),
+                  tip: TIPS.usingAi,
+                  note: `${week.tokensM.toFixed(1)}M tokens · Text & Voice`,
+                },
+                {
+                  label: 'Estimated ROI',
+                  value: `${Math.round(roi)}x`,
+                  tip: TIPS.roi,
+                  accent: true,
+                },
+                {
+                  label: 'Estimated savings',
+                  value: formatUsd(manual - ai),
+                  tip: TIPS.savings,
+                  accent: true,
+                  note: week.full,
+                },
+              ].map((f) => (
+                <div key={f.label} className="flex flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0">
+                  <dt className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
+                    {f.label}
+                    <InfoTip label={f.label} text={f.tip} />
+                  </dt>
+                  <dd
+                    className={`text-xl font-semibold ${f.accent ? 'text-[var(--app-accent)]' : 'text-text-primary'}`}
+                  >
+                    {f.value}
+                  </dd>
+                  {f.note && <span className="text-[11px] text-text-tertiary">{f.note}</span>}
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          {/* Footer: what the figures are based on, and the drawer that explains them. Same grid
+              as the chart and figures, so the link starts where the figure labels do. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_15rem] gap-x-6 gap-y-2 items-center pt-3 border-t border-border-subtle">
+            <span className="text-xs text-text-tertiary">
+              Week of {week.full} · based on {INPUT_ROWS.length} inputs
+            </span>
+            {/* Matches the figures column: a 1px (invisible) left border and 24px padding */}
+            <div className="lg:border-l lg:border-transparent lg:pl-6">
+              <button
+                type="button"
+                onClick={() => setInputsOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={inputsOpen}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-text-link hover:underline cursor-pointer"
+              >
+                <Info className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
+                How costs are calculated
+                <ArrowRight className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How costs are calculated: right side drawer, no overlay */}
+      {inputsOpen && (
+        <aside
+          role="dialog"
+          aria-labelledby="usage-inputs-title"
+          className="fixed top-0 right-0 z-50 h-full w-full max-w-lg bg-bg-default border-l border-border-default shadow-2xl flex flex-col"
+        >
+          <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-border-subtle shrink-0">
+            <div className="flex flex-col gap-1">
+              <h2 id="usage-inputs-title" className="text-base font-semibold text-text-primary">
+                How costs are calculated
+              </h2>
+              <p className="text-xs text-text-secondary">Inputs behind the cost and ROI numbers.</p>
+            </div>
+            <button
+              type="button"
+              onClick={closeInputs}
+              aria-label="Close how costs are calculated"
+              className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-hover cursor-pointer transition"
+            >
+              <X className="w-5 h-5" strokeWidth={2} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-6 overscroll-contain">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {INPUT_ROWS.map((row) => (
-                <li
-                  key={row.key}
-                  className="flex items-center justify-between gap-4 py-3 first:pt-0"
-                >
-                  <label htmlFor={`usage-${row.key}`} className="flex flex-col min-w-0">
-                    <span className="text-sm font-semibold text-[#0d212c]">{row.label}</span>
-                    {row.hint && <span className="text-xs text-[#94a3b8]">{row.hint}</span>}
+                <div key={row.key} className="flex flex-col gap-1.5">
+                  <label htmlFor={`usage-${row.key}`} className="flex flex-col">
+                    <span className="text-xs font-semibold text-text-primary">{row.label}</span>
+                    {row.hint && <span className="text-[11px] text-text-tertiary">{row.hint}</span>}
                   </label>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="relative">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
                       {row.prefix && (
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#94a3b8]">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">
                           {row.prefix}
                         </span>
                       )}
@@ -365,162 +680,68 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
                         min="0"
                         step={row.step}
                         value={draft[row.key]}
-                        disabled={!canRecalculate}
+                        disabled={!canRecalculate || !editingInputs}
                         onChange={(e) => setValue(row.key, e.target.value)}
-                        className={`w-28 disabled:bg-slate-50 disabled:text-[#64748b] disabled:cursor-not-allowed h-10 rounded-lg border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] text-center shadow-2xs transition hover:border-[#bcc7d3] focus:outline-none focus:border-[#a3b1c2] ${
+                        className={`w-full h-10 rounded-lg border border-border-default bg-bg-input text-sm font-semibold text-text-primary px-3 transition focus:outline-none focus:border-border-focus disabled:bg-bg-surface-1 disabled:text-text-secondary disabled:cursor-not-allowed ${
                           row.prefix ? 'pl-6' : ''
                         }`}
                       />
                     </div>
-                    <span className="w-10 text-sm text-[#64748b]">{row.unit}</span>
+                    {row.unit && (
+                      <span className="text-xs text-text-tertiary w-10">{row.unit}</span>
+                    )}
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
-            <div className="pt-4 flex items-center justify-between gap-3 flex-wrap">
-              <p className="text-xs text-[#94a3b8]">
-                AI cost includes model + web search
-                {!canRecalculate && ' · Only an admin can recalculate'}
-              </p>
-              {canRecalculate && (
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={recalculating || !changed}
+            </div>
+            <div className="rounded-lg border border-border-subtle bg-bg-surface-1 px-4 py-3 flex flex-col gap-1.5 text-xs text-text-secondary">
+              <span>
+                <span className="font-semibold text-text-primary">Cost without AI</span> = outputs ×
+                hours × hourly cost
+              </span>
+              <span>
+                <span className="font-semibold text-text-primary">Cost using AI</span> = tokens ×
+                price + embeddings + search credits
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-border-subtle shrink-0 flex-wrap">
+            <span className="text-[11px] text-text-tertiary">
+              {canRecalculate
+                ? editingInputs
+                  ? 'Recalculate to apply your changes.'
+                  : 'Read-only until you edit the inputs.'
+                : 'Only an admin can edit the inputs.'}
+            </span>
+            {canRecalculate &&
+              (editingInputs ? (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="md" onClick={cancelEdit} disabled={recalculating}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="md"
                     onClick={recalculate}
-                    className="h-9 px-4 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] disabled:opacity-60 disabled:cursor-wait text-xs font-semibold text-white flex items-center gap-1.5 cursor-pointer transition"
+                    disabled={recalculating || !changed}
                   >
                     Recalculate
-                  </button>
+                  </Button>
                 </div>
-              )}
-            </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => setEditingInputs(true)}
+                  className="gap-1.5"
+                >
+                  <Pencil className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+                  Edit inputs
+                </Button>
+              ))}
           </div>
-
-          <div className="relative bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-5 sm:p-6 flex flex-col gap-4">
-            {recalculating && (
-              <div
-                role="status"
-                aria-label="Recalculating"
-                className="absolute inset-0 z-10 rounded-2xl bg-white/90 flex flex-col items-center justify-center gap-3"
-              >
-                <svg viewBox="0 0 48 48" className="w-12 h-12 animate-spin" aria-hidden="true">
-                  <circle cx="24" cy="24" r="20" fill="none" stroke="#e2e8f0" strokeWidth="4" />
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    fill="none"
-                    stroke={TEAL}
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeDasharray="42 126"
-                  />
-                </svg>
-                <span className="text-sm font-medium text-[#475569]">Recalculating…</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-4 flex-wrap">
-                <h3 className="text-base font-semibold text-[#0d212c]">Manual cost vs AI cost</h3>
-                {view === 'chart' && (
-                  <div className="flex items-center gap-3 text-xs text-[#64748b]">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-4 h-0.5" style={{ backgroundColor: TEAL }} />
-                      Manual cost
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-4 h-0.5" style={{ backgroundColor: DARK }} />
-                      AI cost
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div
-                role="group"
-                aria-label="Chart view"
-                className="flex items-center gap-1 p-1 rounded-lg border border-[#e2e8f0] bg-white"
-              >
-                {(
-                  [
-                    { id: 'chart', label: 'Chart', Icon: LineChart },
-                    { id: 'table', label: 'Summary', Icon: List },
-                  ] as const
-                ).map(({ id, label, Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-label={label}
-                    aria-pressed={view === id}
-                    onClick={() => setView(id)}
-                    className={`w-8 h-8 rounded-md flex items-center justify-center cursor-pointer transition ${
-                      view === id ? 'bg-[#36c0c9] text-white' : 'text-[#64748b] hover:bg-slate-100'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {view === 'chart' ? (
-              <CostChart
-                manual={manualSeries}
-                ai={aiSeries}
-                selected={weekIndex}
-                labels={USAGE_WEEKS.map((w) => w.short)}
-              />
-            ) : (
-              <dl className="flex flex-col flex-1 border-t border-[#e2e8f0]/70">
-                <div className="grid grid-cols-2 py-5 flex-1 items-center">
-                  <div className="flex flex-col gap-2 pr-6">
-                    <dt className="text-sm font-semibold text-[#0d212c] flex items-center gap-1.5">
-                      Manual cost
-                      <Info className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-                    </dt>
-                    <dd className="text-3xl font-semibold text-[#0d212c]">{formatUsd(manual)}</dd>
-                    <span className="text-xs text-[#64748b]">
-                      Total hours {week.calls * assumptions.hoursPerAssessment} | Cost per hour{' '}
-                      {formatUsd(assumptions.costPerHour)}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2 pl-6 border-l border-[#e2e8f0]/70">
-                    <dt className="text-sm font-semibold text-[#0d212c] flex items-center gap-1.5">
-                      AI cost
-                      <Info className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-                    </dt>
-                    <dd className="text-3xl font-semibold text-[#0d212c]">{formatUsd(ai)}</dd>
-                    <span className="text-xs text-[#64748b]">
-                      Total tokens {week.tokensM.toFixed(1)}M · Text & Voice
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 py-5 flex-1 items-center border-t border-[#e2e8f0]/70">
-                  <div className="flex flex-col gap-2 pr-6">
-                    <dt className="text-sm font-semibold text-[#0d212c] flex items-center gap-1.5">
-                      Estimated ROI
-                      <Info className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-                    </dt>
-                    <dd className="text-3xl font-semibold" style={{ color: TEAL }}>
-                      {Math.round(roi)}x
-                    </dd>
-                  </div>
-                  <div className="flex flex-col gap-2 pl-6 border-l border-[#e2e8f0]/70">
-                    <dt className="text-sm font-semibold text-[#0d212c] flex items-center gap-1.5">
-                      Estimated savings
-                      <Info className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-                    </dt>
-                    <dd className="text-3xl font-semibold" style={{ color: TEAL }}>
-                      {formatUsd(manual - ai)}
-                    </dd>
-                    <span className="text-xs text-[#64748b]">{week.full}</span>
-                  </div>
-                </div>
-              </dl>
-            )}
-          </div>
-        </div>
-      </section>
+        </aside>
+      )}
 
       {/* Assessments by status */}
       <section aria-labelledby="usage-status" className="flex flex-col gap-4">

@@ -64,7 +64,6 @@ import { getDisplayStatus, type DisplayStatus } from '@/lib/caseStatus'
 import { AssessmentBrief } from '@/components/organisms/AssessmentBrief'
 import { BriefDecisionModal } from '@/components/organisms/BriefDecisionModal'
 import { ReviewersLoading } from '@/components/molecules/ReviewersLoading'
-import { SummaryNote } from '@/components/molecules/SummaryNote'
 import { WorkflowStepper, type WorkflowStep } from '@/components/molecules/WorkflowStepper'
 import {
   KnowledgeBaseUpload,
@@ -79,7 +78,6 @@ import {
   questionsFromAnswers,
   type QuestionAnswerValue,
 } from '@/components/organisms/ReviewQuestionnaire'
-import { CaseNotes } from '@/components/organisms/CaseNotes'
 import { VendorFormResponse } from '@/components/organisms/VendorFormResponse'
 import { sampleAnswersFor } from '@/lib/sampleAnswers'
 import { DEFAULT_QUESTIONNAIRE_ID, getQuestionnaire } from '@/types/questionnaires'
@@ -659,18 +657,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     onRoute?.(request.id, routing)
   }
 
-  // Case notes: every profile on the dashboard can edit the key notes
-  const [showCaseNotes, setShowCaseNotes] = useState(false)
-  const saveSummaryNote = (html: string) =>
-    onCaseAction?.(request.id, {
-      type: 'summaryNote',
-      html,
-      editor: {
-        name: userProfile?.name ?? 'Zaid Al Ali',
-        role: userProfile?.designation ?? 'Director',
-      },
-    })
-
   // Sponsor interest: anyone but the Director can offer to sponsor until the case has ended
   const [interestOpen, setInterestOpen] = useState(false)
   const [interestTeam, setInterestTeam] = useState(userProfile?.designation ?? '')
@@ -1144,14 +1130,20 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                     <th className="py-3 px-4">Sponsor</th>
                     <th className="py-3 px-4">Response Date</th>
                     <th className="py-3 px-4">Type</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                    <th className="py-3 px-4 text-right sticky right-0 bg-bg-surface-1 border-l border-border-subtle">
+                      Actions
+                    </th>
                   </>
                 ) : (
                   <>
                     <th className="py-3 px-4">Recommended</th>
                     <th className="py-3 px-4">Expertise</th>
                     <th className="py-3 px-4">Type</th>
-                    {canEditInternal && <th className="py-3 px-4 text-right">Actions</th>}
+                    {canEditInternal && (
+                      <th className="py-3 px-4 text-right sticky right-0 bg-bg-surface-1 border-l border-border-subtle">
+                        Actions
+                      </th>
+                    )}
                   </>
                 )}
               </tr>
@@ -1206,7 +1198,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                         </td>
 
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-2">
+                          <span className="flex flex-col items-start gap-1">
                             <span className="text-xs sm:text-[13px] font-medium text-text-primary">
                               {person.dueOn ? formatDueDate(person.dueOn) : '-'}
                             </span>
@@ -1263,7 +1255,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                           )}
                         </td>
 
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 bg-bg-default border-l border-border-subtle">
                           <button
                             type="button"
                             onClick={() => setViewingResponseMember(person)}
@@ -1305,7 +1297,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                         </td>
 
                         {canEditInternal && (
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 bg-bg-default border-l border-border-subtle">
                             <div className="inline-flex items-center gap-2 justify-end">
                               <button
                                 type="button"
@@ -1393,13 +1385,19 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Deadline</th>
                     <th className="py-3 px-4">Decision</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                    <th className="py-3 px-4 text-right sticky right-0 bg-bg-surface-1 border-l border-border-subtle">
+                      Actions
+                    </th>
                   </>
                 ) : (
                   <>
                     <th className="py-3 px-4">Recommended</th>
                     <th className="py-3 px-4">Expertise</th>
-                    {canEditStrategy && <th className="py-3 px-4 text-right">Actions</th>}
+                    {canEditStrategy && (
+                      <th className="py-3 px-4 text-right sticky right-0 bg-bg-surface-1 border-l border-border-subtle">
+                        Actions
+                      </th>
+                    )}
                   </>
                 )}
               </tr>
@@ -1461,7 +1459,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                           {renderDecisionBadge(person.decision)}
                         </td>
 
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 bg-bg-default border-l border-border-subtle">
                           <button
                             type="button"
                             onClick={() => setViewingResponseMember(person)}
@@ -1489,7 +1487,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                         </td>
 
                         {canEditStrategy && (
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 bg-bg-default border-l border-border-subtle">
                             <div className="inline-flex items-center gap-2 justify-end">
                               <button
                                 type="button"
@@ -1735,25 +1733,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             {request.closedEmail.body}
           </p>
         </section>
-      )}
-
-      {/* Case notes bar, under the header card; its chevron opens the CaseNotes panel */}
-      {activeTab !== 'audit' && !reviewersLoading && (
-        <SummaryNote
-          note={request.summaryNote}
-          canEdit
-          onSave={saveSummaryNote}
-          onOpen={() => setShowCaseNotes(true)}
-        />
-      )}
-      {showCaseNotes && (
-        <CaseNotes
-          request={request}
-          status={displayStatus}
-          showAssessment={isFlowView}
-          onSaveNote={saveSummaryNote}
-          onClose={() => setShowCaseNotes(false)}
-        />
       )}
 
       {/* Information requested: waiting for the vendor to send more information */}
@@ -2665,7 +2644,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               Back
             </Button>
             <Button
-              variant="destructive"
+              variant="primary"
               size="md"
               onClick={sendCloseEmail}
               disabled={!closeEmail.subject.trim() || !closeEmail.body.trim()}
