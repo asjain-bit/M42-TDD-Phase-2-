@@ -7,6 +7,8 @@
 
 import React from 'react'
 import { StatusChip } from '@/components/atoms/StatusChip'
+import { StageChip } from '@/components/molecules/StageChip'
+import { getStageProgress } from '@/lib/caseActions'
 import type { VendorMatch } from '@/lib/serviceLineMatch'
 import type { PartnershipRequest } from '@/types/partnership.types'
 import type { RecommendedVendorsProps } from './RecommendedVendors.types'
@@ -79,6 +81,8 @@ export const RecommendedVendors: React.FC<RecommendedVendorsProps> = ({
                   </span>
                   <StatusChip label={chip.label} status={chip.status} />
                 </div>
+                {/* The same stage chip as the dashboard's Stage column */}
+                <StageChip progress={getStageProgress(r)} />
                 <p className="text-xs text-text-secondary leading-relaxed">
                   {r.headline ?? r.solution}
                 </p>

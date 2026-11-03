@@ -24,7 +24,9 @@ const interest = (code: string, patch: Partial<ServiceLineInterest> = {}): Servi
 const project = (id: string, patch: Partial<ExistingProject> = {}): ExistingProject => ({
   id,
   name: 'Chest imaging AI triage',
+  description: 'Flags urgent findings on chest scans.',
   team: 'Radiology',
+  owner: 'Parag Agarwal',
   focusArea: 'Medical Imaging',
   status: 'Completed',
   started: 'Feb 2026',

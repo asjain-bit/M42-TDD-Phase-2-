@@ -9,6 +9,7 @@
 import React, { useEffect } from 'react'
 import { FolderKanban, Lightbulb, Handshake, X } from 'lucide-react'
 import { Badge } from '@/components/atoms/Badge'
+import { StageChip } from '@/components/molecules/StageChip'
 import type { OverlapDrawerProps } from './OverlapDrawer.types'
 
 const KIND = {
@@ -73,6 +74,7 @@ export const OverlapDrawer: React.FC<OverlapDrawerProps> = ({ subject, overlaps,
                   </Badge>
                 </div>
                 <span className="text-sm font-medium text-text-primary">{o.title}</span>
+                {o.stage && <StageChip progress={o.stage} />}
                 <ul className="flex flex-col gap-1">
                   {o.reasons.map((r) => (
                     <li key={r} className="text-xs text-text-secondary">

@@ -39,7 +39,7 @@ const stripTags = (html: string) =>
 
 /**
  * Questions for the call, from the case: the Strategy Team's conditions, open points (critical or
- * attention highlights in the case notes, an unclear regulatory status, and what each call
+ * attention highlights in the notes log, an unclear regulatory status, and what each call
  * usually settles) and the optional vendor form fields left blank.
  */
 export const buildCallQuestions = (
@@ -61,16 +61,18 @@ export const buildCallQuestions = (
   })
 
   const marks = [
-    ...(r.summaryNote?.html ?? '').matchAll(
-      /<mark data-tone="(critical|attention)">([\s\S]*?)<\/mark>/g
-    ),
+    ...(r.notes ?? [])
+      .map((n) => n.html)
+      .join(' ')
+      .matchAll(/<mark data-tone="(critical|attention)">([\s\S]*?)<\/mark>/g),
   ]
   marks.forEach(([, tone, inner]) => {
     const point = stripTags(inner ?? '').replace(/\.$/, '')
     if (point) {
       list.push({
         text: `${point}. What is the plan here?`,
-        reason: `Flagged as ${tone} in the case notes`,
+        reason:
+          tone === 'critical' ? 'Flagged as a risk in the case notes' : 'Flagged in the case notes',
         source: 'open',
       })
     }
@@ -115,7 +117,8 @@ export const buildCallQuestions = (
     ],
   ]
   gaps.forEach(([missing, text, field]) => {
-    if (missing) list.push({ text, reason: `${field} left blank in the vendor form`, source: 'gap' })
+    if (missing)
+      list.push({ text, reason: `${field} left blank in the vendor form`, source: 'gap' })
   })
 
   return list

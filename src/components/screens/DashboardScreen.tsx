@@ -89,7 +89,7 @@ const CASE_ACTION_TOASTS: Partial<Record<CaseAction['type'], string>> = {
   valueDecision: 'Your decision has been recorded.',
   generateTdd: 'The TDD report has been generated.',
   finalSponsor: 'Your answer has been recorded.',
-  summaryNote: 'Notes saved.',
+  addNote: 'Note added.',
   editInternalAnswer: 'Answer updated. Your original answer is kept on record.',
   sponsorInterest: 'Your sponsor interest has been sent to the Director.',
   platformCall: 'Call ended. The meeting summary has been added to the notes.',
@@ -316,15 +316,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     const message =
       action.type === 'closeWithEmail'
         ? `Email sent to ${company}. The request is closed.`
-        : CASE_ACTION_TOASTS[action.type]
+        : action.type === 'rejectWithEmail'
+          ? `Email sent to ${company}. The request is rejected.`
+          : CASE_ACTION_TOASTS[action.type]
     if (message) notify(message)
   }
 
-  const handleSaveNote = (requestId: string, html: string) =>
+  const handleAddNote = (requestId: string, html: string) =>
     handleCaseAction(requestId, {
-      type: 'summaryNote',
+      type: 'addNote',
       html,
-      editor: {
+      author: {
         name: userProfile?.name ?? 'Zaid Al Ali',
         role: userProfile?.designation ?? 'Director',
       },
@@ -615,8 +617,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           key={notesRequest.id}
           request={notesRequest}
           status={statusOf(notesRequest)}
-          showAssessment={!isNonDirector}
-          onSaveNote={(html) => handleSaveNote(notesRequest.id, html)}
+          onAddNote={(html) => handleAddNote(notesRequest.id, html)}
           onClose={() => setOpenNotes(null)}
           anchor={openNotes?.anchor}
         />
@@ -790,17 +791,26 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             if (openNotes?.id === req.id) return
                             setOpenNotes({ id: req.id, anchor: e.currentTarget })
                           }}
-                          aria-label={`Open notes for ${req.companyName}`}
+                          aria-label={`Open notes for ${req.companyName}${
+                            req.notes?.length ? ` (${req.notes.length} notes)` : ''
+                          }`}
                           aria-haspopup="dialog"
                           aria-expanded={openNotes?.id === req.id}
                           title="Open notes"
-                          className={`w-8 h-8 rounded-lg inline-flex items-center justify-center border cursor-pointer transition ${
+                          className={`relative w-8 h-8 rounded-lg inline-flex items-center justify-center border cursor-pointer transition ${
                             openNotes?.id === req.id
                               ? 'border-[var(--app-accent)] bg-[var(--app-accent-soft)] text-[var(--app-accent)]'
                               : 'border-border-default text-text-secondary hover:text-text-primary hover:bg-bg-hover'
                           }`}
                         >
                           <NotebookPen className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+                          {/* Teal dot: this case has notes */}
+                          {Boolean(req.notes?.length) && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--app-accent)] ring-2 ring-bg-default"
+                            />
+                          )}
                         </button>
                       </td>
                     </tr>

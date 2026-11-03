@@ -2,14 +2,16 @@
 
 /**
  * ServiceLineInterestScreen — Screen
- * New interest: a service line owner raises a requirement, sees similar earlier submissions as
- * they type, and after submitting gets the vendors M42 already knows that may meet it.
- * Used in: HomePage (Service Line Owner)
+ * Service line needs for the Internal Interest Team, with a toggle between New request (raise a
+ * requirement, see similar earlier requests once typing pauses, and after submitting the vendors
+ * M42 already knows) and All requests (every requirement, with the signed-in person's tagged).
+ * Used in: HomePage (Internal Interest Team)
  */
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ClipboardList, Send } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
+import { Skeleton } from '@/components/atoms/Skeleton'
 import { Input } from '@/components/atoms/Input'
 import { Select } from '@/components/atoms/Select'
 import { Textarea } from '@/components/atoms/Textarea'
@@ -17,6 +19,7 @@ import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { FocusAreaSelect } from '@/components/molecules/FocusAreaSelect'
 import { InterestDrawer } from '@/components/organisms/InterestDrawer'
 import { RecommendedVendors } from '@/components/organisms/RecommendedVendors'
+import { ServiceLineAllInterestsScreen } from '@/components/screens/ServiceLineAllInterestsScreen'
 import { compareInterest, matchVendors } from '@/lib/serviceLineMatch'
 import type {
   PartnershipRequest,
@@ -35,7 +38,14 @@ export interface ServiceLineInterestScreenProps {
   requests: PartnershipRequest[]
   /** Saves the interest and returns its new code */
   onSubmit: (draft: ServiceLineDraft) => string
+  /** The signed-in person: the owner of what they submit, and of the rows tagged Yours */
+  userName: string
 }
+
+/** How long typing has to pause before similar requests are looked up */
+const MATCH_DELAY_MS = 800
+
+type Mode = 'new' | 'all'
 
 const EMPTY: ServiceLineDraft = {
   serviceLine: '',
@@ -69,6 +79,59 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
   interests,
   requests,
   onSubmit,
+  userName,
+}) => {
+  const [mode, setMode] = useState<Mode>('new')
+  return (
+    <div className="flex flex-col gap-6 w-full text-text-primary">
+      <div className="flex items-center justify-end">
+        <div
+          role="radiogroup"
+          aria-label="Service line needs view"
+          className="inline-flex items-center rounded-lg border border-border-default bg-bg-surface-1 p-0.5"
+        >
+          {(
+            [
+              { id: 'new', label: 'New request' },
+              { id: 'all', label: `All requests · ${interests.length}` },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={mode === o.id}
+              onClick={() => setMode(o.id)}
+              className={`h-8 px-3.5 rounded-md text-sm font-medium whitespace-nowrap cursor-pointer transition ${
+                mode === o.id
+                  ? 'bg-bg-default text-text-primary shadow-xs border border-border-default'
+                  : 'text-text-secondary hover:text-text-primary border border-transparent'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Both stay mounted, so a half-written request survives a look at All requests */}
+      <div hidden={mode !== 'new'}>
+        <NewRequest interests={interests} requests={requests} onSubmit={onSubmit} />
+      </div>
+      <div hidden={mode !== 'all'}>
+        <ServiceLineAllInterestsScreen
+          interests={interests}
+          requests={requests}
+          userName={userName}
+        />
+      </div>
+    </div>
+  )
+}
+
+const NewRequest: React.FC<Omit<ServiceLineInterestScreenProps, 'userName'>> = ({
+  interests,
+  requests,
+  onSubmit,
 }) => {
   const [draft, setDraft] = useState<ServiceLineDraft>(EMPTY)
   const [showErrors, setShowErrors] = useState(false)
@@ -86,14 +149,28 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
     showErrors &&
     (k === 'focusAreas' ? draft.focusAreas.length === 0 : missing.includes(k as never))
 
-  // Earlier interests that look like this one, most similar first; updates as the user types
+  // Earlier requests that look like this one, most similar first. They are looked up once
+  // typing pauses; until then the panel shows placeholder rows.
+  const [settled, setSettled] = useState<ServiceLineDraft>(EMPTY)
+  const typed = Boolean(
+    draft.serviceLine.trim() ||
+    draft.title.trim() ||
+    draft.problem.trim() ||
+    draft.outcome.trim() ||
+    draft.focusAreas.length
+  )
+  const matching = typed && draft !== settled
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(draft), MATCH_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [draft])
   const similar = useMemo(
     () =>
       interests
-        .map((interest) => ({ interest, ...compareInterest(draft, interest) }))
+        .map((interest) => ({ interest, ...compareInterest(settled, interest) }))
         .filter((m) => m.level !== null)
         .sort((a, b) => b.matches.length - a.matches.length),
-    [draft, interests]
+    [settled, interests]
   )
   const [viewing, setViewing] = useState<ServiceLineInterest | null>(null)
 
@@ -118,6 +195,7 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
 
   const reset = () => {
     setDraft(EMPTY)
+    setSettled(EMPTY)
     setShowErrors(false)
     setSubmitted(null)
   }
@@ -127,14 +205,14 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
       <div className="w-full max-w-4xl mx-auto flex flex-col gap-8 animate-in fade-in duration-200">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
-            <h1 className="text-lg font-semibold text-text-primary">Interest submitted</h1>
+            <h1 className="text-lg font-semibold text-text-primary">Request submitted</h1>
             <p className="text-sm text-text-tertiary">
               {submitted.code} · {submitted.draft.title} · sent to the Partnership Admin and
               Director
             </p>
           </div>
           <Button variant="outline" size="md" onClick={reset}>
-            Raise another
+            New request
           </Button>
         </div>
         <RecommendedVendors matches={matches} />
@@ -217,7 +295,7 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
         <div className="flex justify-end pt-2">
           <Button variant="primary" size="md" onClick={handleSubmit} className="gap-1.5">
             <Send className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
-            Submit interest
+            Submit request
           </Button>
         </div>
       </section>
@@ -227,7 +305,9 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
         aria-labelledby="sl-similar-heading"
         className="rounded-2xl border border-border-default bg-bg-default shadow-xs flex flex-col lg:sticky lg:top-20"
       >
-        <div className={`flex flex-col gap-1 px-5 pt-5 ${similar.length > 0 ? 'pb-3' : 'pb-5'}`}>
+        <div
+          className={`flex flex-col gap-1 px-5 pt-5 ${similar.length > 0 || matching ? 'pb-3' : 'pb-5'}`}
+        >
           <div className="flex items-center gap-2">
             <ClipboardList
               className="w-4 h-4 text-text-secondary"
@@ -235,44 +315,63 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
               aria-hidden="true"
             />
             <h2 id="sl-similar-heading" className="text-sm font-semibold text-text-primary">
-              Similar earlier submissions
+              Similar earlier requests
             </h2>
           </div>
           <p className="text-xs text-text-secondary">
-            Earlier submissions like yours show here as you type. You can still submit.
+            Earlier requests like yours show here as you type. You can still submit.
           </p>
         </div>
-        {similar.length > 0 && (
-          <ul className="flex flex-col divide-y divide-border-subtle border-t border-border-subtle">
-            {similar.map(({ interest: i, level, matches: fields }) => (
-              <li key={i.code} className="px-5 py-3 flex flex-col gap-1">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-sm font-semibold text-text-primary leading-snug">
-                    {i.title}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setViewing(i)}
-                    aria-label={`View ${i.code}`}
-                    className="text-xs font-medium text-text-link hover:underline cursor-pointer shrink-0"
-                  >
-                    View
-                  </button>
+        {matching ? (
+          <ul
+            aria-label="Looking for similar requests"
+            aria-busy="true"
+            className="flex flex-col divide-y divide-border-subtle border-t border-border-subtle"
+          >
+            {[0, 1, 2].map((n) => (
+              <li key={n} className="px-5 py-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Skeleton className="h-3.5 w-3/5" />
+                  <Skeleton className="h-3 w-8" />
                 </div>
-                <span className="text-xs text-text-tertiary">
-                  {i.code} · {i.submittedBy} · {i.on}
-                </span>
-                <span className="text-xs">
-                  <span
-                    className={`font-medium ${level === 'Very similar' ? 'text-text-error' : 'text-text-warning'}`}
-                  >
-                    {level}
-                  </span>
-                  <span className="text-text-tertiary"> · same {fields.join(', ')}</span>
-                </span>
+                <Skeleton className="h-3 w-2/5" />
+                <Skeleton className="h-3 w-1/2" />
               </li>
             ))}
           </ul>
+        ) : (
+          similar.length > 0 && (
+            <ul className="flex flex-col divide-y divide-border-subtle border-t border-border-subtle">
+              {similar.map(({ interest: i, level, matches: fields }) => (
+                <li key={i.code} className="px-5 py-3 flex flex-col gap-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-sm font-semibold text-text-primary leading-snug">
+                      {i.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setViewing(i)}
+                      aria-label={`View ${i.code}`}
+                      className="text-xs font-medium text-text-link hover:underline cursor-pointer shrink-0"
+                    >
+                      View
+                    </button>
+                  </div>
+                  <span className="text-xs text-text-tertiary">
+                    {i.code} · {i.submittedBy} · {i.on}
+                  </span>
+                  <span className="text-xs">
+                    <span
+                      className={`font-medium ${level === 'Very similar' ? 'text-text-error' : 'text-text-warning'}`}
+                    >
+                      {level}
+                    </span>
+                    <span className="text-text-tertiary"> · same {fields.join(', ')}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
         )}
       </aside>
 
@@ -282,7 +381,7 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
 
       {confirming && (
         <ConfirmDialog
-          title="Submit your interest?"
+          title="Submit your request?"
           description={
             <>
               Your requirement will be sent to the Partnership Admin and Director.
@@ -291,7 +390,7 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
             </>
           }
           cancelLabel="Review again"
-          confirmLabel="Submit interest"
+          confirmLabel="Submit request"
           icon={Send}
           onConfirm={confirm}
           onCancel={() => setConfirming(false)}

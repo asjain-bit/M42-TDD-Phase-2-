@@ -1,3 +1,5 @@
+import type { StageProgress } from '@/lib/caseActions'
+
 export type PartnershipStatus =
   'Pending' | 'In Progress' | 'At Risk' | 'Exited' | 'Information Requested' | 'Closed'
 
@@ -225,6 +227,16 @@ export interface SummaryNote {
   updatedOn: string
 }
 
+/** One entry in the case notes log. html holds only text and <mark data-tone="critical|neutral|positive"> */
+export interface CaseNote {
+  id: string
+  author: string
+  role: string
+  /** ISO timestamp */
+  at: string
+  html: string
+}
+
 export interface PartnershipRequest {
   id: string
   /** Human-readable request ID shown in tables, e.g. PR-124 */
@@ -254,8 +266,8 @@ export interface PartnershipRequest {
   internalInterests?: InternalInterestStakeholder[]
   strategyTeamMembers?: InternalInterestStakeholder[]
   agentRecommendation?: AgentRecommendation
-  /** Short use case summary; editable, with highlights to flag critical points and positives */
-  summaryNote?: SummaryNote
+  /** The case notes log, oldest first. Notes are only ever added, never edited. */
+  notes?: CaseNote[]
   decision?: {
     status: 'proceeded' | 'rejected'
     reason?: string
@@ -302,6 +314,8 @@ export interface PartnershipRequest {
   closedReason?: string
   /** The email the Director sent the partner when closing the request (nothing is really sent) */
   closedEmail?: { to: string; subject: string; body: string; sentOn: string }
+  /** The email the Director sent the partner when rejecting the brief (nothing is really sent) */
+  rejectionEmail?: { to: string; subject: string; body: string; sentOn: string }
   /** Signed NDA copies, oldest first */
   nda?: { versions: NdaVersion[] }
   /** Generated when the first signed NDA is uploaded */
@@ -551,6 +565,8 @@ export interface ServiceLineInterest {
   decidedBy?: string
   decidedOn?: string
   declineReason?: string
+  /** Set when the Strategy Team added it themselves rather than a service line */
+  source?: 'Strategy scouting'
   /** Result of the last overlap check */
   overlaps?: Overlap[]
 }
@@ -564,7 +580,11 @@ export type ProjectStatus = 'Live' | 'Pilot' | 'Completed' | 'Paused'
 export interface ExistingProject {
   id: string
   name: string
+  /** One or two sentences on what the project does */
+  description: string
   team: string
+  /** The person who runs it */
+  owner: string
   focusArea: string
   status: ProjectStatus
   /** Display date, e.g. Mar 2025 */
@@ -583,6 +603,8 @@ export interface Overlap {
   title: string
   /** Its status as shown elsewhere */
   status: string
+  /** A partnership request's current stage, for the stage chip */
+  stage?: StageProgress
   reasons: string[]
   score: number
 }
@@ -653,7 +675,9 @@ export const EXISTING_PROJECTS: ExistingProject[] = [
   {
     id: 'PRJ-01',
     name: 'Chest imaging AI triage',
+    description: 'Flags urgent findings on chest CT and X-ray so radiologists read them first.',
     team: 'Radiology',
+    owner: 'Parag Agarwal',
     focusArea: 'Medical Imaging',
     status: 'Pilot',
     started: 'Feb 2026',
@@ -662,7 +686,10 @@ export const EXISTING_PROJECTS: ExistingProject[] = [
   {
     id: 'PRJ-02',
     name: 'Sepsis early warning on wards',
+    description:
+      'Scores ward patients every hour and alerts the rapid response team to early sepsis.',
     team: 'Critical Care',
+    owner: 'Dr. Mona Al Hashimi',
     focusArea: 'Clinical Decision Support',
     status: 'Live',
     started: 'Jun 2025',
@@ -671,7 +698,10 @@ export const EXISTING_PROJECTS: ExistingProject[] = [
   {
     id: 'PRJ-03',
     name: 'Remote monitoring after cardiac discharge',
+    description:
+      'Home monitoring for 90 days after a cardiac admission, with nurse follow-up on alerts.',
     team: 'Cardiology',
+    owner: 'Sara Malik',
     focusArea: 'Virtual Care & Remote Monitoring',
     status: 'Completed',
     started: 'Jan 2024',
@@ -680,7 +710,10 @@ export const EXISTING_PROJECTS: ExistingProject[] = [
   {
     id: 'PRJ-04',
     name: 'Emirati Genome Programme variant pipeline',
+    description:
+      'Processes national genome samples into reportable variants for clinical genetics.',
     team: 'Genomics',
+    owner: 'Khalid Al Zaabi',
     focusArea: 'Genomics & Oncology',
     status: 'Live',
     started: 'Sep 2023',
@@ -689,7 +722,9 @@ export const EXISTING_PROJECTS: ExistingProject[] = [
   {
     id: 'PRJ-05',
     name: 'Heart failure risk scoring in clinics',
+    description: 'Predicts heart failure admissions from clinic data to plan earlier reviews.',
     team: 'Cardiology',
+    owner: 'Sara Malik',
     focusArea: 'Cardiology & Precision Health',
     status: 'Paused',
     started: 'Apr 2025',
@@ -698,7 +733,10 @@ export const EXISTING_PROJECTS: ExistingProject[] = [
   {
     id: 'PRJ-06',
     name: 'Discharge summary automation',
+    description:
+      'Drafts discharge summaries from the inpatient record for doctors to check and sign.',
     team: 'Clinical Operations',
+    owner: 'Omar Al-Hashemi',
     focusArea: 'Clinical Workflow Automation',
     status: 'Live',
     started: 'Nov 2024',
@@ -707,7 +745,9 @@ export const EXISTING_PROJECTS: ExistingProject[] = [
   {
     id: 'PRJ-07',
     name: 'Diabetes prevention coaching',
+    description: 'Digital coaching for people at risk of type 2 diabetes, run with primary care.',
     team: 'Population Health',
+    owner: 'Mariam Al-Zaabi',
     focusArea: 'Preventative Healthcare',
     status: 'Completed',
     started: 'Mar 2023',
@@ -716,7 +756,9 @@ export const EXISTING_PROJECTS: ExistingProject[] = [
   {
     id: 'PRJ-08',
     name: 'EEG reading support for neurology',
+    description: 'Helps neurologists read long EEG recordings by marking likely seizure activity.',
     team: 'Neurology',
+    owner: 'Riza Sayeed',
     focusArea: 'Neurology & Digital Health',
     status: 'Pilot',
     started: 'Aug 2026',
@@ -772,11 +814,29 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '3 days ago',
     tags: ['AI & Diagnostics', 'Medical Imaging', 'Clinical Decision Support'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
-    summaryNote: {
-      html: 'AI diagnostic platform that flags early signs of chronic disease from routine labs and imaging, proposed as a pilot in two M42 hospitals. <mark data-tone="positive">Active regional hospital deployments and strong fit with M42 diagnostics priorities.</mark> <mark data-tone="attention">Clinical validation has not yet been reproduced on M42 patient data.</mark>',
-      updatedBy: 'Triage Agent',
-      updatedOn: '12 Oct 2026',
-    },
+    notes: [
+      {
+        id: 'note-1-1',
+        author: 'Triage Agent',
+        role: 'AI agent',
+        at: '2026-10-12T08:00:00Z',
+        html: 'AI diagnostic platform that flags early signs of chronic disease from routine labs and imaging, proposed as a pilot in two M42 hospitals. <mark data-tone="positive">Active regional hospital deployments and strong fit with M42 diagnostics priorities.</mark> <mark data-tone="neutral">Clinical validation has not yet been reproduced on M42 patient data.</mark>',
+      },
+      {
+        id: 'note-1-2',
+        author: 'Zaid Al Ali',
+        role: 'Director',
+        at: '2026-10-13T09:20:00Z',
+        html: 'Strong clinical story. <mark data-tone="critical">Ask for validation on M42 data before the pilot.</mark>',
+      },
+      {
+        id: 'note-1-3',
+        author: 'Nadia Al-Farsi',
+        role: 'Partnership Admin',
+        at: '2026-10-14T11:05:00Z',
+        html: 'Routed to the Director as a Partnership. <mark data-tone="neutral">Vendor contact replies within a day.</mark>',
+      },
+    ],
     agentRecommendation: {
       status: 'proceed',
       label: 'Assessment points to proceed',
@@ -958,11 +1018,22 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '2 days ago',
     tags: ['Cardiology & Precision Health', 'Clinical Workflow Automation'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
-    summaryNote: {
-      html: 'CardioScan AI reads ECG and echo studies to triage cardiac patients, aimed at cardiology outpatient pathways. <mark data-tone="positive">Internal Interest approved with a named lead sponsor.</mark> <mark data-tone="attention">Overlap with the cardiology roadmap is still being checked by Strategy.</mark>',
-      updatedBy: 'Triage Agent',
-      updatedOn: '10 Oct 2026',
-    },
+    notes: [
+      {
+        id: 'note-2-1',
+        author: 'Triage Agent',
+        role: 'AI agent',
+        at: '2026-10-10T08:00:00Z',
+        html: 'CardioScan AI reads ECG and echo studies to triage cardiac patients, aimed at cardiology outpatient pathways. <mark data-tone="positive">Internal Interest approved with a named lead sponsor.</mark> <mark data-tone="neutral">Overlap with the cardiology roadmap is still being checked by Strategy.</mark>',
+      },
+      {
+        id: 'note-2-2',
+        author: 'Zaid Al Ali',
+        role: 'Director',
+        at: '2026-10-11T08:45:00Z',
+        html: '<mark data-tone="positive">Cardiology team keen to pilot.</mark> Waiting on the Strategy view before the NDA.',
+      },
+    ],
     agentRecommendation: {
       status: 'proceed',
       label: 'Assessment points to proceed',
@@ -1186,11 +1257,29 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '11 days ago',
     tags: ['Genomics & Oncology', 'Precision Health & Diagnostics', 'Rare Diseases'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
-    summaryNote: {
-      html: 'Rare disease variant interpreter that speeds up genomic reporting for clinical geneticists across the M42 network. <mark data-tone="positive">NDA signed and two sponsors assigned.</mark> <mark data-tone="critical">UAE data hosting and a local entity are conditions before go-live.</mark>',
-      updatedBy: 'Triage Agent',
-      updatedOn: '01 Oct 2026',
-    },
+    notes: [
+      {
+        id: 'note-3-1',
+        author: 'Triage Agent',
+        role: 'AI agent',
+        at: '2026-10-01T08:00:00Z',
+        html: 'Rare disease variant interpreter that speeds up genomic reporting for clinical geneticists across the M42 network. <mark data-tone="positive">NDA signed and two sponsors assigned.</mark> <mark data-tone="critical">UAE data hosting and a local entity are conditions before go-live.</mark>',
+      },
+      {
+        id: 'note-3-2',
+        author: 'Zaid Al Ali',
+        role: 'Director',
+        at: '2026-10-03T10:10:00Z',
+        html: '<mark data-tone="positive">NDA signed.</mark> Discovery call booked with the vendor and both sponsors.',
+      },
+      {
+        id: 'note-3-3',
+        author: 'Rashid Al-Nuaimi',
+        role: 'Sponsor',
+        at: '2026-10-06T14:30:00Z',
+        html: '<mark data-tone="critical">Hosting must be in the UAE before any patient data is shared.</mark>',
+      },
+    ],
     agentRecommendation: {
       status: 'proceed',
       label: 'Assessment points to proceed',
@@ -1332,11 +1421,22 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '14 days ago',
     tags: ['Virtual Care & Remote Monitoring', 'Clinical Workflow Automation'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
-    summaryNote: {
-      html: 'Remote patient monitoring with automated triage for patients discharged after cardiac and respiratory admissions. <mark data-tone="critical">Rejected: the existing remote monitoring module can be extended at lower cost.</mark>',
-      updatedBy: 'Triage Agent',
-      updatedOn: '28 Sep 2026',
-    },
+    notes: [
+      {
+        id: 'note-4-1',
+        author: 'Triage Agent',
+        role: 'AI agent',
+        at: '2026-09-28T08:00:00Z',
+        html: 'Remote patient monitoring with automated triage for patients discharged after cardiac and respiratory admissions. <mark data-tone="critical">Rejected: the existing remote monitoring module can be extended at lower cost.</mark>',
+      },
+      {
+        id: 'note-4-2',
+        author: 'Zaid Al Ali',
+        role: 'Director',
+        at: '2026-09-29T09:00:00Z',
+        html: 'Closed. <mark data-tone="neutral">Shared with the remote monitoring team for their roadmap.</mark>',
+      },
+    ],
     agentRecommendation: {
       status: 'proceed',
       label: 'Assessment points to proceed',
@@ -1439,11 +1539,22 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
     submittedRelative: '2 days ago',
     tags: ['Neurology & Digital Health', 'AI & Diagnostics'],
     internalInterests: DEFAULT_INTERNAL_INTERESTS,
-    summaryNote: {
-      html: 'EEG-based platform that detects and monitors seizures, proposed for neurology wards and home monitoring. <mark data-tone="positive">Fills a gap in the neurology portfolio.</mark> <mark data-tone="attention">Regulatory status for the UAE is not yet clear.</mark>',
-      updatedBy: 'Triage Agent',
-      updatedOn: '20 Oct 2026',
-    },
+    notes: [
+      {
+        id: 'note-5-1',
+        author: 'Triage Agent',
+        role: 'AI agent',
+        at: '2026-10-20T08:00:00Z',
+        html: 'EEG-based platform that detects and monitors seizures, proposed for neurology wards and home monitoring. <mark data-tone="positive">Fills a gap in the neurology portfolio.</mark> <mark data-tone="neutral">Regulatory status for the UAE is not yet clear.</mark>',
+      },
+      {
+        id: 'note-5-2',
+        author: 'Nadia Al-Farsi',
+        role: 'Partnership Admin',
+        at: '2026-10-21T12:15:00Z',
+        html: '<mark data-tone="critical">Ask for the UAE regulatory plan</mark> before routing.',
+      },
+    ],
     agentRecommendation: {
       status: 'proceed',
       label: 'Assessment points to proceed',

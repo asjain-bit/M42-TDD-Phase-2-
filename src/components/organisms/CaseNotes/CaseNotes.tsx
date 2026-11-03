@@ -2,8 +2,10 @@
 
 /**
  * CaseNotes — Organism
- * One-slide use case brief for a partnership request, docked to the right over the page.
- * Used in: DashboardScreen, PartnershipDetail
+ * The case notes log as a box anchored to the Notes icon: a composer with Risk, Neutral and
+ * Positive highlights, then the latest note in one line, or with Show all every note, newest
+ * first. Notes are only ever added.
+ * Used in: DashboardScreen
  */
 
 import React, {
@@ -15,26 +17,13 @@ import React, {
   useRef,
   useState,
 } from 'react'
-import {
-  Copy,
-  Maximize2,
-  Minimize2,
-  NotebookPen,
-  NotebookText,
-  Pencil,
-  type LucideIcon,
-} from 'lucide-react'
-import { Badge } from '@/components/atoms/Badge'
+import { ChevronDown, ChevronUp, NotebookText } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
-import { HighlightLegend } from '@/components/atoms/HighlightLegend'
 import { Icon } from '@/components/atoms/Icon'
 import { StatusChip } from '@/components/atoms/StatusChip'
 import { HighlightEditor } from '@/components/molecules/HighlightEditor'
-import { StageChip } from '@/components/molecules/StageChip'
-import { Toast } from '@/components/molecules/Toast'
-import { ConfidenceBadge } from '@/components/organisms/AgentActions'
 import type { DisplayStatus } from '@/lib/caseStatus'
-import { buildNotesText, getCaseNotesData, stageText } from './caseNotes.data'
+import { NOTE_LOG_TONES, noteToText, sanitiseNoteHtml } from '@/lib/summaryNote'
 import type { CaseNotesProps } from './CaseNotes.types'
 
 const STATUS_CATEGORY: Record<DisplayStatus, 'warning' | 'info' | 'success' | 'error' | 'neutral'> =
@@ -46,79 +35,86 @@ const STATUS_CATEGORY: Record<DisplayStatus, 'warning' | 'info' | 'success' | 'e
     RFI: 'neutral',
   }
 
-/** Popover size and spacing; the same width collapsed and expanded */
-const CARD_WIDTH = 560
-/** Expanded card height cap, as a share of the viewport height (70vh) */
-const EXPANDED_MAX = 0.7
+/** Box size and spacing: 420px wide, the viewport less 32px on screens under 640px */
+const CARD_WIDTH = 420
+const SMALL_SCREEN = 640
+/** The expanded box is at most 75vh; it opens below the icon only when that much room is there */
+const MAX_HEIGHT_SHARE = 0.75
 const VIEWPORT_MARGIN = 16
 const GAP = 8
-/** Half the pointer's 12px square: how far it sticks out of the card */
-const POINTER = 6
+/** The notch: 16 x 9px, its base laid 1.5px over the box border so the outline runs on */
+const NOTCH_WIDTH = 16
+const NOTCH_HEIGHT = 9
+const BORDER = 1.5
+/** How far the notch sticks out of the box */
+const NOTCH_OUT = NOTCH_HEIGHT - BORDER
+/** Keeps the notch clear of the box's rounded corners */
+const NOTCH_INSET = 14 + NOTCH_WIDTH / 2
 const CLOSE_MS = 150
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
 
-const Section: React.FC<{ title: string; action?: React.ReactNode; children: React.ReactNode }> = ({
-  title,
-  action,
-  children,
-}) => (
-  <section className="flex flex-col gap-2 pt-5 border-t border-border-subtle">
-    <div className="flex items-center justify-between gap-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-        {title}
-      </h3>
-      {action}
-    </div>
-    {children}
-  </section>
-)
+const initialsOf = (name: string) =>
+  name
+    .replace(/^Dr\.\s*/, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join('')
 
-const ToolbarButton: React.FC<{
-  icon: LucideIcon
-  label: string
-  onClick: () => void
-  hideLabel?: boolean
-  pressed?: boolean
-}> = ({ icon: Glyph, label, onClick, hideLabel = false, pressed }) => (
-  <Button
-    variant="ghost"
-    size="sm"
-    onClick={onClick}
-    aria-label={hideLabel ? label : undefined}
-    aria-expanded={pressed}
-    title={label}
-    className="!px-2 gap-1.5 text-text-secondary hover:text-text-primary"
-  >
-    <Glyph className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
-    {!hideLabel && <span className="hidden sm:inline">{label}</span>}
-  </Button>
-)
+/** The note's first line as plain text, for the collapsed preview */
+const firstLine = (html: string) => noteToText(html).split('\n')[0]
+
+/** 22 Oct 2026, 10:40 */
+const formatNoteTime = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+}
 
 export const CaseNotes: React.FC<CaseNotesProps> = ({
   request,
   status,
-  showAssessment = false,
-  canEditNotes = true,
-  onSaveNote,
+  canAddNotes = true,
+  onAddNote,
   onClose,
   anchor,
-  defaultExpanded = false,
 }) => {
-  const data = useMemo(() => getCaseNotesData(request), [request])
-  const [expanded, setExpanded] = useState(defaultExpanded)
-  const [editing, setEditing] = useState(false)
-  const [toast, setToast] = useState<{ title: string; variant: 'success' | 'error' } | null>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const notesRef = useRef<HTMLDivElement>(null)
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const titleId = useId()
+  const panelRef = useRef<HTMLDivElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
-  const toastRef = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const notes = useMemo(() => [...(request.notes ?? [])].reverse(), [request.notes])
+  // Collapsed, the log shows only the latest note in one line
+  const [showAll, setShowAll] = useState(false)
+  const timelineId = useId()
 
-  // Popover motion: fade and scale in from the pointer, and the same in reverse on close
+  // Whether the timeline has more below what is shown, for the fade at its foot
+  const timelineRef = useRef<HTMLOListElement>(null)
+  const [more, setMore] = useState(false)
+  const checkMore = useCallback(() => {
+    const el = timelineRef.current
+    setMore(Boolean(el && el.scrollTop + el.clientHeight < el.scrollHeight - 1))
+  }, [])
+  useLayoutEffect(() => {
+    checkMore()
+    const el = timelineRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(checkMore)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [checkMore, notes, showAll])
+
+  // Motion: fade and scale in from the pointer, and the same in reverse on close
   const reducedMotion = useMemo(
     () =>
       typeof window !== 'undefined' &&
@@ -138,29 +134,23 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
     closeTimer.current = setTimeout(onClose, CLOSE_MS)
   }, [onClose, reducedMotion])
 
-  const latest = useRef({ editing, requestClose })
-  latest.current = { editing, requestClose }
+  const latestClose = useRef(requestClose)
+  latestClose.current = requestClose
 
-  // Focus moves into the card, and back to whatever opened it on close
+  // Focus moves into the box, and back to whatever opened it on close
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     panelRef.current?.focus()
     const frame = requestAnimationFrame(() => setShown(true))
     return () => {
       cancelAnimationFrame(frame)
-      if (toastTimer.current) clearTimeout(toastTimer.current)
       if (closeTimer.current) clearTimeout(closeTimer.current)
       opener?.focus?.()
     }
   }, [])
 
-  // Esc leaves the editor first, then closes the card
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (latest.current.editing) setEditing(false)
-      else latest.current.requestClose()
-    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && latestClose.current()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
@@ -170,11 +160,10 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node
-      if (popoverRef.current?.contains(target) || toastRef.current?.contains(target)) return
-      if (anchor?.contains(target)) return
-      latest.current.requestClose()
+      if (popoverRef.current?.contains(target) || anchor?.contains(target)) return
+      latestClose.current()
     }
-    const onAnchorClick = () => latest.current.requestClose()
+    const onAnchorClick = () => latestClose.current()
     document.addEventListener('mousedown', onDown, true)
     anchor?.addEventListener('click', onAnchorClick)
     return () => {
@@ -183,10 +172,9 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
     }
   }, [anchor])
 
-  // Anchored to the icon, right edges aligned. The side is picked on open against the expanded
-  // height (70vh): below when it fits, otherwise above with the card's bottom edge on the icon,
-  // so Expand grows away from the icon. The side stays put while the card is open and is only
-  // picked again on a window resize (or the next open, which mounts a fresh card).
+  // Anchored to the icon: right edges aligned and the pointer on the icon's centre. The side is
+  // picked on open: below when the full height (600px) fits, otherwise above, with the box's
+  // bottom edge on the icon. It never flips while open; a window resize picks again.
   const [position, setPosition] = useState<{
     top?: number
     bottom?: number
@@ -196,7 +184,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
     placement: 'below' | 'above'
     /** Room on the chosen side, inside the 16px margin */
     room: number
-    /** 70vh */
+    /** 75vh */
     expandedMax: number
   } | null>(null)
   const sideRef = useRef<'below' | 'above' | null>(null)
@@ -204,7 +192,11 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
     (pickSide: boolean) => {
       const vw = window.innerWidth
       const vh = window.innerHeight
-      const width = Math.min(CARD_WIDTH, vw - 2 * VIEWPORT_MARGIN)
+      const width =
+        vw < SMALL_SCREEN
+          ? vw - 2 * VIEWPORT_MARGIN
+          : Math.min(CARD_WIDTH, vw - 2 * VIEWPORT_MARGIN)
+      const expandedMax = vh * MAX_HEIGHT_SHARE
       const box = anchor?.getBoundingClientRect() ?? {
         top: VIEWPORT_MARGIN,
         bottom: VIEWPORT_MARGIN,
@@ -216,19 +208,17 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
         Math.max(box.right - width, VIEWPORT_MARGIN),
         vw - VIEWPORT_MARGIN - width
       )
-      const belowEdge = box.bottom + GAP + POINTER
-      const aboveEdge = box.top - GAP - POINTER
+      const belowEdge = box.bottom + GAP + NOTCH_OUT
+      const aboveEdge = box.top - GAP - NOTCH_OUT
       const roomBelow = vh - VIEWPORT_MARGIN - belowEdge
       const roomAbove = aboveEdge - VIEWPORT_MARGIN
-      const expandedMax = vh * EXPANDED_MAX
       if (pickSide || !sideRef.current) {
-        sideRef.current =
-          roomBelow >= expandedMax || roomBelow >= roomAbove ? 'below' : 'above'
+        sideRef.current = roomBelow >= expandedMax || roomBelow >= roomAbove ? 'below' : 'above'
       }
       const placement = sideRef.current
       const pointerX = Math.min(
-        Math.max(box.left + box.width / 2 - left, POINTER * 2),
-        width - POINTER * 2
+        Math.max(box.left + box.width / 2 - left, NOTCH_INSET),
+        width - NOTCH_INSET
       )
       setPosition({
         ...(placement === 'below' ? { top: belowEdge } : { bottom: vh - aboveEdge }),
@@ -246,7 +236,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
   useLayoutEffect(() => {
     place(true)
     const onResize = () => place(true)
-    // Scrolling moves the icon: the card follows it but keeps its side
+    // Scrolling moves the icon: the box follows it but keeps its side
     const onScroll = () => place(false)
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onScroll, true)
@@ -256,11 +246,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
     }
   }, [place])
 
-  useEffect(() => {
-    if (editing) notesRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
-  }, [editing])
-
-  // Keep Tab inside the card
+  // Keep Tab inside the box
   const trapFocus = (e: React.KeyboardEvent) => {
     if (e.key !== 'Tab' || !panelRef.current) return
     const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE))
@@ -277,320 +263,192 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
     }
   }
 
-  const notify = (title: string, variant: 'success' | 'error') => {
-    setToast({ title, variant })
-    if (toastTimer.current) clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast(null), 3000)
-  }
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(buildNotesText(data, status, showAssessment))
-      notify('Notes copied to the clipboard.', 'success')
-    } catch {
-      notify('Could not copy the notes.', 'error')
-    }
-  }
-
-  const toggle = () => {
-    setExpanded((v) => !v)
-    setEditing(false)
-  }
-
-  const startEditing = () => {
-    setExpanded(true)
-    setEditing(true)
-  }
-
-  const facts = [
-    { label: 'Stage', value: stageText(data.stage) },
-    { label: 'Owner', value: data.owner },
-    { label: 'Focus area', value: data.focusArea },
-    { label: 'Maturity', value: data.maturity },
-  ]
-
-  const showNotes = Boolean(data.notes) || canEditNotes
+  const pointerX = position?.pointerX ?? CARD_WIDTH - 24
+  const above = position?.placement === 'above'
 
   return (
-    <>
-      {toast && (
-        <div ref={toastRef}>
-          <Toast
-            title={toast.title}
-            variant={toast.variant}
-            onClose={() => setToast(null)}
-            className="fixed top-5 right-5 z-[60] animate-in slide-in-from-top-4 duration-200"
-          />
-        </div>
-      )}
-
-      <div
-        ref={popoverRef}
-        data-placement={position?.placement ?? 'below'}
+    <div
+      ref={popoverRef}
+      data-placement={position?.placement ?? 'below'}
+      style={{
+        top: position ? position.top : 0,
+        bottom: position?.bottom,
+        left: position?.left ?? 0,
+        width: position?.width ?? CARD_WIDTH,
+        transformOrigin: `${pointerX}px ${above ? '100%' : '0'}`,
+        visibility: position ? 'visible' : 'hidden',
+      }}
+      className={`fixed z-50 transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none ${
+        shown && !leaving ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.96]'
+      }`}
+    >
+      {/* Notch on the Notes icon: filled in the box background, with the border drawn on its
+          two sloped sides only. Its base lies over the box border, hiding the line under it, so
+          the outline runs straight on into the notch. Flipped when the box opens above. */}
+      <svg
+        aria-hidden="true"
+        width={NOTCH_WIDTH}
+        height={NOTCH_HEIGHT}
+        viewBox={`0 0 ${NOTCH_WIDTH} ${NOTCH_HEIGHT}`}
+        overflow="visible"
         style={{
-          top: position ? position.top : 0,
-          bottom: position?.bottom,
-          left: position?.left ?? 0,
-          width: position?.width ?? CARD_WIDTH,
-          transformOrigin: `${position?.pointerX ?? CARD_WIDTH - 24}px ${
-            position?.placement === 'above' ? '100%' : '0'
-          }`,
-          visibility: position ? 'visible' : 'hidden',
+          left: pointerX - NOTCH_WIDTH / 2,
+          ...(above ? { bottom: -NOTCH_OUT } : { top: -NOTCH_OUT }),
         }}
-        className={`fixed z-50 transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none ${
-          shown && !leaving ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.96]'
-        }`}
+        className={`absolute z-10 ${above ? 'rotate-180' : ''}`}
       >
-        {/* Pointer at the Notes icon */}
-        <span
-          aria-hidden="true"
-          style={{ left: (position?.pointerX ?? CARD_WIDTH - 24) - POINTER }}
-          className={`absolute z-10 w-3 h-3 rotate-45 bg-bg-modal border-[var(--app-accent)] ${
-            position?.placement === 'above'
-              ? '-bottom-1.5 border-r-[1.5px] border-b-[1.5px]'
-              : '-top-1.5 border-l-[1.5px] border-t-[1.5px]'
-          }`}
+        <path
+          d={`M0 ${NOTCH_HEIGHT} L${NOTCH_WIDTH / 2} 0 L${NOTCH_WIDTH} ${NOTCH_HEIGHT} Z`}
+          fill="var(--bg-modal)"
         />
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-          tabIndex={-1}
-          onKeyDown={trapFocus}
-          // Never taller than the room on its side; expanded is also capped at 70vh
-          style={
-            position
-              ? {
-                  maxHeight: expanded
-                    ? Math.min(position.expandedMax, position.room)
-                    : position.room,
-                }
-              : undefined
-          }
-          className="relative w-full flex flex-col overflow-hidden rounded-[14px] border-[1.5px] border-[var(--app-accent)] bg-bg-modal shadow-2xl outline-none"
-        >
-          {/* Toolbar strip */}
-          <div className="flex items-center justify-end gap-1 px-3 py-1.5 border-b border-border-subtle bg-bg-surface-1 shrink-0">
-            <ToolbarButton
-              icon={expanded ? Minimize2 : Maximize2}
-              label={expanded ? 'Collapse' : 'Expand'}
-              onClick={toggle}
-              pressed={expanded}
-            />
-            <ToolbarButton icon={Copy} label="Copy notes" onClick={copy} />
-            {canEditNotes && <ToolbarButton icon={Pencil} label="Edit" onClick={startEditing} />}
-            <span className="w-px h-5 bg-border-default mx-1" aria-hidden="true" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={requestClose}
-              aria-label="Close notes"
-              title="Close"
-              className="!p-1.5 text-text-tertiary hover:text-text-primary"
-            >
-              <Icon name="close" size="sm" />
-            </Button>
-          </div>
-
-          {/* Header */}
-          <div className="flex items-start gap-4 px-6 pt-5 pb-4 shrink-0">
-            <div className="w-11 h-11 rounded-[var(--radius-lg)] bg-[var(--app-accent-soft)] text-[var(--app-accent)] flex items-center justify-center shrink-0">
-              <NotebookPen className="w-5 h-5" strokeWidth={2} aria-hidden="true" />
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-                Case notes
+        <path
+          d={`M0 ${NOTCH_HEIGHT - BORDER / 2} L${NOTCH_WIDTH / 2} ${BORDER / 2} L${NOTCH_WIDTH} ${NOTCH_HEIGHT - BORDER / 2}`}
+          fill="none"
+          stroke="var(--app-accent)"
+          strokeWidth={BORDER}
+          strokeLinejoin="round"
+        />
+      </svg>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={trapFocus}
+        style={{
+          maxHeight: position ? Math.min(position.expandedMax, position.room) : '75vh',
+        }}
+        className="relative w-full flex flex-col overflow-hidden rounded-[14px] border-[1.5px] border-[var(--app-accent)] bg-bg-modal shadow-2xl outline-none"
+      >
+        {/* Header */}
+        <div className="flex items-start gap-3 px-5 pt-4 pb-3 border-b border-border-subtle shrink-0">
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+              Notes
+            </span>
+            <h2 id={titleId} className="text-base font-semibold text-text-primary truncate">
+              {request.companyName}
+            </h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium text-text-secondary">{request.requestCode}</span>
+              <span className="text-xs text-text-tertiary" aria-hidden="true">
+                ·
               </span>
-              <h2 id={titleId} className="text-xl font-semibold text-text-primary leading-tight">
-                {data.company}
-              </h2>
-              <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                <span className="text-xs font-medium text-text-secondary">{data.code}</span>
-                <StatusChip label={status} status={STATUS_CATEGORY[status]} dot={false} />
-              </div>
+              <StatusChip label={status} status={STATUS_CATEGORY[status]} dot={false} />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggle}
-              aria-expanded={expanded}
-              aria-label={expanded ? 'Collapse notes' : 'Expand notes'}
-              className="!p-1.5 shrink-0"
-            >
-              <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size="sm" />
-            </Button>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={requestClose}
+            aria-label="Close notes"
+            title="Close"
+            className="!p-1.5 text-text-tertiary hover:text-text-primary shrink-0"
+          >
+            <Icon name="close" size="sm" />
+          </Button>
+        </div>
 
-          {/* Body */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6 flex flex-col gap-5">
-            <p className="text-base font-medium text-text-primary leading-relaxed">
-              {data.headline}
-            </p>
+        {/* Composer */}
+        {canAddNotes && (
+          <div className="px-5 py-4 border-b border-border-subtle shrink-0">
+            <HighlightEditor
+              label="Add a note"
+              tones={NOTE_LOG_TONES}
+              hint={null}
+              placeholder="Add a note… select text, then pick a colour."
+              saveLabel="Add"
+              compact
+              resetOnSave
+              autoFocus={false}
+              onSave={(html) => onAddNote?.(html)}
+            />
+          </div>
+        )}
 
-            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {facts.map((f) => (
-                <div
-                  key={f.label}
-                  className="rounded-[var(--radius-md)] border border-border-subtle bg-bg-surface-1 px-3 py-2.5 flex flex-col gap-1 min-w-0"
-                >
-                  <dt className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
-                    {f.label}
-                  </dt>
-                  <dd className="text-sm font-medium text-text-primary break-words">{f.value}</dd>
-                </div>
-              ))}
-            </dl>
-
-            {expanded && (
-              <>
-                {data.solution && (
-                  <Section title="Solution description">
-                    <p className="text-sm text-text-secondary leading-relaxed">{data.solution}</p>
-                  </Section>
+        {/* All notes: a one-line preview of the latest, or the whole timeline */}
+        <section aria-label="All notes" className="flex-1 min-h-0 flex flex-col">
+          <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-2 shrink-0">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+              All notes · {notes.length}
+            </h3>
+            {notes.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                aria-expanded={showAll}
+                aria-controls={timelineId}
+                className="inline-flex items-center gap-1 text-xs font-medium text-text-link hover:underline cursor-pointer"
+              >
+                {showAll ? 'Hide' : 'Show all'}
+                {showAll ? (
+                  <ChevronUp className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
                 )}
-
-                {data.proposal && (
-                  <Section title="Proposal of collaboration">
-                    <p className="text-sm text-text-secondary leading-relaxed">{data.proposal}</p>
-                  </Section>
-                )}
-
-                {data.focusAreas.length > 0 && (
-                  <Section title="Focus areas">
-                    <ul className="flex flex-wrap gap-1.5">
-                      {data.focusAreas.map((area) => (
-                        <li key={area}>
-                          <Badge size="sm">{area}</Badge>
-                        </li>
-                      ))}
-                    </ul>
-                  </Section>
-                )}
-
-                {(data.maturityDetail || data.approvals.length > 0) && (
-                  <Section title="Solution maturity & approvals">
-                    {data.maturityDetail && (
-                      <p className="text-sm text-text-secondary leading-relaxed">
-                        {data.maturityDetail}
-                      </p>
-                    )}
-                    {data.approvals.length > 0 && (
-                      <ul aria-label="Approvals" className="flex flex-wrap gap-1.5">
-                        {data.approvals.map((a) => (
-                          <li key={a}>
-                            <Badge
-                              size="sm"
-                              variant={a === 'Not applicable' ? 'default' : 'success'}
-                            >
-                              {a}
-                            </Badge>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </Section>
-                )}
-
-                <Section title="Stage progress">
-                  <StageChip progress={data.stage} fullWidth />
-                </Section>
-
-                {data.sponsors && (
-                  <Section title="Sponsors">
-                    <dl className="flex flex-col gap-1.5 text-sm">
-                      <div className="flex gap-2">
-                        <dt className="text-text-tertiary w-24 shrink-0">Lead</dt>
-                        <dd className="text-text-primary font-medium">{data.sponsors.lead}</dd>
-                      </div>
-                      {data.sponsors.co.length > 0 && (
-                        <div className="flex gap-2">
-                          <dt className="text-text-tertiary w-24 shrink-0">Co-sponsors</dt>
-                          <dd className="text-text-primary">{data.sponsors.co.join(', ')}</dd>
-                        </div>
-                      )}
-                    </dl>
-                  </Section>
-                )}
-
-                {showAssessment && data.assessment && (
-                  <Section title="Assessment summary">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge
-                        size="sm"
-                        variant={data.assessment.status === 'reject' ? 'error' : 'success'}
-                      >
-                        {data.assessment.status === 'reject'
-                          ? 'Points to reject'
-                          : 'Points to proceed'}
-                      </Badge>
-                      <ConfidenceBadge level={data.assessment.confidence} />
-                    </div>
-                    <p className="text-sm text-text-secondary leading-relaxed">
-                      {data.assessment.rationale}
-                    </p>
-                  </Section>
-                )}
-
-                {showNotes && (
-                  <div ref={notesRef}>
-                    <Section
-                      title="Key notes"
-                      action={
-                        canEditNotes &&
-                        !editing && (
-                          <button
-                            type="button"
-                            onClick={startEditing}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-[var(--app-accent)] hover:underline cursor-pointer"
-                          >
-                            <Pencil className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
-                            {data.notes ? 'Edit key notes' : 'Add key notes'}
-                          </button>
-                        )
-                      }
-                    >
-                      {editing ? (
-                        <HighlightEditor
-                          label="Edit key notes"
-                          initialHtml={data.notes?.html ?? ''}
-                          onCancel={() => setEditing(false)}
-                          onSave={(html) => {
-                            onSaveNote?.(html)
-                            setEditing(false)
-                          }}
-                        />
-                      ) : data.notes ? (
-                        <>
-                          <p
-                            className="summary-note text-sm text-text-secondary leading-relaxed whitespace-pre-wrap"
-                            dangerouslySetInnerHTML={{ __html: data.notes.html }}
-                          />
-                          <HighlightLegend />
-                        </>
-                      ) : (
-                        <p className="text-sm text-text-tertiary flex items-center gap-2">
-                          <NotebookText className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
-                          No key notes yet.
-                        </p>
-                      )}
-                    </Section>
-                  </div>
-                )}
-
-                {data.notes && (
-                  <p className="pt-4 border-t border-border-subtle text-xs text-text-tertiary">
-                    Last updated by{' '}
-                    <span className="font-medium text-text-secondary">{data.notes.updatedBy}</span>{' '}
-                    on{' '}
-                    <span className="font-medium text-text-secondary">{data.notes.updatedOn}</span>
-                  </p>
-                )}
-              </>
+              </button>
             )}
           </div>
-        </div>
+          {notes.length === 0 ? (
+            <p className="px-5 pb-5 text-sm text-text-tertiary flex items-center gap-2">
+              <NotebookText className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+              No notes yet.
+            </p>
+          ) : !showAll ? (
+            <p className="px-5 pb-4 min-w-0 truncate text-xs text-text-tertiary">
+              Latest · <span className="font-medium text-text-primary">{notes[0].author}</span> ·{' '}
+              <time dateTime={notes[0].at}>{formatNoteTime(notes[0].at)}</time>
+              <span className="text-text-secondary"> {firstLine(notes[0].html)}</span>
+            </p>
+          ) : (
+            // Scrolls only once the box reaches its 75vh cap
+            <div className="relative flex-1 min-h-0 flex flex-col">
+              <ol
+                id={timelineId}
+                ref={timelineRef}
+                onScroll={checkMore}
+                className="flex-1 min-h-0 overflow-y-auto overscroll-contain pl-5 pr-3 mr-1 pb-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-bg-surface-1 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-strong [&::-webkit-scrollbar-thumb]:rounded-full"
+              >
+                {notes.map((n, i) => (
+                  <li key={n.id} className="relative flex gap-3 pb-4 last:pb-0">
+                    {/* Thin line down to the next note */}
+                    {i < notes.length - 1 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-[15px] top-9 bottom-0 w-px bg-border-default"
+                      />
+                    )}
+                    <span
+                      aria-hidden="true"
+                      className="w-8 h-8 shrink-0 rounded-full bg-[var(--app-accent-soft)] text-[var(--app-accent)] text-[11px] font-semibold flex items-center justify-center"
+                    >
+                      {initialsOf(n.author)}
+                    </span>
+                    <div className="flex-1 min-w-0 flex flex-col gap-1 pt-1">
+                      <span className="text-xs text-text-tertiary">
+                        <span className="font-medium text-text-primary">{n.author}</span> · {n.role}{' '}
+                        · <time dateTime={n.at}>{formatNoteTime(n.at)}</time>
+                      </span>
+                      <p
+                        className="summary-note text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words"
+                        dangerouslySetInnerHTML={{ __html: sanitiseNoteHtml(n.html) }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              {/* Fades the last visible note while there is more below */}
+              {more && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 right-3 bottom-0 h-6 bg-linear-to-t from-bg-modal to-transparent"
+                />
+              )}
+            </div>
+          )}
+        </section>
       </div>
-    </>
+    </div>
   )
 }

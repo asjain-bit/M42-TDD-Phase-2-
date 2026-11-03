@@ -40,6 +40,8 @@ import {
 } from '@/lib/usageInsights'
 import { INITIAL_PARTNERSHIP_REQUESTS, type PartnershipRequest } from '@/types/partnership.types'
 import { Button } from '@/components/atoms/Button'
+import { StageChip } from '@/components/molecules/StageChip'
+import { getStageProgress } from '@/lib/caseActions'
 import { CreateKpiModal } from '@/components/organisms/CreateKpiModal'
 import {
   describeCustomKpi,
@@ -164,22 +166,26 @@ const KpiCard: React.FC<{
 )
 
 /** The cost chart keeps this height whatever its width */
-const CHART_HEIGHT = 190
+/** The chart area is at least this tall; otherwise it fills the card below the header */
+const CHART_MIN_HEIGHT = 220
 
 /** Width of an element, kept up to date as it resizes */
-const useWidth = <T extends HTMLElement>() => {
+/** The element's measured size, kept up to date as it resizes */
+const useSize = <T extends HTMLElement>() => {
   const ref = useRef<T>(null)
-  const [width, setWidth] = useState(0)
+  const [size, setSize] = useState({ width: 0, height: 0 })
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    setWidth(el.clientWidth)
+    setSize({ width: el.clientWidth, height: el.clientHeight })
     if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    const observer = new ResizeObserver(([entry]) =>
+      setSize({ width: entry.contentRect.width, height: entry.contentRect.height })
+    )
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
-  return [ref, width] as const
+  return [ref, size] as const
 }
 
 const CostChart: React.FC<{
@@ -187,15 +193,17 @@ const CostChart: React.FC<{
   ai: number[]
   selected: number
   labels: string[]
-  /** Measured width of the chart area; the height is fixed */
+  /** Measured size of the chart area: the chart is drawn at that size, one unit per pixel */
   width: number
-}> = ({ manual, ai, selected, labels, width }) => {
+  height: number
+}> = ({ manual, ai, selected, labels, width, height }) => {
   const W = Math.max(width, 320)
-  const H = CHART_HEIGHT
+  const H = Math.max(height, CHART_MIN_HEIGHT)
   const left = 44
   const right = 124
   const top = 16
-  const bottom = 36
+  // Room for the week labels, which sit on the chart's bottom edge
+  const bottom = 28
   const max = Math.max(3000, Math.ceil(Math.max(...manual) / 1000) * 1000)
   const x = (i: number) => left + (i * (W - left - right)) / (manual.length - 1)
   const y = (v: number) => top + (1 - v / max) * (H - top - bottom)
@@ -208,7 +216,7 @@ const CostChart: React.FC<{
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       aria-label="Cost without AI versus cost using AI by week"
-      className="w-full h-auto"
+      className="absolute inset-0 w-full h-full"
     >
       {ticks.map((t) => (
         <g key={t}>
@@ -244,7 +252,7 @@ const CostChart: React.FC<{
         <text
           key={label}
           x={x(i)}
-          y={H - 12}
+          y={H - 4}
           textAnchor="middle"
           fontSize="11"
           fontWeight={i === selected ? 700 : 400}
@@ -321,7 +329,7 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [inputsOpen])
-  const [chartRef, chartWidth] = useWidth<HTMLDivElement>()
+  const [chartRef, chartSize] = useSize<HTMLDivElement>()
   const [showAll, setShowAll] = useState(false)
 
   const week = USAGE_WEEKS[weekIndex]
@@ -355,6 +363,10 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
   const kpiValues = kpiValuesFor(week, assumptions)
 
   const groups = groupAssessmentsByStatus(requests)
+  const stageOf = (item: { name: string; code: string }) => {
+    const r = requests.find((c) => c.requestCode === item.code && c.companyName === item.name)
+    return r ? getStageProgress(r) : undefined
+  }
 
   const shown = showAll ? 6 : 4
 
@@ -515,60 +527,74 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
         <h2 id="usage-roi" className="text-lg font-semibold text-[#0d212c]">
           Value/ROI
         </h2>
-        <div className="relative bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-5 sm:p-6 flex flex-col gap-4">
-          {recalculating && (
-            <div
-              role="status"
-              aria-label="Recalculating"
-              className="absolute inset-0 z-10 rounded-2xl bg-white/90 flex flex-col items-center justify-center gap-3"
-            >
-              <svg viewBox="0 0 48 48" className="w-12 h-12 animate-spin" aria-hidden="true">
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#e2e8f0" strokeWidth="4" />
-                <circle
-                  cx="24"
-                  cy="24"
-                  r="20"
-                  fill="none"
-                  stroke={TEAL}
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray="42 126"
-                />
-              </svg>
-              <span className="text-sm font-medium text-[#475569]">Recalculating…</span>
-            </div>
-          )}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-4 flex-wrap">
-              <h3 className="text-base font-semibold text-[#0d212c]">
-                Cost without AI vs cost using AI
-              </h3>
-              <div className="flex items-center gap-3 text-xs text-[#64748b]">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-0.5" style={{ backgroundColor: TEAL }} />
-                  Cost without AI
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-0.5" style={{ backgroundColor: DARK }} />
-                  Cost using AI
-                </span>
+        {/* The page's 4-column grid: the chart under the first three Overview cards, the figures
+            under the fourth. Stacked below 1024px. */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-stretch">
+          <div className="lg:col-span-3 min-w-0 bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-5 sm:p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap shrink-0">
+              <div className="flex items-center gap-4 flex-wrap">
+                <h3 className="text-base font-semibold text-[#0d212c]">
+                  Cost without AI vs cost using AI
+                </h3>
+                <div className="flex items-center gap-3 text-xs text-[#64748b]">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-4 h-0.5" style={{ backgroundColor: TEAL }} />
+                    Cost without AI
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-4 h-0.5" style={{ backgroundColor: DARK }} />
+                    Cost using AI
+                  </span>
+                </div>
               </div>
+              <span className="text-xs text-text-tertiary">
+                Week of {week.full} · based on {INPUT_ROWS.length} inputs
+              </span>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_15rem] gap-6 items-center">
-            <div ref={chartRef} className="min-w-0" style={{ height: CHART_HEIGHT }}>
-              {chartWidth > 0 && (
+            {/* Fills the rest of the card, so the week labels sit on the card's bottom padding.
+                The chart is drawn over it, so its size never feeds back into the measurement. */}
+            <div
+              ref={chartRef}
+              className="relative flex-1 min-w-0"
+              style={{ minHeight: CHART_MIN_HEIGHT }}
+            >
+              {chartSize.width > 0 && (
                 <CostChart
                   manual={manualSeries}
                   ai={aiSeries}
                   selected={weekIndex}
                   labels={USAGE_WEEKS.map((w) => w.short)}
-                  width={chartWidth}
+                  width={chartSize.width}
+                  height={chartSize.height}
                 />
               )}
             </div>
-            <dl className="flex flex-col divide-y divide-border-subtle lg:border-l lg:border-border-subtle lg:pl-6">
+          </div>
+
+          <div className="relative min-w-0 bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-5 sm:p-6 flex flex-col gap-4">
+            {recalculating && (
+              <div
+                role="status"
+                aria-label="Recalculating"
+                className="absolute inset-0 z-10 rounded-2xl bg-white/90 flex flex-col items-center justify-center gap-3"
+              >
+                <svg viewBox="0 0 48 48" className="w-12 h-12 animate-spin" aria-hidden="true">
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="#e2e8f0" strokeWidth="4" />
+                  <circle
+                    cx="24"
+                    cy="24"
+                    r="20"
+                    fill="none"
+                    stroke={TEAL}
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeDasharray="42 126"
+                  />
+                </svg>
+                <span className="text-sm font-medium text-[#475569]">Recalculating…</span>
+              </div>
+            )}
+            <dl className="flex flex-col divide-y divide-border-subtle">
               {[
                 {
                   label: 'Cost without AI',
@@ -610,16 +636,8 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
                 </div>
               ))}
             </dl>
-          </div>
-
-          {/* Footer: what the figures are based on, and the drawer that explains them. Same grid
-              as the chart and figures, so the link starts where the figure labels do. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_15rem] gap-x-6 gap-y-2 items-center pt-3 border-t border-border-subtle">
-            <span className="text-xs text-text-tertiary">
-              Week of {week.full} · based on {INPUT_ROWS.length} inputs
-            </span>
-            {/* Matches the figures column: a 1px (invisible) left border and 24px padding */}
-            <div className="lg:border-l lg:border-transparent lg:pl-6">
+            {/* Footer: the drawer that explains the figures */}
+            <div className="mt-auto pt-3 border-t border-border-subtle">
               <button
                 type="button"
                 onClick={() => setInputsOpen(true)}
@@ -766,11 +784,15 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
                   {group.items.slice(0, shown).map((item) => (
                     <li
                       key={`${item.name}-${item.code}`}
-                      className="flex items-center justify-between gap-4 py-3 text-sm"
+                      className="flex items-start justify-between gap-4 py-3 text-sm"
                     >
-                      <span className="text-[#0d212c] truncate" title={item.name}>
-                        {item.name}
-                      </span>
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <span className="text-[#0d212c] truncate" title={item.name}>
+                          {item.name}
+                        </span>
+                        {/* The same stage chip as the dashboard's Stage column */}
+                        {stageOf(item) && <StageChip progress={stageOf(item)!} />}
+                      </div>
                       <span className="text-[#36c0c9] font-medium whitespace-nowrap pl-3 shrink-0">
                         {item.code}
                       </span>

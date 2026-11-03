@@ -4,7 +4,7 @@ export interface InterestTableProps {
   interests: ServiceLineInterest[]
   /** Row click: opens the interest drawer */
   onOpen: (code: string) => void
-  /** Rows submitted by this person get a Mine tag */
+  /** Rows submitted by this person get a Yours tag */
   mineName?: string
   /** The row whose drawer is open */
   selectedCode?: string | null

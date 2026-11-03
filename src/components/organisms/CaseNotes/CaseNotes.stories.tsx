@@ -2,44 +2,33 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { CaseNotes } from '@/components/organisms/CaseNotes'
 import { INITIAL_PARTNERSHIP_REQUESTS } from '@/types/partnership.types'
 
-const [medTech, alphaHealth, genomicX, carePulse] = INITIAL_PARTNERSHIP_REQUESTS
+const [medTech, , genomicX, carePulse] = INITIAL_PARTNERSHIP_REQUESTS
 
 const meta: Meta<typeof CaseNotes> = {
   title: 'Organisms/CaseNotes',
   component: CaseNotes,
   tags: ['autodocs'],
   parameters: { layout: 'fullscreen' },
-  args: { onClose: () => {}, onSaveNote: () => {} },
+  args: { onClose: () => {}, onAddNote: () => {} },
   argTypes: {
-    showAssessment: { control: 'boolean' },
-    canEditNotes: { control: 'boolean' },
-    defaultExpanded: { control: 'boolean' },
+    canAddNotes: { control: 'boolean' },
   },
 }
 
 export default meta
 type Story = StoryObj<typeof CaseNotes>
 
-/** Collapsed: header, headline and the four facts */
+/** The composer and the notes log, newest first */
 export const Default: Story = {
-  args: { request: medTech, status: 'Pending', showAssessment: true },
+  args: { request: medTech, status: 'Pending' },
 }
 
-/** Expanded into the one-slide brief */
-export const Expanded: Story = {
-  args: { request: genomicX, status: 'Pending', showAssessment: true, defaultExpanded: true },
+/** Three notes, one of them by the Triage Agent */
+export const ManyNotes: Story = {
+  args: { request: genomicX, status: 'In Progress' },
 }
 
-/** Internal Interest and Strategy see no assessment summary */
-export const WithoutAssessment: Story = {
-  args: { request: alphaHealth, status: 'In Progress', defaultExpanded: true },
-}
-
+/** Read-only, and a case with no notes yet */
 export const EdgeCases: Story = {
-  args: {
-    request: { ...carePulse, summaryNote: undefined, sponsors: undefined },
-    status: 'Closed',
-    showAssessment: true,
-    defaultExpanded: true,
-  },
+  args: { request: { ...carePulse, notes: undefined }, status: 'Closed', canAddNotes: false },
 }

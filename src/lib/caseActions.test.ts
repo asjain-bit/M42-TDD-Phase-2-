@@ -25,7 +25,7 @@ import {
   routeRequest,
   sendReview,
   submitReview,
-  updateSummaryNote,
+  addCaseNote,
   currentAnswer,
   editInternalAnswer,
   buildCloseEmail,
@@ -590,55 +590,72 @@ describe('sponsor final answer', () => {
   })
 })
 
-describe('summary note', () => {
+describe('case notes log', () => {
   const when = new Date('2026-10-22T09:00:00Z')
 
-  it('seeds a use case summary on every seed case', () => {
+  it('seeds two or three notes on every seed case, the first by the Triage Agent', () => {
     INITIAL_PARTNERSHIP_REQUESTS.forEach((r) => {
-      expect(r.summaryNote?.html).toBeTruthy()
-      expect(r.summaryNote?.updatedBy).toBe('Triage Agent')
+      expect(r.notes?.length).toBeGreaterThanOrEqual(2)
+      expect(r.notes?.length).toBeLessThanOrEqual(3)
+      expect(r.notes?.[0].author).toBe('Triage Agent')
     })
   })
 
-  it('writes a summary for a new case from the form, flagging missing approvals', () => {
+  it('starts a new case with the Triage Agent note, flagging missing approvals as a risk', () => {
     const c = buildCaseFromForm(form, 'PR-126', when)
-    expect(c.summaryNote).toEqual({
-      html: expect.stringContaining('PulseAI Health: Deploy our triage model'),
-      updatedBy: 'Triage Agent',
-      updatedOn: '22 Oct 2026',
-    })
-    expect(c.summaryNote?.html).toContain(
+    expect(c.notes).toEqual([
+      {
+        id: expect.any(String),
+        author: 'Triage Agent',
+        role: 'AI agent',
+        at: when.toISOString(),
+        html: expect.stringContaining('PulseAI Health: Deploy our triage model'),
+      },
+    ])
+    expect(c.notes?.[0].html).toContain(
       '<mark data-tone="positive">Approvals listed: FDA, CE.</mark>'
     )
     const none = buildCaseFromForm({ ...form, relevantApprovals: 'In progress' }, 'PR-1', when)
-    expect(none.summaryNote?.html).toContain(
-      '<mark data-tone="attention">No regulatory approvals listed.</mark>'
+    expect(none.notes?.[0].html).toContain(
+      '<mark data-tone="critical">No regulatory approvals listed.</mark>'
     )
   })
 
-  it('saves an edited note with its editor, sanitised, and logs it', () => {
-    const next = updateSummaryNote(
+  it('adds a sanitised note after the others, never changing them, and logs it', () => {
+    const before = pending.notes ?? []
+    const next = addCaseNote(
       pending,
       'Good <mark data-tone="critical">risk</mark><script>alert(1)</script><img src=x onerror=alert(1)>',
-      { name: 'Leena Thomas', role: 'Strategy Team' }
+      { name: 'Leena Thomas', role: 'Strategy Team' },
+      when
     )
-    expect(next.summaryNote?.html).toBe('Good <mark data-tone="critical">risk</mark>')
-    expect(next.summaryNote?.updatedBy).toBe('Leena Thomas')
-    expect(next.summaryNote?.updatedOn).toMatch(/^\d{2} \w{3} \d{4}$/)
+    expect(next.notes?.slice(0, before.length)).toEqual(before)
+    expect(next.notes?.at(-1)).toMatchObject({
+      author: 'Leena Thomas',
+      role: 'Strategy Team',
+      at: when.toISOString(),
+      html: 'Good <mark data-tone="critical">risk</mark>',
+    })
     expect(next.auditLog.at(-1)).toMatchObject({
-      title: 'Summary note updated',
+      title: 'Note added',
       actor: 'Leena Thomas (Strategy Team)',
       kind: 'user',
     })
   })
 
+  it('ignores an empty note', () => {
+    expect(
+      addCaseNote(pending, '<mark data-tone="neutral"> </mark>', { name: 'x', role: 'y' })
+    ).toBe(pending)
+  })
+
   it('is reachable as a case action', () => {
     const next = applyCaseAction(pending, {
-      type: 'summaryNote',
+      type: 'addNote',
       html: 'Plain text',
-      editor: { name: 'Nadia Al-Farsi', role: 'Partnership Admin' },
+      author: { name: 'Nadia Al-Farsi', role: 'Partnership Admin' },
     })
-    expect(next.summaryNote?.html).toBe('Plain text')
+    expect(next.notes?.at(-1)?.html).toBe('Plain text')
   })
 })
 

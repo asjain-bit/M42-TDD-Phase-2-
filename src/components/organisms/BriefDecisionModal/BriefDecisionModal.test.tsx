@@ -9,18 +9,25 @@ const email = { to: 'sarah@vendor.com', subject: 'More info', body: 'Hi Sarah' }
 
 const renderModal = (props: Partial<BriefDecisionModalProps> = {}) => {
   const onSubmit = vi.fn()
+  const onReject = vi.fn()
   const onRequestInfo = vi.fn()
   const onClose = vi.fn()
   render(
     <BriefDecisionModal
       email={email}
       onSubmit={onSubmit}
+      buildRejectEmail={(reason) => ({
+        to: email.to,
+        subject: 'Update on your request',
+        body: `Not this time. ${reason}`,
+      })}
+      onReject={onReject}
       onRequestInfo={onRequestInfo}
       onClose={onClose}
       {...props}
     />
   )
-  return { onSubmit, onRequestInfo, onClose }
+  return { onSubmit, onReject, onRequestInfo, onClose }
 }
 
 const choose = (user: ReturnType<typeof userEvent.setup>, option: string) =>

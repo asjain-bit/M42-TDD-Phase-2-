@@ -11,8 +11,12 @@ export interface BriefDecisionModalProps {
   agentRecommendation?: 'proceed' | 'reject'
   /** Template shown when more information is requested */
   email: InfoEmail
-  /** Approve or reject, with the reason (optional for approve, mandatory for reject) */
-  onSubmit: (decision: 'approve' | 'reject', reason: string) => void
+  /** Approve, with an optional reason */
+  onSubmit: (decision: 'approve', reason: string) => void
+  /** Draft of the email to the partner when rejecting, built from the reason */
+  buildRejectEmail: (reason: string) => InfoEmail
+  /** Reject: the mandatory reason and the email sent to the partner */
+  onReject: (reason: string, email: InfoEmail) => void
   /** The Director has requested more information using this email */
   onRequestInfo: (email: InfoEmail) => void
   onClose: () => void

@@ -17,7 +17,7 @@ import {
 import { SAMPLE_VENDOR_FORM, type VendorFormValues } from '@/types/vendorForm'
 import { DEFAULT_QUESTIONNAIRE_ID, getQuestionnaire } from '@/types/questionnaires'
 import { sampleAnswersFor } from '@/lib/sampleAnswers'
-import { escapeNoteText, markNote, sanitiseNoteHtml } from '@/lib/summaryNote'
+import { escapeNoteText, markNote, noteToText, sanitiseNoteHtml } from '@/lib/summaryNote'
 
 const DIRECTOR_NAME = 'Zaid Al Ali'
 const ADMIN_NAME = 'Nadia Al-Farsi'
@@ -561,7 +561,7 @@ const buildSummaryNote = (values: VendorFormValues, solution: string, maturity: 
     escapeNoteText(`${values.company.trim()}: ${lead} Focus: ${areas}. Maturity: ${maturity}.`),
     approvals.length > 0
       ? markNote('positive', `Approvals listed: ${approvals.join(', ')}.`)
-      : markNote('attention', 'No regulatory approvals listed.'),
+      : markNote('critical', 'No regulatory approvals listed.'),
   ].join(' ')
 }
 
@@ -602,11 +602,16 @@ export const buildCaseFromForm = (
       rationale:
         'The submission is complete and aligns with M42 focus areas. Regulatory evidence and baselines still need to be confirmed.',
     },
-    summaryNote: {
-      html: buildSummaryNote(values, solution, maturity),
-      updatedBy: AGENT_ACTOR,
-      updatedOn: submittedOn,
-    },
+    // The Triage Agent writes the first entry in the notes log
+    notes: [
+      {
+        id: `note-${now.getTime()}`,
+        author: AGENT_ACTOR,
+        role: 'AI agent',
+        at: now.toISOString(),
+        html: buildSummaryNote(values, solution, maturity),
+      },
+    ],
     workflowStages: [
       { id: 1, title: 'Submission', subheading: submittedOn, status: 'completed' },
       { id: 2, title: 'Intake & Triage', subheading: 'In Progress', status: 'in_progress' },
@@ -686,6 +691,25 @@ export const closeWithEmail = (
     { ...closeRequest(r, reason), closedEmail: { ...email, sentOn: todayLabel() } },
     {
       title: 'Closure email sent',
+      description: `Email sent to ${email.to}: ${email.subject}`,
+      actor: DIRECTOR_ACTOR,
+      kind: 'user',
+    }
+  )
+
+/**
+ * The Director rejects the brief and emails the partner: rejected as before (Exited), with the
+ * email kept on the case
+ */
+export const rejectWithEmail = (
+  r: PartnershipRequest,
+  reason: string,
+  email: { to: string; subject: string; body: string }
+): PartnershipRequest =>
+  appendAudit(
+    { ...rejectRequest(r, reason), rejectionEmail: { ...email, sentOn: todayLabel() } },
+    {
+      title: 'Rejection email sent',
       description: `Email sent to ${email.to}: ${email.subject}`,
       actor: DIRECTOR_ACTOR,
       kind: 'user',
@@ -1228,33 +1252,48 @@ export const expressSponsorInterest = (
 /* ---------- Use case summary note ---------- */
 
 /** Saves an edited use case summary. Only text and highlights are kept. */
-export const updateSummaryNote = (
+/** Adds a note to the case notes log. Notes are only ever added; earlier ones never change. */
+export const addCaseNote = (
   r: PartnershipRequest,
   html: string,
-  editor: { name: string; role: string }
-): PartnershipRequest =>
-  appendAudit(
+  author: { name: string; role: string },
+  now = new Date()
+): PartnershipRequest => {
+  const clean = sanitiseNoteHtml(html)
+  if (!noteToText(clean)) return r
+  return appendAudit(
     {
       ...r,
-      summaryNote: {
-        html: sanitiseNoteHtml(html),
-        updatedBy: editor.name,
-        updatedOn: todayLabel(),
-      },
+      notes: [
+        ...(r.notes ?? []),
+        {
+          id: `note-${now.getTime()}`,
+          author: author.name,
+          role: author.role,
+          at: now.toISOString(),
+          html: clean,
+        },
+      ],
     },
     {
-      title: 'Summary note updated',
-      description: `${editor.name} edited the use case summary.`,
-      actor: `${editor.name} (${editor.role})`,
+      title: 'Note added',
+      description: `${author.name} added a note.`,
+      actor: `${author.name} (${author.role})`,
       kind: 'user',
     }
   )
+}
 
 /** Every change the late stages and the Internal Interest outcome can make to a case */
 export type CaseAction =
   | { type: 'internalScenario'; scenario: InternalScenario }
   | { type: 'closeCase'; reason: string }
   | { type: 'closeWithEmail'; reason: string; email: { to: string; subject: string; body: string } }
+  | {
+      type: 'rejectWithEmail'
+      reason: string
+      email: { to: string; subject: string; body: string }
+    }
   | { type: 'assignSponsors'; lead: string; co: string[] }
   | { type: 'uploadNda'; fileName: string }
   | { type: 'discoveryFile'; kind: DiscoveryFileKind; name: string }
@@ -1270,7 +1309,7 @@ export type CaseAction =
   | { type: 'valueDecision'; status: 'proceeded' | 'rejected'; reason: string }
   | { type: 'generateTdd' }
   | { type: 'finalSponsor'; sponsor: boolean }
-  | { type: 'summaryNote'; html: string; editor: { name: string; role: string } }
+  | { type: 'addNote'; html: string; author: { name: string; role: string } }
   | {
       type: 'sponsorInterest'
       interest: { name: string; team: string; preference: SponsorPreference; note: string }
@@ -1294,6 +1333,8 @@ export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): Part
       return closeRequest(r, action.reason)
     case 'closeWithEmail':
       return closeWithEmail(r, action.reason, action.email)
+    case 'rejectWithEmail':
+      return rejectWithEmail(r, action.reason, action.email)
     case 'assignSponsors':
       return assignSponsors(r, { lead: action.lead, co: action.co })
     case 'uploadNda':
@@ -1314,8 +1355,8 @@ export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): Part
       return generateTddReport(r)
     case 'finalSponsor':
       return finalizeSponsorship(r, action.sponsor)
-    case 'summaryNote':
-      return updateSummaryNote(r, action.html, action.editor)
+    case 'addNote':
+      return addCaseNote(r, action.html, action.author)
     case 'sponsorInterest':
       return expressSponsorInterest(r, action.interest)
     case 'editInternalAnswer':

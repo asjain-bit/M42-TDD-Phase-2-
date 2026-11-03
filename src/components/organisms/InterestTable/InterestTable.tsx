@@ -58,7 +58,7 @@ export const InterestTable: React.FC<InterestTableProps> = ({
                       </span>
                       {mineName && i.submittedBy === mineName && (
                         <Badge size="sm" variant="info">
-                          Mine
+                          Yours
                         </Badge>
                       )}
                     </span>

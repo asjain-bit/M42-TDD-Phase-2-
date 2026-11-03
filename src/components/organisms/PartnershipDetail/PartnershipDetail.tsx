@@ -33,7 +33,8 @@ import { Radio } from '@/components/atoms/Radio'
 import { StatusChip } from '@/components/atoms/StatusChip'
 import { Textarea } from '@/components/atoms/Textarea'
 import { AppDialog } from '@/components/molecules/AppDialog'
-import { CopyButton } from '@/components/molecules/CopyButton'
+import { PartnerEmailFields } from '@/components/molecules/PartnerEmailFields'
+import { StageChip } from '@/components/molecules/StageChip'
 import {
   buildAdminAgentActions,
   buildAgentActions,
@@ -55,7 +56,7 @@ import {
   buildInfoEmail,
   formatDueDate,
   getOverdueDays,
-  getStageLabel,
+  getStageProgress,
   hasSignedNda,
   hasDirectorDecided,
   type AdminRouting,
@@ -620,15 +621,22 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [briefModal, setBriefModal] = useState(false)
 
-  const handleBriefDecision = (decision: 'approve' | 'reject', reason: string) => {
+  const handleBriefDecision = (_decision: 'approve', reason: string) => {
     setBriefModal(false)
-    setLocalDecision({ decision, reason })
-    if (decision === 'approve') {
-      onProceed?.(request.id, reason)
-      setActiveStep('canvas')
-    } else {
-      onReject?.(request.id, reason)
-    }
+    setLocalDecision({ decision: 'approve', reason })
+    onProceed?.(request.id, reason)
+    setActiveStep('canvas')
+  }
+
+  // Reject: rejected as before, with the email to the partner kept on the case
+  const handleBriefReject = (
+    reason: string,
+    email: { to: string; subject: string; body: string }
+  ) => {
+    setBriefModal(false)
+    setLocalDecision({ decision: 'reject', reason })
+    if (onCaseAction) onCaseAction(request.id, { type: 'rejectWithEmail', reason, email })
+    else onReject?.(request.id, reason)
   }
 
   const handleSendInfo = (email: { to: string; subject: string; body: string }) => {
@@ -747,8 +755,15 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             ? 'strategy'
             : 'director'
   )
-  /** The Director can close the request at any stage until it has ended */
-  const canClose = isDirector && displayStatus !== 'Closed' && displayStatus !== 'Completed'
+  /**
+   * The Director can close the request at any stage until it has ended, except on the brief,
+   * where Reject in the decision popup does that
+   */
+  const canClose =
+    isDirector &&
+    activeStep !== 'brief' &&
+    displayStatus !== 'Closed' &&
+    displayStatus !== 'Completed'
   const closeButton = canClose && (
     <Button
       variant="outline"
@@ -1960,7 +1975,9 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                                     {c.requestCode}
                                   </td>
                                   <td className="py-3 px-4 text-[#0d212c]">{c.sponsors?.lead}</td>
-                                  <td className="py-3 px-4 text-[#0d212c]">{getStageLabel(c)}</td>
+                                  <td className="py-3 px-4">
+                                    <StageChip progress={getStageProgress(c)} />
+                                  </td>
                                   <td className="py-3 px-4 text-[#64748b]">
                                     {c.auditLog[c.auditLog.length - 1]?.timestamp}
                                   </td>
@@ -2205,6 +2222,8 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           agentRecommendation={request.agentRecommendation?.status}
           email={buildInfoEmail(request, userProfile?.name ?? 'Director')}
           onSubmit={handleBriefDecision}
+          buildRejectEmail={(reason) => buildCloseEmail(request, directorName, reason)}
+          onReject={handleBriefReject}
           onRequestInfo={handleSendInfo}
           onClose={() => setBriefModal(false)}
         />
@@ -2654,45 +2673,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           </>
         }
       >
-        <div className="flex flex-col gap-4" role="group" aria-label="Email to the partner">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-text-secondary">To</span>
-              <CopyButton text={closeEmail.to} label="recipient" />
-            </div>
-            <div className="px-3 py-2 rounded-md border border-border-default bg-bg-surface-1 text-sm text-text-primary">
-              {closeEmail.to}
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="close-subject" className="text-xs font-semibold text-text-secondary">
-                Subject
-              </label>
-              <CopyButton text={closeEmail.subject} label="subject" />
-            </div>
-            <Input
-              id="close-subject"
-              value={closeEmail.subject}
-              onChange={(e) => setCloseEmail((m) => ({ ...m, subject: e.target.value }))}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="close-body" className="text-xs font-semibold text-text-secondary">
-                Message
-              </label>
-              <CopyButton text={closeEmail.body} label="message" />
-            </div>
-            <Textarea
-              id="close-body"
-              rows={10}
-              resize="none"
-              value={closeEmail.body}
-              onChange={(e) => setCloseEmail((m) => ({ ...m, body: e.target.value }))}
-            />
-          </div>
-        </div>
+        <PartnerEmailFields email={closeEmail} onChange={setCloseEmail} idPrefix="close" />
       </AppDialog>
 
       {/* SPONSOR INTEREST: offer to sponsor */}

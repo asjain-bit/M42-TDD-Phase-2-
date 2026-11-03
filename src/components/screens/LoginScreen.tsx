@@ -74,13 +74,6 @@ export const AVAILABLE_PROFILES: UserProfile[] = [
       'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
   },
   {
-    id: 'service-line',
-    name: 'Hamad Al Suwaidi',
-    designation: 'Service Line Owner',
-    email: 'hamad.alsuwaidi@m42.ae',
-    roleTitle: 'Service Line Owner',
-  },
-  {
     id: 'tdd-admin',
     name: 'Zaid Al Ali',
     designation: 'TDD Admin',
@@ -289,7 +282,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                     profile.id === 'evaluator' ||
                     profile.id === 'strategy-fit' ||
                     profile.id === 'sponsor' ||
-                    profile.id === 'service-line' ||
                     profile.id === 'tdd-admin'
 
                   if (isAccessible) {

@@ -88,6 +88,7 @@ export const findOverlaps = (
       label: `Overlaps ${m.request.requestCode} (${requestState(m.request)})`,
       title: `${m.request.companyName}: ${m.request.headline ?? m.request.solution}`,
       status: requestState(m.request),
+      stage: getStageProgress(m.request),
       reasons: reasonsFor(m.focusMatches, m.keywordMatches),
       score: m.score,
     }))

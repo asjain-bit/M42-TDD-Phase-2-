@@ -3,7 +3,7 @@
  * <mark data-tone="..."> highlights. Line breaks are kept as newline characters.
  */
 
-export type NoteTone = 'critical' | 'attention' | 'positive'
+export type NoteTone = 'critical' | 'attention' | 'neutral' | 'positive'
 
 export const NOTE_TONES: { tone: NoteTone; label: string }[] = [
   { tone: 'critical', label: 'Critical' },
@@ -11,10 +11,18 @@ export const NOTE_TONES: { tone: NoteTone; label: string }[] = [
   { tone: 'positive', label: 'Positive' },
 ]
 
+/** The case notes log composer: Risk, Neutral and Positive */
+export const NOTE_LOG_TONES: { tone: NoteTone; label: string }[] = [
+  { tone: 'critical', label: 'Risk' },
+  { tone: 'neutral', label: 'Neutral' },
+  { tone: 'positive', label: 'Positive' },
+]
+
 /** Swatch colours for each tone, from the status tokens (editor toolbar and legend) */
 export const NOTE_TONE_CLASSES: Record<NoteTone, string> = {
   critical: 'bg-status-error-bg border-status-error-border text-status-error-text',
   attention: 'bg-status-warning-bg border-status-warning-border text-status-warning-text',
+  neutral: 'bg-bg-surface-2 border-border-default text-text-secondary',
   positive: 'bg-status-success-bg border-status-success-border text-status-success-text',
 }
 
@@ -22,7 +30,7 @@ export const NOTE_TONE_CLASSES: Record<NoteTone, string> = {
 export const CLEAR_TONE = 'none'
 
 const isNoteTone = (t: string): t is NoteTone =>
-  t === 'critical' || t === 'attention' || t === 'positive'
+  t === 'critical' || t === 'attention' || t === 'neutral' || t === 'positive'
 
 export const escapeNoteText = (text: string) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')

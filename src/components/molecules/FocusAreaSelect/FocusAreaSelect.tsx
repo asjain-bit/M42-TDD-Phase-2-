@@ -2,8 +2,10 @@
 
 /**
  * FocusAreaSelect — Molecule
- * Multi-select of the M42 focus areas: chips in the trigger, a checkbox list below.
- * Used in: VendorWebForm, ServiceLineInterestScreen (New interest)
+ * Multi-select of the M42 focus areas (or any other options): chips in the trigger, a checkbox
+ * list below.
+ * Used in: VendorWebForm, ServiceLineInterestScreen (New interest), InterestEditModal,
+ * ProjectFormModal (vendors)
  */
 
 import React, { useState } from 'react'
@@ -19,6 +21,9 @@ export const FocusAreaSelect: React.FC<FocusAreaSelectProps> = ({
   id,
   value,
   onChange,
+  options = FOCUS_AREA_OPTIONS,
+  placeholder = 'Select focus areas',
+  listLabel = 'Focus areas',
   error = false,
   className = '',
 }) => {
@@ -36,7 +41,7 @@ export const FocusAreaSelect: React.FC<FocusAreaSelectProps> = ({
         }`}
       >
         {value.length === 0 ? (
-          <span className="text-[#9aa8b5]">Select focus areas</span>
+          <span className="text-[#9aa8b5]">{placeholder}</span>
         ) : (
           value.map((f) => (
             <span
@@ -57,11 +62,11 @@ export const FocusAreaSelect: React.FC<FocusAreaSelectProps> = ({
       {open && (
         <ul
           role="listbox"
-          aria-label="Focus areas"
+          aria-label={listLabel}
           aria-multiselectable="true"
           className="absolute z-20 mt-1.5 w-full max-h-64 overflow-y-auto rounded-lg border border-[#e2e8f0] bg-white shadow-lg py-1.5 animate-in fade-in slide-in-from-top-1 duration-150"
         >
-          {FOCUS_AREA_OPTIONS.map((opt) => {
+          {options.map((opt) => {
             const selected = value.includes(opt)
             return (
               <li key={opt} role="option" aria-selected={selected}>

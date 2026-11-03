@@ -3,8 +3,8 @@
 /**
  * HighlightEditor — Molecule
  * Small rich-text editor for a note: labelled highlight pills (critical, needs attention,
- * positive, clear), editable area, Save and Cancel.
- * Used in: SummaryNote, CaseNotes
+ * positive, clear, or the tones passed in), editable area, Save and an optional Cancel.
+ * Used in: SummaryNote, CaseNotes (the notes log composer)
  */
 
 import React, { useEffect, useRef, useState } from 'react'
@@ -47,6 +47,13 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
   onSave,
   onCancel,
   label = 'Edit case notes',
+  tones = NOTE_TONES,
+  placeholder,
+  hint = 'Select text, then pick a colour.',
+  saveLabel = 'Save',
+  resetOnSave = false,
+  compact = false,
+  autoFocus = true,
   className = '',
 }) => {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -56,7 +63,7 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
   useEffect(() => {
     if (!editorRef.current) return
     editorRef.current.innerHTML = sanitiseNoteHtml(initialHtml)
-    editorRef.current.focus()
+    if (autoFocus) editorRef.current.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -87,6 +94,10 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
     const next = sanitiseNoteHtml(editorRef.current?.innerHTML ?? '')
     if (!noteToText(next)) return
     onSave(next)
+    if (resetOnSave && editorRef.current) {
+      editorRef.current.innerHTML = ''
+      setDraftEmpty(true)
+    }
   }
 
   // Keep toolbar clicks from taking the selection away from the editor
@@ -95,7 +106,7 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
   return (
     <div className={`summary-note flex flex-col gap-2.5 ${className}`.trim()}>
       <div role="toolbar" aria-label="Highlight" className="flex items-center gap-2 flex-wrap">
-        {NOTE_TONES.map(({ tone, label: toneLabel }) => (
+        {tones.map(({ tone, label: toneLabel }) => (
           <button
             key={tone}
             type="button"
@@ -118,9 +129,11 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
           <Eraser className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
           Clear
         </button>
-        <span className="text-[13px] leading-8 text-text-tertiary sm:whitespace-nowrap">
-          Select text, then pick a colour.
-        </span>
+        {hint && (
+          <span className="text-[13px] leading-8 text-text-tertiary sm:whitespace-nowrap">
+            {hint}
+          </span>
+        )}
       </div>
 
       <div
@@ -128,20 +141,31 @@ export const HighlightEditor: React.FC<HighlightEditorProps> = ({
         role="textbox"
         aria-multiline="true"
         aria-label={label}
+        data-placeholder={placeholder}
         contentEditable
         suppressContentEditableWarning
         onInput={refreshDraft}
         onPaste={handlePaste}
-        className="min-h-24 max-h-64 overflow-y-auto rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm leading-relaxed text-text-primary whitespace-pre-wrap outline-none focus:border-border-focus"
+        className={`${
+          // 2 lines of text-sm leading-relaxed plus padding, growing to 4
+          compact ? 'min-h-[4.125rem] max-h-[7rem]' : 'min-h-24 max-h-64'
+        } overflow-y-auto rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm leading-relaxed text-text-primary whitespace-pre-wrap outline-none focus:border-border-focus empty:before:content-[attr(data-placeholder)] empty:before:text-text-tertiary empty:before:pointer-events-none`}
       />
 
       <div className="flex items-center justify-end gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="md" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button variant="primary" size="md" onClick={save} disabled={draftEmpty}>
-            Save
+          {onCancel && (
+            <Button variant="outline" size="md" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            size={compact ? 'sm' : 'md'}
+            onClick={save}
+            disabled={draftEmpty}
+          >
+            {saveLabel}
           </Button>
         </div>
       </div>

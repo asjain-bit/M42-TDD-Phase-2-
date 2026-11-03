@@ -3,20 +3,25 @@
 /**
  * InternalInterestsScreen — Screen
  * Service line interests for the Strategy Team (all, to approve or decline, with the overlap
- * check) and for the Partnership Admin and Director (approved only, in the same table and drawer
- * as the Service Line Owner's All interests).
+ * check, and a menu to edit or delete each one) and for the Partnership Admin and Director
+ * (approved only, read-only, in the same table and drawer as the Service Line Owner's All
+ * interests).
  * Used in: HomePage (Strategy Team, Partnership Admin, Director)
  */
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { Check, Inbox, Radar, X } from 'lucide-react'
+import { Check, Inbox, Plus, Radar, Trash2, X } from 'lucide-react'
 import { Badge } from '@/components/atoms/Badge'
 import { Button } from '@/components/atoms/Button'
 import { StatusChip } from '@/components/atoms/StatusChip'
 import { Textarea } from '@/components/atoms/Textarea'
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
+import { RowActionsMenu } from '@/components/molecules/RowActionsMenu'
 import { SearchBar } from '@/components/molecules/SearchBar'
 import { StatusFilterChips } from '@/components/molecules/StatusFilterChips'
+import { Toast } from '@/components/molecules/Toast'
 import { InterestDrawer } from '@/components/organisms/InterestDrawer'
+import { InterestEditModal, type InterestEdit } from '@/components/organisms/InterestEditModal'
 import { InterestTable } from '@/components/organisms/InterestTable'
 import { OverlapDrawer } from '@/components/organisms/OverlapDrawer'
 import { RecommendedVendors } from '@/components/organisms/RecommendedVendors'
@@ -40,6 +45,11 @@ export interface InternalInterestsScreenProps {
   onDecide?: (code: string, decision: 'Approved' | 'Declined', reason?: string) => void
   /** Runs the overlap check over every interest and stores the results */
   onRunOverlaps: () => void
+  /** Strategy Team only: add an interest from their own scouting (approved straight away) */
+  onAdd?: (draft: InterestEdit) => void
+  /** Strategy Team only: change an interest, or delete it */
+  onEdit?: (code: string, edit: InterestEdit) => void
+  onDelete?: (code: string) => void
 }
 
 const STATUSES: InterestStatus[] = ['Pending review', 'Approved', 'Declined']
@@ -90,6 +100,9 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
   role,
   onDecide,
   onRunOverlaps,
+  onAdd,
+  onEdit,
+  onDelete,
 }) => {
   const isStrategy = role === 'strategy'
   const visible = useMemo(() => visibleInterests(interests, role), [interests, role])
@@ -105,6 +118,17 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
   const [overlapCode, setOverlapCode] = useState<string | null>(null)
   const [declining, setDeclining] = useState(false)
   const [reason, setReason] = useState('')
+  // Strategy Team: the interest being edited, and the one waiting for delete confirmation
+  const [editing, setEditing] = useState<ServiceLineInterest | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
+  const [deleting, setDeleting] = useState<ServiceLineInterest | null>(null)
+  const canManage = isStrategy && Boolean(onEdit && onDelete)
 
   const open = visible.find((i) => i.code === openCode) ?? null
   const overlapFor = visible.find((i) => i.code === overlapCode) ?? null
@@ -201,16 +225,24 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
               : 'Requirements raised by service lines and approved by the Strategy Team.'}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="md"
-          onClick={() => setChecking(true)}
-          disabled={checking}
-          className="gap-1.5"
-        >
-          <Radar className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
-          Run overlap check
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => setChecking(true)}
+            disabled={checking}
+            className="gap-1.5"
+          >
+            <Radar className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+            Run overlap check
+          </Button>
+          {onAdd && (
+            <Button variant="primary" size="md" onClick={() => setAdding(true)} className="gap-1.5">
+              <Plus className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+              Add interest
+            </Button>
+          )}
+        </div>
       </div>
 
       {checking && (
@@ -252,12 +284,17 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
                 <th className="py-4 px-4">Submitted</th>
                 <th className="py-4 px-4">Status</th>
                 <th className="py-4 px-4">Overlap</th>
+                {canManage && (
+                  <th className="py-4 px-4 w-12">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-text-tertiary">
+                  <td colSpan={canManage ? 8 : 7} className="py-16 text-center text-text-tertiary">
                     <div className="flex flex-col items-center gap-2">
                       <Inbox className="w-6 h-6" aria-hidden="true" />
                       <span className="text-xs">No interests match your search or filter.</span>
@@ -275,7 +312,14 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
                       {i.code}
                     </td>
                     <td className="py-4.5 px-4 text-xs font-medium text-text-primary group-hover:text-[var(--app-accent)]">
-                      {i.title}
+                      <span className="inline-flex items-center gap-2 flex-wrap">
+                        {i.title}
+                        {i.source === 'Strategy scouting' && (
+                          <Badge size="sm" variant="info" title="Added by the Strategy Team">
+                            Strategy
+                          </Badge>
+                        )}
+                      </span>
                     </td>
                     <td className="py-4.5 px-4 text-xs text-text-primary whitespace-nowrap">
                       {i.serviceLine}
@@ -301,6 +345,15 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
                     <td className="py-4.5 px-4">
                       <OverlapFlag overlaps={overlapsOf(i)} onOpen={() => setOverlapCode(i.code)} />
                     </td>
+                    {canManage && (
+                      <td className="py-4.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <RowActionsMenu
+                          label={`${i.code} ${i.title}`}
+                          onEdit={() => setEditing(i)}
+                          onDelete={() => setDeleting(i)}
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -448,6 +501,54 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
             )}
           </aside>
         </div>
+      )}
+
+      {adding && (
+        <InterestEditModal
+          onClose={() => setAdding(false)}
+          onSave={(draft) => {
+            onAdd?.(draft)
+            setAdding(false)
+            setToast('Interest added.')
+          }}
+        />
+      )}
+
+      {toast && (
+        <Toast
+          title={toast}
+          variant="success"
+          onClose={() => setToast(null)}
+          className="fixed top-5 right-5 z-[60] animate-in slide-in-from-top-4 duration-200"
+        />
+      )}
+
+      {editing && (
+        <InterestEditModal
+          interest={editing}
+          onClose={() => setEditing(null)}
+          onSave={(edit) => {
+            onEdit?.(editing.code, edit)
+            setEditing(null)
+          }}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete this interest?"
+          description={`${deleting.code} ${deleting.title} will be removed from Internal Interests and from the overlap checks.`}
+          icon={Trash2}
+          cancelLabel="Cancel"
+          confirmLabel="Delete"
+          danger
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => {
+            onDelete?.(deleting.code)
+            if (openCode === deleting.code) closeDrawer()
+            setDeleting(null)
+          }}
+        />
       )}
 
       {/* Above the interest drawer when opened from it */}
