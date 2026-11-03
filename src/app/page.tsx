@@ -34,15 +34,14 @@ import { DEFAULT_ASSUMPTIONS, type UsageAssumptions } from '@/lib/usageInsights'
 import type { CustomKpi } from '@/lib/customKpi'
 import type { VendorFormValues } from '@/types/vendorForm'
 
-type MainTab =
-  'dashboard' | 'usage' | 'internal-interests' | 'existing-projects' | 'service-line-needs'
+type MainTab = 'dashboard' | 'usage' | 'internal-interests' | 'existing-projects' | 'my-interests'
 
 const TAB_TITLES: Record<MainTab, string> = {
   dashboard: 'Dashboard',
   usage: 'Value and ROI Insights',
   'internal-interests': 'Internal Interests',
   'existing-projects': 'Existing Projects',
-  'service-line-needs': 'Service line needs',
+  'my-interests': 'Internal interests',
 }
 
 export default function HomePage() {
@@ -189,7 +188,7 @@ export default function HomePage() {
     ...new Set([...requests.map((r) => r.companyName), ...projects.flatMap((p) => p.vendors)]),
   ].sort((a, b) => a.localeCompare(b))
 
-  /** The Internal Interest Team also raises service line needs */
+  /** The Internal Interest Team also raises internal interests */
   const isInternalTeam = userProfile.id === 'evaluator'
   /** Strategy Team, Partnership Admin and Director see Internal Interests and Existing Projects */
   const portfolioRole: StatusRole | null =
@@ -204,7 +203,7 @@ export default function HomePage() {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'usage', label: 'Value & ROI', icon: BarChart3 },
     ...(isInternalTeam
-      ? [{ id: 'service-line-needs', label: 'Service line needs', icon: Lightbulb }]
+      ? [{ id: 'my-interests', label: 'Internal interests', icon: Lightbulb }]
       : []),
     ...(portfolioRole
       ? [
@@ -220,7 +219,7 @@ export default function HomePage() {
 
   const handleVendorSubmit = (values: VendorFormValues) => {
     const code = nextCaseCode(requests)
-    setRequests((prev) => [buildCaseFromForm(values, code), ...prev])
+    setRequests((prev) => [buildCaseFromForm(values, code, new Date(), prev), ...prev])
     return code
   }
 
@@ -272,7 +271,7 @@ export default function HomePage() {
 
         {/* Full-Width Dashboard Content */}
         <main className="flex-1 w-full p-6">
-          {activeTab === 'service-line-needs' && isInternalTeam ? (
+          {activeTab === 'my-interests' && isInternalTeam ? (
             <ServiceLineInterestScreen
               interests={serviceLineInterests}
               requests={requests}

@@ -2,33 +2,71 @@
 
 /**
  * DiscoveryCallStage — Organism
- * The call between the NDA and Value & Due Diligence. The Director adds the meeting notes,
- * transcripts and recordings in one uploader, then proceeds (or skips), which hands the case to
- * the sponsor. The call can also be held on the platform (PlatformCallRoom), where a listening
- * agent writes the summary. Everyone else waits and can read what was added.
+ * The call between the NDA and Value & Due Diligence, held on Teams or elsewhere. The Director
+ * uploads the transcripts and the agent writes a meeting summary (a file with a document
+ * preview), then proceeds (or skips), which hands the case to the sponsor. Everyone else waits
+ * and can read what was added.
  * Used in: PartnershipDetail
  */
 
-import React, { useState } from 'react'
-import { FileText, Film, Mic } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { FileText, Film, Mic, Sparkles, X } from 'lucide-react'
+import { Skeleton } from '@/components/atoms/Skeleton'
+import { DocumentFileCard } from '@/components/molecules/DocumentFileCard'
 import { FilePicker } from '@/components/molecules/FilePicker'
 import { StageFooter } from '@/components/molecules/StageFooter'
-import {
-  CallFormatChoice,
-  PlatformCallRoom,
-  defaultCallAttendees,
-  type CallFormat,
-} from '@/components/organisms/PlatformCallRoom'
-import type { CaseFile } from '@/types/partnership.types'
+import { DocumentViewer } from '@/components/organisms/DocumentViewer'
+import type { CaseFile, MeetingSummary } from '@/types/partnership.types'
 import type { DiscoveryCallStageProps } from './DiscoveryCallStage.types'
 
-const contextKind = (name: string): 'notes' | 'transcripts' | 'recordings' => {
-  const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase()
-  if (['mp3', 'm4a', 'wav', 'mp4', 'mov'].includes(ext)) return 'recordings'
-  if (ext === 'vtt') return 'transcripts'
-  return 'notes'
-}
+const ACCEPT = '.vtt,.txt,.doc,.docx,.pdf'
+const MAX_MB = 20
+/** How long the agent takes to write the summary */
+const SUMMARY_MS = 2000
 
+/** 340 KB, 1.2 MB */
+const formatSize = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`
+
+const extensionOf = (name: string) => name.slice(name.lastIndexOf('.') + 1).toUpperCase()
+
+/** A small tile with the file type, e.g. VTT */
+const TypeTile: React.FC<{ name: string }> = ({ name }) => (
+  <span
+    aria-hidden="true"
+    className="w-9 h-9 shrink-0 rounded-lg border border-border-default bg-bg-surface-1 text-[10px] font-semibold text-text-secondary flex items-center justify-center"
+  >
+    {extensionOf(name)}
+  </span>
+)
+
+const FileRow: React.FC<{ name: string; meta: string; onRemove?: () => void }> = ({
+  name,
+  meta,
+  onRemove,
+}) => (
+  <li className="flex items-center gap-3 px-4 py-3">
+    <TypeTile name={name} />
+    <div className="flex flex-col min-w-0 flex-1">
+      <span className="text-sm font-medium text-text-primary truncate">{name}</span>
+      <span className="text-xs text-text-tertiary">{meta}</span>
+    </div>
+    {onRemove && (
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${name}`}
+        className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-hover cursor-pointer transition"
+      >
+        <X className="w-4 h-4" strokeWidth={2} />
+      </button>
+    )}
+  </li>
+)
+
+/** Earlier meeting notes or recordings on the case, read-only */
 const FileList: React.FC<{ label: string; files: CaseFile[]; icon: React.ReactNode }> = ({
   label,
   files,
@@ -37,14 +75,14 @@ const FileList: React.FC<{ label: string; files: CaseFile[]; icon: React.ReactNo
   files.length === 0 ? null : (
     <ul
       aria-label={label}
-      className="rounded-xl border border-[#e2e8f0] divide-y divide-[#f1f5f9] bg-white"
+      className="rounded-xl border border-border-default divide-y divide-border-subtle bg-bg-default"
     >
       {files.map((f) => (
         <li key={f.name} className="flex items-center gap-3 px-4 py-3">
           {icon}
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-medium text-[#0d212c] truncate">{f.name}</span>
-            <span className="text-xs text-[#64748b]">
+            <span className="text-sm font-medium text-text-primary truncate">{f.name}</span>
+            <span className="text-xs text-text-tertiary">
               {f.uploadedBy} · {f.uploadedOn}
             </span>
           </div>
@@ -52,6 +90,82 @@ const FileList: React.FC<{ label: string; files: CaseFile[]; icon: React.ReactNo
       ))}
     </ul>
   )
+
+type SectionKey = 'keyPoints' | 'vendorCommitments' | 'openQuestions' | 'risks' | 'nextSteps'
+
+const SECTIONS: [SectionKey, string][] = [
+  ['keyPoints', 'Key points'],
+  ['vendorCommitments', 'Vendor commitments'],
+  ['openQuestions', 'Open questions'],
+  ['risks', 'Risks'],
+  ['nextSteps', 'Next steps'],
+]
+
+/** The summary as it reads in the document viewer */
+const SummaryDocument: React.FC<{ title: string; meta: string; content: MeetingSummary }> = ({
+  title,
+  meta,
+  content,
+}) => (
+  <article className="flex flex-col gap-6 text-text-primary">
+    <header className="flex flex-col gap-1 border-b border-border-default pb-4">
+      <h1 className="text-xl font-semibold">{title}</h1>
+      <p className="text-xs text-text-tertiary">{meta}</p>
+    </header>
+    {SECTIONS.map(([key, label]) =>
+      content[key].length === 0 ? null : (
+        <section key={key} className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-text-secondary">
+            {label}
+          </h2>
+          <ul className="flex flex-col gap-1.5 list-disc pl-5 text-sm leading-relaxed">
+            {content[key].map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )
+    )}
+  </article>
+)
+
+/** A plain-text copy of the summary, for Download (the prototype has no real PDF) */
+const summaryText = (title: string, content: MeetingSummary) =>
+  [
+    title,
+    '',
+    ...SECTIONS.flatMap(([key, label]) =>
+      content[key].length ? [label, ...content[key].map((i) => `- ${i}`), ''] : []
+    ),
+  ].join('\n')
+
+const PrimaryButton: React.FC<{
+  onClick: () => void
+  disabled?: boolean
+  children: React.ReactNode
+}> = ({ onClick, disabled, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className="h-10 px-5 rounded-lg bg-action-primary-bg-default hover:bg-action-primary-bg-hover disabled:bg-bg-disabled disabled:text-text-disabled disabled:cursor-not-allowed text-sm font-semibold text-action-primary-text shadow-xs cursor-pointer transition inline-flex items-center gap-2"
+  >
+    {children}
+  </button>
+)
+
+const SecondaryButton: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({
+  onClick,
+  children,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="h-10 px-5 rounded-lg border border-border-strong bg-bg-default text-sm font-semibold text-text-primary hover:bg-bg-hover cursor-pointer transition"
+  >
+    {children}
+  </button>
+)
 
 export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
   request,
@@ -63,119 +177,225 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
   const isDirector = role === 'director'
   const proceeded = Boolean(request.discovery?.proceededOn)
   const discovery = { notes: [], transcripts: [], recordings: [], ...request.discovery }
-  const hasFiles =
-    discovery.notes.length + discovery.transcripts.length + discovery.recordings.length > 0
+  const transcripts = discovery.transcripts ?? []
+  const summary = discovery.summary
   const canAdd = isDirector && !proceeded
-  const held = request.discovery?.platformCall
-  const [format, setFormat] = useState<CallFormat>(held ? 'platform' : 'outside')
-  const onPlatform = Boolean(held) || format === 'platform'
+
+  // Transcripts picked but not saved yet; the summary step saves them with the summary
+  const [picked, setPicked] = useState<File[]>([])
+  const [writing, setWriting] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
+
+  const addFiles = (files: File[]) =>
+    setPicked((prev) => [
+      ...prev,
+      ...files.filter((f) => !prev.some((p) => p.name === f.name && p.size === f.size)),
+    ])
+
+  useEffect(() => {
+    if (!writing) return
+    const t = setTimeout(() => {
+      onAction({
+        type: 'discoverySummary',
+        files: picked.map((f) => ({ name: f.name, size: formatSize(f.size) })),
+      })
+      setPicked([])
+      setWriting(false)
+    }, SUMMARY_MS)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [writing])
 
   const proceed = () => {
     onAction({ type: 'proceedToValue' })
     onNext()
   }
 
+  const summaryMeta = summary
+    ? `Meeting summary · from ${summary.transcriptCount} ${
+        summary.transcriptCount === 1 ? 'transcript' : 'transcripts'
+      } · generated ${summary.generatedOn}`
+    : ''
+  const downloadHref = useMemo(
+    () =>
+      summary
+        ? `data:text/plain;charset=utf-8,${encodeURIComponent(
+            summaryText(`Discovery call summary · ${request.companyName}`, summary.content)
+          )}`
+        : '',
+    [summary, request.companyName]
+  )
+
+  const n = picked.length
+  const plural = (count: number) => (count === 1 ? 'transcript' : 'transcripts')
+
   return (
     <div className={`flex flex-col gap-4 w-full h-full min-h-0 ${className}`.trim()}>
       <div className="flex flex-col gap-1 shrink-0">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-xl font-semibold text-[#0d212c]">Discovery Call</h2>
-          {canAdd && !held && (
-            <CallFormatChoice name="discovery-call-format" value={format} onChange={setFormat} />
-          )}
-        </div>
-        <p className="text-sm text-[#64748b]">
-          {canAdd && onPlatform
-            ? 'Hold the discovery call here. The agent listens and adds a summary to the meeting notes, then you hand the case to the sponsor.'
-            : canAdd
-              ? 'Upload the meeting notes, transcript or recording from the call, or skip this and go on. The sponsor takes over from here.'
-              : proceeded
-                ? 'The Director has handed this case to the sponsor.'
-                : 'Waiting for the Director to hold the discovery call and hand this case on.'}
+        <h2 className="text-xl font-semibold text-text-primary">Discovery Call</h2>
+        <p className="text-sm text-text-secondary">
+          {canAdd
+            ? 'Hold the call on Teams or elsewhere, then upload the transcripts. The agent writes a summary.'
+            : proceeded
+              ? 'The Director has handed this case to the sponsor.'
+              : 'Waiting for the Director to hold the discovery call and hand this case on.'}
         </p>
       </div>
 
       <div className="relative flex-1 min-h-0 overflow-y-auto flex flex-col gap-5 pr-1">
-        {onPlatform && (
-          <PlatformCallRoom
-            callType="discovery"
-            caseCode={request.requestCode}
-            request={request}
-            hostName="Zaid Al Ali"
-            canHost={canAdd}
-            defaultAttendees={defaultCallAttendees(request, 'Zaid Al Ali')}
-            saved={held}
-            onComplete={(attendees, questions) =>
-              onAction({ type: 'platformCall', callType: 'discovery', attendees, questions })
-            }
+        {/* The agent's summary, as a file */}
+        {summary && (
+          <DocumentFileCard
+            fileName={summary.fileName}
+            meta={summaryMeta}
+            onPreview={() => setPreviewing(true)}
           />
         )}
-        {canAdd && !onPlatform && (
-          <FilePicker
-            label="Upload meeting notes, transcript or recording"
-            hint="Documents, audio or video"
-            accept=".doc,.docx,.pdf,.txt,.vtt,.mp3,.m4a,.wav,.mp4,.mov"
-            multiple
-            onPick={(names) =>
-              names.forEach((name) =>
-                onAction({ type: 'discoveryFile', kind: contextKind(name), name })
-              )
-            }
-          />
+
+        {writing && (
+          <section
+            role="status"
+            aria-label="Writing the meeting summary"
+            className="rounded-xl border border-border-default bg-bg-default px-4 py-4 flex flex-col gap-3"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles
+                className="w-4 h-4 text-[var(--app-accent)]"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+              <span className="text-sm font-semibold text-text-primary">
+                Writing the meeting summary…
+              </span>
+            </div>
+            <p className="text-xs text-text-tertiary">
+              Reading {n} {plural(n)} · Pulling out key points · Listing next steps
+            </p>
+            <div className="flex items-center gap-4">
+              <Skeleton className="w-10 h-[52px] rounded-[3px] shrink-0" />
+              <div className="flex-1 flex flex-col gap-2">
+                <Skeleton className="h-3.5 w-1/2" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            </div>
+          </section>
         )}
+
+        {/* Picking the transcripts, before the summary is written */}
+        {canAdd && !summary && !writing && (
+          <section aria-labelledby="transcripts-heading" className="flex flex-col gap-3">
+            <h3 id="transcripts-heading" className="text-sm font-semibold text-text-primary">
+              Transcripts · {n}
+            </h3>
+            {n > 0 && (
+              <ul
+                aria-label="Transcripts to upload"
+                className="rounded-xl border border-border-default divide-y divide-border-subtle bg-bg-default"
+              >
+                {picked.map((f) => (
+                  <FileRow
+                    key={`${f.name}-${f.size}`}
+                    name={f.name}
+                    meta={formatSize(f.size)}
+                    onRemove={() => setPicked((prev) => prev.filter((p) => p !== f))}
+                  />
+                ))}
+              </ul>
+            )}
+            <FilePicker
+              label={n > 0 ? 'Add more transcripts' : 'Upload transcripts'}
+              hint={`VTT, TXT, DOC, DOCX or PDF · up to ${MAX_MB} MB each`}
+              accept={ACCEPT}
+              maxSizeMb={MAX_MB}
+              multiple
+              onPickFiles={addFiles}
+            />
+          </section>
+        )}
+
+        {/* The transcripts saved with the summary */}
+        {transcripts.length > 0 && (
+          <section aria-labelledby="saved-transcripts-heading" className="flex flex-col gap-3">
+            <h3 id="saved-transcripts-heading" className="text-sm font-semibold text-text-primary">
+              Transcripts · {transcripts.length}
+            </h3>
+            <ul
+              aria-label="Transcripts"
+              className="rounded-xl border border-border-default divide-y divide-border-subtle bg-bg-default"
+            >
+              {transcripts.map((f) => (
+                <FileRow
+                  key={f.name}
+                  name={f.name}
+                  meta={[f.size, `${f.uploadedBy} · ${f.uploadedOn}`].filter(Boolean).join(' · ')}
+                />
+              ))}
+            </ul>
+          </section>
+        )}
+
         <FileList
           label="Meeting notes"
           files={discovery.notes}
-          icon={<FileText className="w-5 h-5 text-[#2563eb]" aria-hidden="true" />}
-        />
-        <FileList
-          label="Transcripts"
-          files={discovery.transcripts}
-          icon={<Mic className="w-5 h-5 text-[#7c3aed]" aria-hidden="true" />}
+          icon={<FileText className="w-5 h-5 text-text-secondary" aria-hidden="true" />}
         />
         <FileList
           label="Recordings"
           files={discovery.recordings}
-          icon={<Film className="w-5 h-5 text-[#ea580c]" aria-hidden="true" />}
+          icon={<Film className="w-5 h-5 text-text-secondary" aria-hidden="true" />}
         />
-        {!canAdd && !hasFiles && (
-          <p className="text-sm text-[#94a3b8]">Nothing has been added from the call.</p>
+        {!canAdd && !summary && transcripts.length === 0 && (
+          <p className="text-sm text-text-tertiary flex items-center gap-2">
+            <Mic className="w-4 h-4" aria-hidden="true" />
+            Nothing has been added from the call.
+          </p>
         )}
       </div>
 
       <StageFooter compact>
-        <span />
-        {canAdd ? (
-          <div className="flex items-center gap-3">
-            {/* Once the call has been held here, there is nothing to skip */}
-            {!held && (
-              <button
-                type="button"
-                onClick={proceed}
-                className="h-10 px-5 rounded-lg border border-[#cbd5e1] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
-              >
-                Skip
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={proceed}
-              className="h-10 px-5 rounded-lg bg-[#00a8b0] hover:bg-[#009199] text-sm font-semibold text-white shadow-xs cursor-pointer transition"
-            >
-              Proceed
-            </button>
-          </div>
+        {canAdd && !summary ? (
+          <>
+            <span className="text-sm text-text-secondary">
+              {n} {plural(n)} ready.
+            </span>
+            <div className="flex items-center gap-3">
+              <SecondaryButton onClick={proceed}>Skip</SecondaryButton>
+              <PrimaryButton onClick={() => setWriting(true)} disabled={n === 0 || writing}>
+                <Sparkles className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+                Generate summary
+              </PrimaryButton>
+            </div>
+          </>
+        ) : canAdd ? (
+          <>
+            <span />
+            <PrimaryButton onClick={proceed}>Proceed</PrimaryButton>
+          </>
         ) : (
-          <button
-            type="button"
-            disabled={!proceeded}
-            onClick={onNext}
-            className="h-10 px-5 rounded-lg bg-[#00a8b0] hover:bg-[#009199] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-sm font-semibold text-white shadow-xs cursor-pointer transition"
-          >
-            Next
-          </button>
+          <>
+            <span />
+            <PrimaryButton onClick={onNext} disabled={!proceeded}>
+              Next
+            </PrimaryButton>
+          </>
         )}
       </StageFooter>
+
+      {previewing && summary && (
+        <DocumentViewer
+          fileName={summary.fileName}
+          downloadHref={downloadHref}
+          downloadName={summary.fileName.replace(/\.pdf$/, '.txt')}
+          contentLabel="Meeting summary"
+          onClose={() => setPreviewing(false)}
+        >
+          <SummaryDocument
+            title={`Discovery call summary · ${request.companyName}`}
+            meta={`${request.requestCode} · ${summaryMeta}`}
+            content={summary.content}
+          />
+        </DocumentViewer>
+      )}
     </div>
   )
 }

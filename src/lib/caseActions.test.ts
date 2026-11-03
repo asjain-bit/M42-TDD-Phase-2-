@@ -42,6 +42,7 @@ const form: VendorFormValues = {
   name: ' Dr. Omar ',
   jobTitle: 'CEO',
   company: 'PulseAI Health',
+  vendorId: '',
   phone: '',
   email: 'omar@pulseai.health',
   yearFounded: '2021',

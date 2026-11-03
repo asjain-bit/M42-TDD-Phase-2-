@@ -2,6 +2,8 @@ export interface VendorFormValues {
   name: string
   jobTitle: string
   company: string
+  /** Optional: VND-123, when the vendor raised a request before */
+  vendorId: string
   phone: string
   email: string
   yearFounded: string
@@ -20,6 +22,7 @@ export const EMPTY_VENDOR_FORM: VendorFormValues = {
   name: '',
   jobTitle: '',
   company: '',
+  vendorId: '',
   phone: '',
   email: '',
   yearFounded: '',
@@ -77,6 +80,10 @@ export const isFieldFilled = (values: VendorFormValues, field: keyof VendorFormV
   return Array.isArray(v) ? v.length > 0 : v.trim().length > 0
 }
 
+/** A Vendor ID is optional; when given it reads VND- and digits */
+export const isVendorIdValid = (value: string) =>
+  value.trim() === '' || /^VND-\d+$/i.test(value.trim())
+
 export const missingVendorFields = (values: VendorFormValues) =>
   REQUIRED_VENDOR_FIELDS.filter((f) => !isFieldFilled(values, f))
 
@@ -85,6 +92,8 @@ export const SAMPLE_VENDOR_FORM: VendorFormValues = {
   name: 'Dr. Rania Al Mansoori',
   jobTitle: 'Chief Executive Officer',
   company: 'Meridian Health AI',
+  // Left empty: the sample is a first request
+  vendorId: '',
   phone: '+971 50 987 6543',
   email: 'rania@meridianhealth.ai',
   yearFounded: '2019',

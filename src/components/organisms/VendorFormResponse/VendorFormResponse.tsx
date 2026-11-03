@@ -125,6 +125,11 @@ export const VendorFormResponse: React.FC<VendorFormResponseProps> = ({
               <Question label="Company" required>
                 <AnswerBox>{c.company}</AnswerBox>
               </Question>
+              {c.vendorId && (
+                <Question label="Vendor ID">
+                  <AnswerBox>{c.vendorId}</AnswerBox>
+                </Question>
+              )}
               {!hideContact && (
                 <Question label="Phone Number">
                   <AnswerBox>{c.phoneNumber || 'Not provided'}</AnswerBox>

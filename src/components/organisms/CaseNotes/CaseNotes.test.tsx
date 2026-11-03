@@ -46,7 +46,11 @@ describe('CaseNotes', () => {
     expect(within(card).getByText(`All notes · ${notes.length}`)).toBeInTheDocument()
     // Collapsed: one line for the latest note
     expect(within(card).queryByRole('listitem')).not.toBeInTheDocument()
-    expect(within(card).getByText(/^Latest ·/)).toHaveTextContent(notes[notes.length - 1].author)
+    const latest = notes[notes.length - 1]
+    const meta = within(card).getByText(
+      (_, el) => el?.tagName === 'SPAN' && /· Latest$/.test(el.textContent ?? '')
+    )
+    expect(meta).toHaveTextContent(`${latest.author} · ${latest.role}`)
     const toggle = within(card).getByRole('button', { name: /Show all/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await user.click(toggle)
@@ -61,7 +65,7 @@ describe('CaseNotes', () => {
     expect(card.querySelector('mark[data-tone="critical"]')).toBeInTheDocument()
   })
 
-  it('adds a note from the composer with Risk, Neutral and Positive, then clears it', async () => {
+  it('adds a note from the composer with Risk, Positive and Neutral, then clears it', async () => {
     const user = userEvent.setup()
     const { card, onAddNote } = renderCard()
     const toolbar = within(card).getByRole('toolbar', { name: 'Highlight' })
@@ -69,7 +73,7 @@ describe('CaseNotes', () => {
       within(toolbar)
         .getAllByRole('button')
         .map((b) => b.textContent)
-    ).toEqual(['Risk', 'Neutral', 'Positive', 'Clear'])
+    ).toEqual(['Risk', 'Positive', 'Neutral', 'Clear'])
     const add = within(card).getByRole('button', { name: 'Add' })
     expect(add).toBeDisabled()
     const editor = within(card).getByRole('textbox', { name: 'Add a note' })

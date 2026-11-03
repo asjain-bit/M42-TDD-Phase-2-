@@ -218,6 +218,12 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
                   <ConfidenceBadge level={confidenceLevel(rec.confidence)} />
                 </div>
                 <Body>{rec.rationale}</Body>
+                {isReject && (
+                  <p className="text-xs text-text-secondary">
+                    To act on this, use <span className="font-semibold">Close request</span>: it
+                    rejects the request at this stage and emails the partner.
+                  </p>
+                )}
                 <div className="flex flex-col gap-2 pt-3 border-t border-[#e2e8f0]">
                   <span className="text-xs font-semibold text-[#0d212c]">
                     What would change this assessment
@@ -240,6 +246,7 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
           <Section id="company-info" title="Company Information" icon={Building2}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <Field label="Company Name">{info.company}</Field>
+              {info.vendorId && <Field label="Vendor ID">{info.vendorId}</Field>}
               {!hideContact && (
                 <>
                   <Field label="Contact Person Name">{info.name}</Field>

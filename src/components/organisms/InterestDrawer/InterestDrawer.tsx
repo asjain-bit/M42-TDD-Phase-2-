@@ -2,13 +2,15 @@
 
 /**
  * InterestDrawer — Organism
- * Right side drawer with one interest: the need and the vendors M42 already knows for it. No
- * overlay: the page stays usable; only a shadow and a thin border set it apart.
+ * Right side drawer with one interest: the need and the vendors M42 already knows for it, with
+ * the ones the requester suggested tagged. No overlay: the page stays usable; only a shadow and
+ * a thin border set it apart.
  * Used in: ServiceLineInterestScreen, ServiceLineAllInterestsScreen, InternalInterestsScreen
  */
 
 import React, { useEffect, useId, useMemo, useRef } from 'react'
 import { X } from 'lucide-react'
+import { RecommendedVendors } from '@/components/organisms/RecommendedVendors'
 import { matchVendors } from '@/lib/serviceLineMatch'
 import type { InterestDrawerProps } from './InterestDrawer.types'
 
@@ -83,19 +85,7 @@ export const InterestDrawer: React.FC<InterestDrawerProps> = ({ interest, reques
           <h3 id={`${titleId}-vendors`} className="text-sm font-semibold text-text-primary">
             Recommended vendors
           </h3>
-          {vendors.length === 0 ? (
-            <p className="text-xs text-text-tertiary">
-              No vendor in the requests matches this yet.
-            </p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-border-subtle border-y border-border-subtle">
-              {vendors.map(({ request: r }) => (
-                <li key={r.id} className="py-2.5 text-sm text-text-primary">
-                  {r.companyName} <span className="text-text-tertiary">· {r.requestCode}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <RecommendedVendors matches={vendors} hideHeader suggested={interest.suggestedVendors} />
         </section>
       </div>
     </aside>

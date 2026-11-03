@@ -3,7 +3,7 @@
 /**
  * FilePicker — Molecule
  * Dashed drop area with a Browse button. Files are handed over by name only (prototype).
- * Used in: NdaStage, ValueDueDiligenceStage
+ * Used in: NdaStage, DiscoveryCallStage, ValueDueDiligenceStage
  */
 
 import React, { useRef, useState } from 'react'
@@ -17,6 +17,8 @@ export const FilePicker: React.FC<FilePickerProps> = ({
   hint,
   accept,
   onPick,
+  onPickFiles,
+  maxSizeMb,
   multiple = false,
   className = '',
 }) => {
@@ -27,9 +29,18 @@ export const FilePicker: React.FC<FilePickerProps> = ({
 
   const take = (list: FileList | File[]) => {
     const files = Array.from(list)
-    const ok = files.filter((f) => allowed.includes(extensionOf(f.name)))
-    setError(ok.length < files.length ? `Only ${allowed.join(', ')} files can be added here.` : '')
-    if (ok.length > 0) onPick(ok.map((f) => f.name))
+    const typed = files.filter((f) => allowed.includes(extensionOf(f.name)))
+    const ok = maxSizeMb ? typed.filter((f) => f.size <= maxSizeMb * 1024 * 1024) : typed
+    setError(
+      typed.length < files.length
+        ? `Only ${allowed.join(', ')} files can be added here.`
+        : ok.length < typed.length
+          ? `Each file can be up to ${maxSizeMb} MB.`
+          : ''
+    )
+    if (ok.length === 0) return
+    onPick?.(ok.map((f) => f.name))
+    onPickFiles?.(ok)
   }
 
   return (

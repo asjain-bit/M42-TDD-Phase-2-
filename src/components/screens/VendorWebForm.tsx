@@ -21,6 +21,7 @@ import {
   isFormEmpty,
   missingVendorFields,
   type VendorFormValues,
+  isVendorIdValid,
 } from '@/types/vendorForm'
 
 export interface VendorWebFormProps {
@@ -156,6 +157,10 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
     setValues((prev) => ({ ...prev, [field]: value }))
 
   const missing = useMemo(() => missingVendorFields(values), [values])
+  // Light format check on the optional Vendor ID: shown once it has been left or on submit
+  const [vendorIdTouched, setVendorIdTouched] = useState(false)
+  const vendorIdInvalid = !isVendorIdValid(values.vendorId)
+  const showVendorIdError = vendorIdInvalid && (vendorIdTouched || showErrors)
   const isMissing = (field: keyof VendorFormValues) => showErrors && missing.includes(field)
 
   // While the check runs, there are no Ignore buttons and no Run AI check button, only Submit
@@ -200,6 +205,14 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
   }
 
   const handleSubmit = () => {
+    if (vendorIdInvalid && missing.length === 0) {
+      setShowErrors(true)
+      const el = document.getElementById('field-vendorId')
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      return
+    }
     if (missing.length > 0) {
       setShowErrors(true)
       const el = document.getElementById(`field-${missing[0]}`)
@@ -384,6 +397,39 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
           <section className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-6 sm:p-8 flex flex-col gap-6">
             <h2 className="text-base font-semibold">Company Information</h2>
             <div className="flex flex-col gap-5">
+              <div id="field-vendorId" className="flex flex-col gap-1.5 scroll-mt-24">
+                <label
+                  htmlFor="vendorId"
+                  className="text-xs font-semibold text-text-primary leading-snug"
+                >
+                  Vendor ID (if a request was raised before)
+                </label>
+                <p id="vendorId-help" className="text-[11px] text-text-secondary leading-relaxed">
+                  Leave empty if this is your first request.
+                </p>
+                <input
+                  id="vendorId"
+                  type="text"
+                  value={values.vendorId}
+                  onChange={(e) => set('vendorId', e.target.value)}
+                  onBlur={() => setVendorIdTouched(true)}
+                  placeholder="e.g. VND-012"
+                  aria-invalid={showVendorIdError || undefined}
+                  aria-describedby={
+                    showVendorIdError ? 'vendorId-help vendorId-error' : 'vendorId-help'
+                  }
+                  className={`${FIELD} h-10 px-3 ${showVendorIdError ? FIELD_ERROR : ''}`}
+                />
+                {showVendorIdError && (
+                  <span
+                    id="vendorId-error"
+                    className="text-[11px] text-text-error flex items-center gap-1"
+                  >
+                    <AlertCircle className="w-3 h-3" aria-hidden="true" />
+                    Use the format VND-123.
+                  </span>
+                )}
+              </div>
               {textField('name', 'Vendor Name', {
                 required: true,
                 placeholder: 'Enter your full name',

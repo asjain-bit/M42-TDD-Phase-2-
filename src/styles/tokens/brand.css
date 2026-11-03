@@ -32,6 +32,9 @@
   --action-primary-bg-hover: #2fb0b9;
   --action-primary-bg-pressed: #26969e;
   --action-primary-text: #ffffff;
+  /* Primary tint and soft border: the lightest teal step, for tinted cards */
+  --action-primary-bg-soft: #f2fbfc;
+  --action-primary-border-subtle: #c9eef1;
 }
 
 [data-theme='dark'] {
@@ -59,4 +62,6 @@
   --action-primary-bg-hover: #2fb0b9;
   --action-primary-bg-pressed: #26969e;
   --action-primary-text: #ffffff;
+  --action-primary-bg-soft: rgba(54, 192, 201, 0.1);
+  --action-primary-border-subtle: #1e4558;
 }

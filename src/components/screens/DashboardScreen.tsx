@@ -137,7 +137,7 @@ const DescriptionCell: React.FC<{ text: string }> = ({ text }) => {
         onMouseLeave={() => setPos(null)}
         onFocus={(e) => show(e.currentTarget)}
         onBlur={() => setPos(null)}
-        className="text-xs font-normal text-[#0d212c] leading-relaxed line-clamp-2 max-w-[260px] outline-none"
+        className="text-xs font-normal text-[#0d212c] leading-relaxed line-clamp-2 min-w-[9rem] max-w-[220px] outline-none"
       >
         {text}
       </p>
@@ -218,7 +218,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [openNotes, setOpenNotes] = useState<{ id: string; anchor: HTMLElement } | null>(null)
   const notesRequest = requests.find((r) => r.id === openNotes?.id) ?? null
   // Every column plus Notes
-  const columnCount = isNonDirector ? 9 : isAdmin ? 10 : 9
+  const columnCount = isNonDirector ? 10 : isAdmin ? 11 : 10
 
   // StatusChip colours for the five statuses
   const getStatusCategory = (status: DisplayStatus) =>
@@ -372,6 +372,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     const q = searchTerm.toLowerCase()
     return (
       req.requestCode.toLowerCase().includes(q) ||
+      (req.vendorId ?? '').toLowerCase().includes(q) ||
       req.companyName.toLowerCase().includes(q) ||
       (!isNonDirector && req.vendorName.toLowerCase().includes(q)) ||
       req.solution.toLowerCase().includes(q) ||
@@ -629,7 +630,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] text-[11px] font-medium uppercase tracking-wider">
-                <th className="py-4 px-4">Case ID</th>
+                <th className="py-4 px-4 whitespace-nowrap">Case ID</th>
+                <th className="py-4 px-4 whitespace-nowrap">Vendor ID</th>
                 {isNonDirector ? (
                   <>
                     <th className="py-4 px-4">Company name</th>
@@ -681,6 +683,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     >
                       <td className="py-4.5 px-4 text-xs font-medium text-[#64748b] whitespace-nowrap">
                         {req.requestCode}
+                      </td>
+                      <td className="py-4.5 px-4 text-xs font-medium text-[#64748b] whitespace-nowrap">
+                        {req.vendorId ?? '-'}
                       </td>
 
                       <td className="py-4.5 px-4 text-xs font-medium text-[#0d212c] group-hover:text-[#36c0c9]">

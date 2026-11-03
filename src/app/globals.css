@@ -45,6 +45,7 @@
   --color-action-primary-bg-pressed: var(--action-primary-bg-pressed);
   --color-action-primary-text: var(--action-primary-text);
   --color-action-primary-bg-soft: var(--action-primary-bg-soft);
+  --color-action-primary-border-subtle: var(--action-primary-border-subtle);
 
   --color-action-destructive-bg-default: var(--action-destructive-bg-default);
   --color-action-destructive-bg-hover: var(--action-destructive-bg-hover);

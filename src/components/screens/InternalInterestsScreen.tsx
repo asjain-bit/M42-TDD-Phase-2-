@@ -441,7 +441,7 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
                   />
                 </div>
               )}
-              <RecommendedVendors matches={matches} />
+              <RecommendedVendors matches={matches} suggested={open.suggestedVendors} />
             </div>
 
             {isStrategy && onDecide && open.status === 'Pending review' && (

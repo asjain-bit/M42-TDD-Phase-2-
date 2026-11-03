@@ -2,8 +2,8 @@
 
 /**
  * CaseNotes — Organism
- * The case notes log as a box anchored to the Notes icon: a composer with Risk, Neutral and
- * Positive highlights, then the latest note in one line, or with Show all every note, newest
+ * The case notes log as a box anchored to the Notes icon: a composer with Risk, Positive and
+ * Neutral highlights, then the latest note in one line, or with Show all every note, newest
  * first. Notes are only ever added.
  * Used in: DashboardScreen
  */
@@ -20,10 +20,11 @@ import React, {
 import { ChevronDown, ChevronUp, NotebookText } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
 import { Icon } from '@/components/atoms/Icon'
+import { Input } from '@/components/atoms/Input'
 import { StatusChip } from '@/components/atoms/StatusChip'
 import { HighlightEditor } from '@/components/molecules/HighlightEditor'
 import type { DisplayStatus } from '@/lib/caseStatus'
-import { NOTE_LOG_TONES, noteToText, sanitiseNoteHtml } from '@/lib/summaryNote'
+import { NOTE_LOG_TONES, sanitiseNoteHtml } from '@/lib/summaryNote'
 import type { CaseNotesProps } from './CaseNotes.types'
 
 const STATUS_CATEGORY: Record<DisplayStatus, 'warning' | 'info' | 'success' | 'error' | 'neutral'> =
@@ -35,11 +36,16 @@ const STATUS_CATEGORY: Record<DisplayStatus, 'warning' | 'info' | 'success' | 'e
     RFI: 'neutral',
   }
 
-/** Box size and spacing: 420px wide, the viewport less 32px on screens under 640px */
-const CARD_WIDTH = 420
+/** Box size and spacing: 600px wide, the viewport less 32px on screens under 640px */
+const CARD_WIDTH = 600
 const SMALL_SCREEN = 640
-/** The expanded box is at most 75vh; it opens below the icon only when that much room is there */
+/** The collapsed box is at most 75vh */
 const MAX_HEIGHT_SHARE = 0.75
+/**
+ * With All notes open it may grow to 80vh, on the side it opened. It opens below the icon only
+ * when there is room for that expanded height.
+ */
+const ALL_NOTES_HEIGHT_SHARE = 0.8
 const VIEWPORT_MARGIN = 16
 const GAP = 8
 /** The notch: 16 x 9px, its base laid 1.5px over the box border so the outline runs on */
@@ -63,9 +69,6 @@ const initialsOf = (name: string) =>
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join('')
-
-/** The note's first line as plain text, for the collapsed preview */
-const firstLine = (html: string) => noteToText(html).split('\n')[0]
 
 /** 22 Oct 2026, 10:40 */
 const formatNoteTime = (iso: string) => {
@@ -96,6 +99,10 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
   const notes = useMemo(() => [...(request.notes ?? [])].reverse(), [request.notes])
   // Collapsed, the log shows only the latest note in one line
   const [showAll, setShowAll] = useState(false)
+  // The composer stays open while it is focused or has text
+  const [composerFocused, setComposerFocused] = useState(false)
+  const [composerHasText, setComposerHasText] = useState(false)
+  const oneLine = showAll && !composerFocused && !composerHasText
   const timelineId = useId()
 
   // Whether the timeline has more below what is shown, for the fade at its foot
@@ -186,6 +193,8 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
     room: number
     /** 75vh */
     expandedMax: number
+    /** The viewport height, for the 80vh cap with All notes open */
+    vh: number
   } | null>(null)
   const sideRef = useRef<'below' | 'above' | null>(null)
   const place = useCallback(
@@ -213,7 +222,8 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
       const roomBelow = vh - VIEWPORT_MARGIN - belowEdge
       const roomAbove = aboveEdge - VIEWPORT_MARGIN
       if (pickSide || !sideRef.current) {
-        sideRef.current = roomBelow >= expandedMax || roomBelow >= roomAbove ? 'below' : 'above'
+        sideRef.current =
+          roomBelow >= vh * ALL_NOTES_HEIGHT_SHARE || roomBelow >= roomAbove ? 'below' : 'above'
       }
       const placement = sideRef.current
       const pointerX = Math.min(
@@ -228,6 +238,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
         placement,
         room: Math.max(0, placement === 'below' ? roomBelow : roomAbove),
         expandedMax,
+        vh,
       })
     },
     [anchor]
@@ -317,7 +328,13 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
         tabIndex={-1}
         onKeyDown={trapFocus}
         style={{
-          maxHeight: position ? Math.min(position.expandedMax, position.room) : '75vh',
+          // Anchored by its top edge (below) or bottom edge (above), so it grows away from the icon
+          maxHeight: position
+            ? Math.min(
+                showAll ? position.vh * ALL_NOTES_HEIGHT_SHARE : position.expandedMax,
+                position.room
+              )
+            : '75vh',
         }}
         className="relative w-full flex flex-col overflow-hidden rounded-[14px] border-[1.5px] border-[var(--app-accent)] bg-bg-modal shadow-2xl outline-none"
       >
@@ -350,20 +367,46 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
           </Button>
         </div>
 
-        {/* Composer */}
+        {/* Composer. With All notes open it shrinks to one line, and opens up again (pills and the
+            2-4 line box) once the field is focused or has text. */}
         {canAddNotes && (
-          <div className="px-5 py-4 border-b border-border-subtle shrink-0">
-            <HighlightEditor
-              label="Add a note"
-              tones={NOTE_LOG_TONES}
-              hint={null}
-              placeholder="Add a note… select text, then pick a colour."
-              saveLabel="Add"
-              compact
-              resetOnSave
-              autoFocus={false}
-              onSave={(html) => onAddNote?.(html)}
-            />
+          <div
+            className={`px-5 border-b border-border-subtle shrink-0 ${oneLine ? 'py-3' : 'py-4'}`}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                setComposerFocused(false)
+              }
+            }}
+          >
+            {oneLine ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  aria-label="Add a note"
+                  placeholder="Add a note…"
+                  readOnly
+                  onFocus={() => setComposerFocused(true)}
+                  className="flex-1 h-9 cursor-text"
+                />
+                <Button variant="primary" size="sm" disabled>
+                  Add
+                </Button>
+              </div>
+            ) : (
+              <HighlightEditor
+                label="Add a note"
+                tones={NOTE_LOG_TONES}
+                hint={null}
+                placeholder="Add a note… select text, then pick a colour."
+                saveLabel="Add"
+                compact
+                resetOnSave
+                // Opening from the one-line field carries the focus into the editor
+                autoFocus={showAll}
+                onEmptyChange={(empty) => setComposerHasText(!empty)}
+                onSave={(html) => onAddNote?.(html)}
+              />
+            )}
           </div>
         )}
 
@@ -396,13 +439,28 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
               No notes yet.
             </p>
           ) : !showAll ? (
-            <p className="px-5 pb-4 min-w-0 truncate text-xs text-text-tertiary">
-              Latest · <span className="font-medium text-text-primary">{notes[0].author}</span> ·{' '}
-              <time dateTime={notes[0].at}>{formatNoteTime(notes[0].at)}</time>
-              <span className="text-text-secondary"> {firstLine(notes[0].html)}</span>
-            </p>
+            // The latest note: who and when on one line, the note itself below (up to 4 lines)
+            <div className="px-5 pb-4 flex gap-3 min-w-0">
+              <span
+                aria-hidden="true"
+                className="w-8 h-8 shrink-0 rounded-full bg-[var(--app-accent-soft)] text-[var(--app-accent)] text-[11px] font-semibold flex items-center justify-center"
+              >
+                {initialsOf(notes[0].author)}
+              </span>
+              <div className="flex-1 min-w-0 flex flex-col gap-0.5 pt-1">
+                <span className="text-xs text-text-tertiary truncate">
+                  <span className="font-medium text-text-primary">{notes[0].author}</span> ·{' '}
+                  {notes[0].role} ·{' '}
+                  <time dateTime={notes[0].at}>{formatNoteTime(notes[0].at)}</time> · Latest
+                </span>
+                <p
+                  className="summary-note text-[13px] leading-[1.45] text-text-secondary whitespace-pre-wrap break-words line-clamp-4"
+                  dangerouslySetInnerHTML={{ __html: sanitiseNoteHtml(notes[0].html) }}
+                />
+              </div>
+            </div>
           ) : (
-            // Scrolls only once the box reaches its 75vh cap
+            // Scrolls only once the box reaches its 80vh cap
             <div className="relative flex-1 min-h-0 flex flex-col">
               <ol
                 id={timelineId}
@@ -411,7 +469,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
                 className="flex-1 min-h-0 overflow-y-auto overscroll-contain pl-5 pr-3 mr-1 pb-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-bg-surface-1 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-strong [&::-webkit-scrollbar-thumb]:rounded-full"
               >
                 {notes.map((n, i) => (
-                  <li key={n.id} className="relative flex gap-3 pb-4 last:pb-0">
+                  <li key={n.id} className="relative flex gap-3 pb-2.5 last:pb-0">
                     {/* Thin line down to the next note */}
                     {i < notes.length - 1 && (
                       <span
@@ -425,13 +483,13 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
                     >
                       {initialsOf(n.author)}
                     </span>
-                    <div className="flex-1 min-w-0 flex flex-col gap-1 pt-1">
+                    <div className="flex-1 min-w-0 flex flex-col gap-0.5 pt-1">
                       <span className="text-xs text-text-tertiary">
                         <span className="font-medium text-text-primary">{n.author}</span> · {n.role}{' '}
                         · <time dateTime={n.at}>{formatNoteTime(n.at)}</time>
                       </span>
                       <p
-                        className="summary-note text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words"
+                        className="summary-note text-[13px] leading-[1.45] text-text-secondary whitespace-pre-wrap break-words"
                         dangerouslySetInnerHTML={{ __html: sanitiseNoteHtml(n.html) }}
                       />
                     </div>

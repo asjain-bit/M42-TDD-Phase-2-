@@ -74,6 +74,8 @@ export interface CaseFile {
   name: string
   uploadedOn: string
   uploadedBy: string
+  /** Display size, e.g. 340 KB */
+  size?: string
 }
 
 /** Someone on a call held on the platform: an M42 colleague or an external email */
@@ -132,6 +134,8 @@ export interface CompanyInfo {
   name: string // Submitter Name *
   jobTitle: string // Job Title *
   company: string // Company *
+  /** VND-123, given when the vendor raised a request before */
+  vendorId?: string
   phoneNumber?: string // Phone Number (optional)
   email: string // Email Address *
   yearFounded: string // Year Founded *
@@ -241,6 +245,8 @@ export interface PartnershipRequest {
   id: string
   /** Human-readable request ID shown in tables, e.g. PR-124 */
   requestCode: string
+  /** The vendor's ID across their requests, e.g. VND-012 */
+  vendorId?: string
   companyName: string
   vendorName: string
   referredBy?: string | null
@@ -328,6 +334,13 @@ export interface PartnershipRequest {
     proceededOn?: string
     /** Set when the discovery call was held on the platform */
     platformCall?: PlatformCall
+    /** The agent's meeting summary, written from the uploaded transcripts */
+    summary?: {
+      fileName: string
+      generatedOn: string
+      transcriptCount: number
+      content: MeetingSummary
+    }
   }
   value?: {
     callConfirmedOn?: string
@@ -567,6 +580,8 @@ export interface ServiceLineInterest {
   declineReason?: string
   /** Set when the Strategy Team added it themselves rather than a service line */
   source?: 'Strategy scouting'
+  /** Request codes of the vendors the person raising it suggested to the team */
+  suggestedVendors?: string[]
   /** Result of the last overlap check */
   overlaps?: Overlap[]
 }
@@ -770,6 +785,7 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
   {
     id: 'req-001',
     requestCode: 'PR-124',
+    vendorId: 'VND-008',
     caseType: 'Partnership',
     queue: 'director',
     daysInStage: 3,
@@ -926,6 +942,7 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
   {
     id: 'req-002',
     requestCode: 'PR-123',
+    vendorId: 'VND-009',
     caseType: 'Partnership',
     queue: 'director',
     daysInStage: 5,
@@ -1121,6 +1138,7 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
   {
     id: 'req-003',
     requestCode: 'PR-122',
+    vendorId: 'VND-010',
     caseType: 'Partnership',
     queue: 'director',
     daysInStage: 9,
@@ -1361,6 +1379,7 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
   {
     id: 'req-004',
     requestCode: 'PR-121',
+    vendorId: 'VND-011',
     caseType: 'Partnership',
     queue: 'director',
     daysInStage: 2,
@@ -1511,6 +1530,7 @@ export const INITIAL_PARTNERSHIP_REQUESTS: PartnershipRequest[] = [
   {
     id: 'req-005',
     requestCode: 'PR-125',
+    vendorId: 'VND-012',
     caseType: undefined,
     queue: 'admin',
     daysInStage: 1,

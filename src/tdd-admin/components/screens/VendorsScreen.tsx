@@ -25,6 +25,8 @@ import { ConfigureVendorCallScreen, VendorDispatchData } from './ConfigureVendor
 
 interface VendorRow {
   id: string
+  /** VND-001, VND-002, ...: unique per vendor */
+  vendorId: string
   caseId: string
   name: string
   legalName: string
@@ -37,6 +39,12 @@ interface VendorRow {
   website?: string
   recipients?: string[]
 }
+
+// Vendor IDs follow the VND-### format; a new vendor takes the next number after the highest one
+const getNextVendorId = (rows: VendorRow[]) =>
+  `VND-${String(
+    Math.max(0, ...rows.map((row) => Number(row.vendorId.replace('VND-', '')) || 0)) + 1
+  ).padStart(3, '0')}`
 
 // Case IDs follow the PR-### format; new vendors take the next number after the highest one
 const getNextCaseId = (rows: VendorRow[]) =>
@@ -172,6 +180,7 @@ export const VendorsScreen: React.FC = () => {
   const [vendors, setVendors] = useState<VendorRow[]>([
     {
       id: 'v-1',
+      vendorId: 'VND-001',
       caseId: 'PR-126',
       name: 'Presight AI | See the Future Today',
       legalName: 'Presight AI Holding PLC',
@@ -191,6 +200,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-2',
+      vendorId: 'VND-002',
       caseId: 'PR-125',
       name: 'Directus Inc.',
       legalName: 'Directus Open Source Ltd',
@@ -204,6 +214,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-3',
+      vendorId: 'VND-003',
       caseId: 'PR-124',
       name: 'Pango Group LLC',
       legalName: 'Pango Cybersecurity Global',
@@ -217,6 +228,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-4',
+      vendorId: 'VND-004',
       caseId: 'PR-123',
       name: 'Apex Systems Advisory',
       legalName: 'Apex Healthcare Solutions Inc.',
@@ -236,6 +248,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-5',
+      vendorId: 'VND-005',
       caseId: 'PR-122',
       name: 'Delphi AI Technologies',
       legalName: 'Delphi Intelligence Systems',
@@ -249,6 +262,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-6',
+      vendorId: 'VND-006',
       caseId: 'PR-121',
       name: 'BioHealth Analytics',
       legalName: 'BioHealth Data Group GMBH',
@@ -262,6 +276,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-7',
+      vendorId: 'VND-007',
       caseId: 'PR-120',
       name: 'CloudScale AI Systems',
       legalName: 'CloudScale Technologies B.V.',
@@ -275,6 +290,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-[#8]',
+      vendorId: 'VND-008',
       caseId: 'PR-119',
       name: 'CyberGuard Solutions',
       legalName: 'CyberGuard Security Systems SAS',
@@ -288,6 +304,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-9',
+      vendorId: 'VND-009',
       caseId: 'PR-118',
       name: 'HealthCloud Telemetry',
       legalName: 'HealthCloud Global Pte. Ltd.',
@@ -301,6 +318,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-10',
+      vendorId: 'VND-010',
       caseId: 'PR-117',
       name: 'PharmaTech Analytics',
       legalName: 'PharmaTech Clinical Systems KSA',
@@ -314,6 +332,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-11',
+      vendorId: 'VND-011',
       caseId: 'PR-116',
       name: 'MedSec Audit Co',
       legalName: 'MedSec Compliance Services UAE',
@@ -327,6 +346,7 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-12',
+      vendorId: 'VND-012',
       caseId: 'PR-115',
       name: 'Global Diagnostics IT',
       legalName: 'Global Diagnostics Technology Corp',
@@ -346,6 +366,7 @@ export const VendorsScreen: React.FC = () => {
       const matchesStatus = statusFilter === 'all' || v.status === statusFilter
       const query = searchTerm.toLowerCase()
       const matchesSearch =
+        v.vendorId.toLowerCase().includes(query) ||
         v.caseId.toLowerCase().includes(query) ||
         v.name.toLowerCase().includes(query) ||
         v.legalName.toLowerCase().includes(query) ||
@@ -499,6 +520,7 @@ export const VendorsScreen: React.FC = () => {
 
     const newVendor: VendorRow = {
       id: `v-${Date.now()}`,
+      vendorId: getNextVendorId(vendors),
       caseId: getNextCaseId(vendors),
       name: vendorTitle,
       legalName: vendorTitle,
@@ -538,6 +560,7 @@ export const VendorsScreen: React.FC = () => {
     const domainStr = manualWebsite.replace('https://', '').split('/')[0] || 'vendor.com'
     const newVendor: VendorRow = {
       id: `v-${Date.now()}`,
+      vendorId: getNextVendorId(vendors),
       caseId: getNextCaseId(vendors),
       name: manualDisplayName.trim(),
       legalName: manualLegalName.trim() || manualDisplayName.trim(),
@@ -749,6 +772,7 @@ export const VendorsScreen: React.FC = () => {
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] text-xs font-bold">
+                <th className="py-3.5 px-5 whitespace-nowrap">Vendor ID</th>
                 <th className="py-3.5 px-5">Vendor Name</th>
                 <th className="py-3.5 px-5 whitespace-nowrap">Case ID</th>
                 <th className="py-3.5 px-5">Domain</th>
@@ -761,6 +785,9 @@ export const VendorsScreen: React.FC = () => {
             <tbody className="divide-y divide-[#e2e8f0]/60">
               {isAddingVendor && (
                 <tr className="bg-[#ddf7f9]/30 border-b border-[#36c0c9]/40 animate-pulse">
+                  <td className="py-4 px-5 text-xs font-bold text-[#0d212c] whitespace-nowrap">
+                    {getNextVendorId(vendors)}
+                  </td>
                   <td className="py-4 px-5 font-semibold text-xs text-[#0d212c]">
                     <div className="flex items-center gap-2.5">
                       <Loader2 className="w-4 h-4 animate-spin text-[#36c0c9] shrink-0" />
@@ -793,7 +820,7 @@ export const VendorsScreen: React.FC = () => {
               )}
               {paginatedVendors.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-[#64748b] text-sm">
+                  <td colSpan={8} className="py-8 text-center text-[#64748b] text-sm">
                     No vendors matching search criteria.
                   </td>
                 </tr>
@@ -803,6 +830,9 @@ export const VendorsScreen: React.FC = () => {
                     key={vendor.id}
                     className="hover:bg-[#f8fafc] transition cursor-pointer group"
                   >
+                    <td className="py-4 px-5 text-xs font-bold text-[#0d212c] whitespace-nowrap">
+                      {vendor.vendorId}
+                    </td>
                     <td className="py-4 px-5">
                       <div className="flex flex-col min-w-0 gap-[2px]">
                         <span
@@ -1061,6 +1091,17 @@ export const VendorsScreen: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEditedVendor} className="flex flex-col gap-4">
+              {/* Vendor ID: read-only */}
+              <div>
+                <span className="block text-xs font-bold text-[#0d212c] mb-1.5">Vendor ID</span>
+                <div
+                  aria-label="Vendor ID"
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-xs font-bold text-[#0d212c]"
+                >
+                  {editingVendor.vendorId}
+                </div>
+              </div>
+
               {/* Vendor name */}
               <div>
                 <label className="block text-xs font-bold text-[#0d212c] mb-1.5">

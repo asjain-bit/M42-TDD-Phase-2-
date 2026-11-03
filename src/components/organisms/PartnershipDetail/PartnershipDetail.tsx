@@ -22,6 +22,7 @@ import {
   Clock,
   Eye,
   HandHeart,
+  Star,
   Check,
   XCircle,
   Mail,
@@ -56,6 +57,7 @@ import {
   buildInfoEmail,
   formatDueDate,
   getOverdueDays,
+  getStageLabel,
   getStageProgress,
   hasSignedNda,
   hasDirectorDecided,
@@ -628,17 +630,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     setActiveStep('canvas')
   }
 
-  // Reject: rejected as before, with the email to the partner kept on the case
-  const handleBriefReject = (
-    reason: string,
-    email: { to: string; subject: string; body: string }
-  ) => {
-    setBriefModal(false)
-    setLocalDecision({ decision: 'reject', reason })
-    if (onCaseAction) onCaseAction(request.id, { type: 'rejectWithEmail', reason, email })
-    else onReject?.(request.id, reason)
-  }
-
   const handleSendInfo = (email: { to: string; subject: string; body: string }) => {
     setBriefModal(false)
     onRequestInfo?.(request.id, email)
@@ -711,6 +702,11 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       }))
   }
   /** Pre-fills the sponsor popup: a Lead offer (or no lead yet) takes the lead, otherwise co-sponsor */
+  const hasSponsors = Boolean(request.sponsors?.lead || request.sponsors?.co.length)
+  /** Offers still waiting: someone assigned as lead or co-sponsor leaves the list */
+  const pendingInterests = (request.sponsorInterests ?? []).filter(
+    (i) => i.name !== request.sponsors?.lead && !request.sponsors?.co.includes(i.name)
+  )
   const assignmentFor = (i: SponsorInterest) => {
     const current = request.sponsors
     if (!current?.lead || i.preference === 'Lead') {
@@ -733,12 +729,18 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     setCloseEmail(buildCloseEmail(request, directorName, closeReason))
     setCloseStep('email')
   }
+  // Still at the brief, closing is the rejection there; later on it closes the case
+  const atBrief = getStageLabel(request) === 'Initial Assessment Brief'
   const sendCloseEmail = () => {
-    onCaseAction?.(request.id, {
-      type: 'closeWithEmail',
-      reason: closeReason.trim(),
-      email: closeEmail,
-    })
+    const reason = closeReason.trim()
+    if (atBrief) {
+      setLocalDecision({ decision: 'reject', reason })
+      if (onCaseAction)
+        onCaseAction(request.id, { type: 'rejectWithEmail', reason, email: closeEmail })
+      else onReject?.(request.id, reason)
+    } else {
+      onCaseAction?.(request.id, { type: 'closeWithEmail', reason, email: closeEmail })
+    }
     setCloseStep(null)
   }
 
@@ -755,15 +757,8 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             ? 'strategy'
             : 'director'
   )
-  /**
-   * The Director can close the request at any stage until it has ended, except on the brief,
-   * where Reject in the decision popup does that
-   */
-  const canClose =
-    isDirector &&
-    activeStep !== 'brief' &&
-    displayStatus !== 'Closed' &&
-    displayStatus !== 'Completed'
+  /** The Director can close the request at any stage until it has ended, the brief included */
+  const canClose = isDirector && displayStatus !== 'Closed' && displayStatus !== 'Completed'
   const closeButton = canClose && (
     <Button
       variant="outline"
@@ -1797,69 +1792,124 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             {isDirector && !reviewersLoading && (
               <section
                 aria-labelledby="sponsor-interest-heading"
-                className="rounded-xl border border-border-default bg-bg-surface-1 p-5 flex flex-col gap-3"
+                className="rounded-xl border border-action-primary-border-subtle bg-action-primary-bg-soft p-5 flex flex-col gap-4"
               >
-                <div className="flex items-center gap-2">
-                  <HandHeart
-                    className="w-5 h-5 text-text-secondary"
-                    strokeWidth={2}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
                     aria-hidden="true"
-                  />
+                    className="w-8 h-8 shrink-0 rounded-lg border border-action-primary-border-subtle bg-bg-default flex items-center justify-center"
+                  >
+                    <HandHeart className="w-4 h-4 text-text-secondary" strokeWidth={2} />
+                  </span>
                   <h3
                     id="sponsor-interest-heading"
                     className="text-sm font-semibold text-text-primary"
                   >
                     Sponsor interest
                   </h3>
-                  {(request.sponsorInterests?.length ?? 0) > 0 && (
-                    <Badge size="sm">{request.sponsorInterests!.length}</Badge>
+                  {pendingInterests.length > 0 && (
+                    <Badge size="sm" variant="warning">
+                      {pendingInterests.length} new{' '}
+                      {pendingInterests.length === 1 ? 'request' : 'requests'}
+                    </Badge>
                   )}
                 </div>
-                <p className="text-xs text-text-secondary">
-                  Current sponsors:{' '}
-                  {request.sponsors?.lead ? (
-                    <>
-                      <span className="font-medium text-text-primary">{request.sponsors.lead}</span>{' '}
-                      (lead)
-                      {request.sponsors.co.length > 0 && `, ${request.sponsors.co.join(', ')}`}
-                    </>
-                  ) : (
-                    'none assigned yet'
-                  )}
-                </p>
-                {request.sponsorInterests?.length ? (
-                  <ul className="flex flex-col divide-y divide-border-subtle">
-                    {request.sponsorInterests.map((i) => (
-                      <li
-                        key={i.name}
-                        className="py-3 first:pt-0 last:pb-0 flex items-start justify-between gap-4 flex-wrap"
-                      >
-                        <div className="flex flex-col gap-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-text-primary">{i.name}</span>
-                            <span className="text-xs text-text-tertiary">{i.team}</span>
-                            <Badge size="sm" variant="info">
-                              {i.preference}
-                            </Badge>
+
+                {/* Current sponsors: the lead in teal with a star, co-sponsors in neutral. With no
+                    sponsors and no offers, one line says so instead. */}
+                {!hasSponsors && pendingInterests.length === 0 ? (
+                  <p className="text-xs text-text-tertiary">
+                    No sponsors yet. Anyone can offer to sponsor from the case page.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                      Current sponsors
+                    </span>
+                    {hasSponsors ? (
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <ul aria-label="Current sponsors" className="flex flex-wrap gap-1.5">
+                          {request.sponsors?.lead && (
+                            <li className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--app-accent)] bg-[var(--app-accent-soft)] text-[var(--app-accent)] text-xs font-medium">
+                              <Star
+                                className="w-3.5 h-3.5 fill-current"
+                                strokeWidth={2}
+                                aria-hidden="true"
+                              />
+                              {request.sponsors.lead} · Lead
+                            </li>
+                          )}
+                          {request.sponsors?.co.map((name) => (
+                            <li
+                              key={name}
+                              className="inline-flex items-center px-2.5 py-1 rounded-full border border-border-default bg-bg-surface-2 text-text-secondary text-xs font-medium"
+                            >
+                              {name} · Co-sponsor
+                            </li>
+                          ))}
+                        </ul>
+                        {pendingInterests.length === 0 && (
+                          <span className="text-xs text-text-tertiary">No new offers.</span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-text-tertiary">None assigned yet.</p>
+                    )}
+                  </div>
+                )}
+
+                {pendingInterests.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                      Wants to sponsor · {pendingInterests.length}
+                    </span>
+                    <ul
+                      aria-label="Wants to sponsor"
+                      className="flex flex-col divide-y divide-action-primary-border-subtle rounded-lg border border-action-primary-border-subtle bg-bg-default"
+                    >
+                      {pendingInterests.map((i) => (
+                        <li key={i.name} className="flex items-start gap-3 px-4 py-3">
+                          <span
+                            aria-hidden="true"
+                            className="w-8 h-8 shrink-0 rounded-full bg-bg-surface-2 text-text-secondary text-[11px] font-semibold flex items-center justify-center"
+                          >
+                            {i.name
+                              .replace(/^Dr\.\s*/, '')
+                              .split(/\s+/)
+                              .slice(0, 2)
+                              .map((w) => w[0]?.toUpperCase())
+                              .join('')}
+                          </span>
+                          <div className="flex-1 min-w-0 flex flex-col gap-1">
+                            <p className="text-sm text-text-secondary">
+                              <span className="font-semibold text-text-primary">{i.name}</span> ·{' '}
+                              {i.team} · wants to be{' '}
+                              <span className="font-semibold text-text-primary">
+                                {i.preference}
+                              </span>
+                            </p>
+                            {i.note && (
+                              <p className="text-xs text-text-secondary leading-relaxed">
+                                &ldquo;{i.note}&rdquo;
+                              </p>
+                            )}
                             <span className="text-xs text-text-tertiary">
-                              {i.stage} · {i.on}
+                              At {i.stage} · {i.on}
                             </span>
                           </div>
-                          <p className="text-xs text-text-secondary leading-relaxed">{i.note}</p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAssignFromInterest(i)}
-                        >
-                          Assign as sponsor
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-text-tertiary">No one has expressed interest yet.</p>
-                )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAssignFromInterest(i)}
+                            className="shrink-0"
+                          >
+                            Assign as sponsor
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </section>
             )}
 
@@ -2222,8 +2272,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           agentRecommendation={request.agentRecommendation?.status}
           email={buildInfoEmail(request, userProfile?.name ?? 'Director')}
           onSubmit={handleBriefDecision}
-          buildRejectEmail={(reason) => buildCloseEmail(request, directorName, reason)}
-          onReject={handleBriefReject}
           onRequestInfo={handleSendInfo}
           onClose={() => setBriefModal(false)}
         />

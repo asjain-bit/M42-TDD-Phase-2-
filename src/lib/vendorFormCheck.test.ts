@@ -6,6 +6,7 @@ const strong: VendorFormValues = {
   name: 'Sarah',
   jobTitle: 'CEO',
   company: 'Acme',
+  vendorId: '',
   phone: '',
   email: 's@acme.com',
   yearFounded: '2018',

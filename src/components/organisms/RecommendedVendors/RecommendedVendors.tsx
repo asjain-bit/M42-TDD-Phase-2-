@@ -1,11 +1,14 @@
 /**
  * RecommendedVendors — Organism
  * "Vendors M42 already knows": a plain divided list of partnership requests that may meet an
- * interest, including rejected ones, with why each may fit.
- * Used in: ServiceLineInterestScreen, InternalInterestsScreen
+ * interest, including rejected ones, with why each may fit. Rows can carry a "Suggest to team"
+ * checkbox (while raising an interest) or a "Suggested by requester" tag (afterwards).
+ * Used in: ServiceLineInterestScreen, InterestDrawer, InternalInterestsScreen
  */
 
-import React from 'react'
+import React, { useId } from 'react'
+import { Badge } from '@/components/atoms/Badge'
+import { Checkbox } from '@/components/atoms/Checkbox'
 import { StatusChip } from '@/components/atoms/StatusChip'
 import { StageChip } from '@/components/molecules/StageChip'
 import { getStageProgress } from '@/lib/caseActions'
@@ -13,7 +16,11 @@ import type { VendorMatch } from '@/lib/serviceLineMatch'
 import type { PartnershipRequest } from '@/types/partnership.types'
 import type { RecommendedVendorsProps } from './RecommendedVendors.types'
 
-const REJECTION_EVENTS = ['Request rejected', 'Rejected by Partnership Admin']
+const REJECTION_EVENTS = [
+  'Request rejected',
+  'Rejected at Initial Assessment',
+  'Rejected by Partnership Admin',
+]
 
 /** Oct 2026, from the rejection in the audit log, or the submission date */
 const monthYear = (r: PartnershipRequest) => {
@@ -43,60 +50,95 @@ const chipFor = (m: VendorMatch) => {
 
 export const RecommendedVendors: React.FC<RecommendedVendorsProps> = ({
   matches,
+  hideHeader = false,
+  compact = false,
+  selected = [],
+  onToggle,
+  suggested = [],
+  emptyText = 'No vendor in the requests matches this yet.',
   className = '',
-}) => (
-  <section
-    aria-labelledby="recommended-vendors-heading"
-    className={`flex flex-col gap-3 ${className}`.trim()}
-  >
-    <div className="flex flex-col gap-1">
-      <h2 id="recommended-vendors-heading" className="text-base font-semibold text-text-primary">
-        Vendors M42 already knows
-      </h2>
-      <p className="text-sm text-text-secondary">
-        From past and ongoing partnership requests, including rejected ones. These may already solve
-        your need.
-      </p>
-    </div>
-    {matches.length === 0 ? (
-      <p className="text-xs text-text-tertiary">No vendor in the requests matches this yet.</p>
-    ) : (
-      <ul className="flex flex-col divide-y divide-border-subtle rounded-xl border border-border-default bg-bg-default">
-        {matches.map((m) => {
-          const r = m.request
-          const chip = chipFor(m)
-          return (
-            <li key={r.id} className="flex items-start gap-3 px-4 py-3.5">
-              <span
-                aria-hidden="true"
-                className="w-9 h-9 rounded-lg bg-bg-surface-2 text-text-secondary text-xs font-semibold flex items-center justify-center shrink-0"
-              >
-                {initialsOf(r.companyName)}
-              </span>
-              <div className="flex flex-col gap-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-semibold text-text-primary">
-                    {r.companyName}{' '}
-                    <span className="font-normal text-text-tertiary">· {r.requestCode}</span>
-                  </span>
-                  <StatusChip label={chip.label} status={chip.status} />
+}) => {
+  const headingId = useId()
+  return (
+    <section
+      aria-labelledby={hideHeader ? undefined : headingId}
+      aria-label={hideHeader ? 'Recommended vendors' : undefined}
+      className={`flex flex-col gap-3 ${className}`.trim()}
+    >
+      {!hideHeader && (
+        <div className="flex flex-col gap-1">
+          <h2 id={headingId} className="text-base font-semibold text-text-primary">
+            Vendors M42 already knows
+          </h2>
+          <p className="text-sm text-text-secondary">
+            From past and ongoing partnership requests, including rejected ones. These may already
+            solve your need.
+          </p>
+        </div>
+      )}
+      {matches.length === 0 ? (
+        emptyText && <p className="text-xs text-text-tertiary">{emptyText}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-border-subtle rounded-xl border border-border-default bg-bg-default">
+          {matches.map((m) => {
+            const r = m.request
+            const chip = chipFor(m)
+            const isSuggested = suggested.includes(r.requestCode)
+            return (
+              <li key={r.id} className="flex items-start gap-3 px-4 py-3.5">
+                <span
+                  aria-hidden="true"
+                  className="w-9 h-9 rounded-lg bg-bg-surface-2 text-text-secondary text-xs font-semibold flex items-center justify-center shrink-0"
+                >
+                  {initialsOf(r.companyName)}
+                </span>
+                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-text-primary">
+                      {r.companyName}{' '}
+                      <span className="font-normal text-text-tertiary">· {r.requestCode}</span>
+                    </span>
+                    <StatusChip label={chip.label} status={chip.status} />
+                    {isSuggested && (
+                      <Badge size="sm" variant="info">
+                        Suggested by requester
+                      </Badge>
+                    )}
+                  </div>
+                  {/* The same stage chip as the dashboard's Stage column */}
+                  <StageChip progress={getStageProgress(r)} />
+                  {!compact && (
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      {r.headline ?? r.solution}
+                    </p>
+                  )}
+                  {m.why && (
+                    <p
+                      className={`text-xs text-text-primary leading-relaxed ${compact ? 'truncate' : ''}`}
+                      title={compact ? m.why : undefined}
+                    >
+                      {m.why}
+                    </p>
+                  )}
+                  {m.rejectionReason && (
+                    <p className="text-xs text-text-tertiary leading-relaxed">
+                      Declined in {monthYear(r)}: {m.rejectionReason}
+                    </p>
+                  )}
+                  {onToggle && (
+                    <Checkbox
+                      checked={selected.includes(r.requestCode)}
+                      onChange={() => onToggle(r.requestCode)}
+                      label="Suggest to team"
+                      className="pt-1"
+                    />
+                  )}
                 </div>
-                {/* The same stage chip as the dashboard's Stage column */}
-                <StageChip progress={getStageProgress(r)} />
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  {r.headline ?? r.solution}
-                </p>
-                {m.why && <p className="text-xs text-text-primary leading-relaxed">{m.why}</p>}
-                {m.rejectionReason && (
-                  <p className="text-xs text-text-tertiary leading-relaxed">
-                    Declined in {monthYear(r)}: {m.rejectionReason}
-                  </p>
-                )}
-              </div>
-            </li>
-          )
-        })}
-      </ul>
-    )}
-  </section>
-)
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}

@@ -14,7 +14,7 @@ type Story = StoryObj<typeof InterestTable>
 
 export const Default: Story = {}
 
-/** The Service Line Owner sees their own rows tagged Mine */
+/** The Internal Interest Team sees their own rows tagged Yours */
 export const WithMine: Story = { args: { mineName: 'Hamad Al Suwaidi', selectedCode: 'SL-002' } }
 
 export const EdgeCases: Story = { args: { interests: [] } }

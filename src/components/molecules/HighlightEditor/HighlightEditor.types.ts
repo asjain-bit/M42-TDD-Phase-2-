@@ -19,8 +19,10 @@ export interface HighlightEditorProps {
   saveLabel?: string
   /** Empties the editor after each save, for adding one note after another */
   resetOnSave?: boolean
-  /** A 2-line area that grows to 4, with a small save button */
+  /** A 2-line area that grows to 4, with a small save button on the same row */
   compact?: boolean
+  /** Told whenever the note goes from empty to written, or back */
+  onEmptyChange?: (empty: boolean) => void
   /** Focus the editable area on mount (default true) */
   autoFocus?: boolean
   className?: string

@@ -11,11 +11,11 @@ export const NOTE_TONES: { tone: NoteTone; label: string }[] = [
   { tone: 'positive', label: 'Positive' },
 ]
 
-/** The case notes log composer: Risk, Neutral and Positive */
+/** The case notes log composer: Risk, Positive and Neutral */
 export const NOTE_LOG_TONES: { tone: NoteTone; label: string }[] = [
   { tone: 'critical', label: 'Risk' },
-  { tone: 'neutral', label: 'Neutral' },
   { tone: 'positive', label: 'Positive' },
+  { tone: 'neutral', label: 'Neutral' },
 ]
 
 /** Swatch colours for each tone, from the status tokens (editor toolbar and legend) */

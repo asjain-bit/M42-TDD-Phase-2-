@@ -1,6 +1,7 @@
 import {
   DEFAULT_INTERNAL_INTERESTS,
   DEFAULT_STRATEGY_MEMBERS,
+  INITIAL_PARTNERSHIP_REQUESTS,
   type AuditEvent,
   type CaseType,
   type InternalInterestStakeholder,
@@ -14,7 +15,7 @@ import {
   type StrategyMemberResponse,
   type WorkflowStage,
 } from '@/types/partnership.types'
-import { SAMPLE_VENDOR_FORM, type VendorFormValues } from '@/types/vendorForm'
+import { SAMPLE_VENDOR_FORM, isVendorIdValid, type VendorFormValues } from '@/types/vendorForm'
 import { DEFAULT_QUESTIONNAIRE_ID, getQuestionnaire } from '@/types/questionnaires'
 import { sampleAnswersFor } from '@/lib/sampleAnswers'
 import { escapeNoteText, markNote, noteToText, sanitiseNoteHtml } from '@/lib/summaryNote'
@@ -114,6 +115,7 @@ export const hasSignedNda = (r: PartnershipRequest): boolean =>
 const AFTER_NDA: CaseAction['type'][] = [
   'platformCall',
   'discoveryFile',
+  'discoverySummary',
   'proceedToValue',
   'confirmValueCall',
   'businessCase',
@@ -565,12 +567,24 @@ const buildSummaryNote = (values: VendorFormValues, solution: string, maturity: 
   ].join(' ')
 }
 
-/** Turns a submitted vendor form into a new case waiting for the Partnership Admin */
+/** VND-013: the next vendor number after the highest one on the cases */
+export const nextVendorId = (requests: PartnershipRequest[]) =>
+  `VND-${String(
+    Math.max(0, ...requests.map((r) => Number(r.vendorId?.replace(/^VND-/i, '')) || 0)) + 1
+  ).padStart(3, '0')}`
+
+/**
+ * Turns a submitted vendor form into a new case waiting for the Partnership Admin. The vendor
+ * keeps the Vendor ID they gave (when well formed); otherwise they get the next new one.
+ */
 export const buildCaseFromForm = (
   values: VendorFormValues,
   code: string,
-  now = new Date()
+  now = new Date(),
+  existing: PartnershipRequest[] = INITIAL_PARTNERSHIP_REQUESTS
 ): PartnershipRequest => {
+  const givenId = values.vendorId.trim().toUpperCase()
+  const vendorId = givenId && isVendorIdValid(givenId) ? givenId : nextVendorId(existing)
   const submittedOn = todayLabel(now)
   const deadline = todayLabel(new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000))
   const solution = summarise(values.proposal)
@@ -579,6 +593,7 @@ export const buildCaseFromForm = (
   return {
     id: `req-${code.toLowerCase().replace(/\D/g, '')}-${now.getTime()}`,
     requestCode: code,
+    vendorId,
     queue: 'admin',
     daysInStage: 0,
     owner: ADMIN_NAME,
@@ -647,6 +662,7 @@ export const buildCaseFromForm = (
       name: values.name.trim(),
       jobTitle: values.jobTitle.trim(),
       company: values.company.trim(),
+      vendorId: values.vendorId.trim().toUpperCase() || undefined,
       phoneNumber: values.phone.trim() || undefined,
       email: values.email.trim(),
       yearFounded: values.yearFounded.trim(),
@@ -698,23 +714,36 @@ export const closeWithEmail = (
   )
 
 /**
- * The Director rejects the brief and emails the partner: rejected as before (Exited), with the
- * email kept on the case
+ * Close request while the case is still at the Initial Assessment Brief: the brief is rejected
+ * (Exited, stepper Closed) and the email to the partner is kept on the case
  */
 export const rejectWithEmail = (
   r: PartnershipRequest,
   reason: string,
   email: { to: string; subject: string; body: string }
-): PartnershipRequest =>
-  appendAudit(
-    { ...rejectRequest(r, reason), rejectionEmail: { ...email, sentOn: todayLabel() } },
+): PartnershipRequest => {
+  const rejected = appendAudit(
     {
-      title: 'Rejection email sent',
-      description: `Email sent to ${email.to}: ${email.subject}`,
+      ...r,
+      status: 'Exited',
+      daysInStage: 0,
+      decision: { status: 'rejected', reason, date: 'Just now' },
+      rejectionEmail: { ...email, sentOn: todayLabel() },
+    },
+    {
+      title: 'Rejected at Initial Assessment',
+      description: reason,
       actor: DIRECTOR_ACTOR,
-      kind: 'user',
+      kind: 'critical',
     }
   )
+  return appendAudit(rejected, {
+    title: 'Closure email sent',
+    description: `Email sent to ${email.to}: ${email.subject}`,
+    actor: DIRECTOR_ACTOR,
+    kind: 'user',
+  })
+}
 
 const approveInternal = (r: PartnershipRequest, sponsors: { lead: string; co: string[] }) =>
   appendAudit(
@@ -886,6 +915,59 @@ const DISCOVERY_AUDIT: Record<DiscoveryFileKind, string> = {
   notes: 'Meeting notes uploaded',
   transcripts: 'Transcript uploaded',
   recordings: 'Recording uploaded',
+}
+
+/**
+ * The discovery call was held outside (Teams or elsewhere): its transcripts are added, and the
+ * agent writes the meeting summary from them
+ */
+export const summariseDiscoveryTranscripts = (
+  r: PartnershipRequest,
+  files: { name: string; size: string }[]
+): PartnershipRequest => {
+  const on = todayLabel()
+  const discovery = { notes: [], transcripts: [], recordings: [], ...r.discovery }
+  const transcripts = files.map((f) => ({
+    name: f.name,
+    size: f.size,
+    uploadedOn: on,
+    uploadedBy: DIRECTOR_NAME,
+  }))
+  const withFiles = appendAudit(
+    {
+      ...r,
+      discovery: { ...discovery, transcripts: [...(discovery.transcripts ?? []), ...transcripts] },
+    },
+    {
+      title: 'Transcripts uploaded',
+      description: `${files.length} ${files.length === 1 ? 'transcript' : 'transcripts'}: ${files
+        .map((f) => f.name)
+        .join(', ')}`,
+      actor: DIRECTOR_ACTOR,
+      kind: 'user',
+    }
+  )
+  const count = withFiles.discovery?.transcripts?.length ?? files.length
+  return appendAudit(
+    {
+      ...withFiles,
+      discovery: {
+        ...withFiles.discovery!,
+        summary: {
+          fileName: 'Discovery-call-summary.pdf',
+          generatedOn: on,
+          transcriptCount: count,
+          content: buildCallSummary(r, 'discovery', []),
+        },
+      },
+    },
+    {
+      title: 'Meeting summary generated',
+      description: `From ${count} ${count === 1 ? 'transcript' : 'transcripts'}.`,
+      actor: AGENT_ACTOR,
+      kind: 'agent',
+    }
+  )
 }
 
 export const addDiscoveryFile = (
@@ -1297,6 +1379,7 @@ export type CaseAction =
   | { type: 'assignSponsors'; lead: string; co: string[] }
   | { type: 'uploadNda'; fileName: string }
   | { type: 'discoveryFile'; kind: DiscoveryFileKind; name: string }
+  | { type: 'discoverySummary'; files: { name: string; size: string }[] }
   | {
       type: 'platformCall'
       callType: CallType
@@ -1343,6 +1426,8 @@ export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): Part
       return holdPlatformCall(r, action.callType, action.attendees, action.questions)
     case 'discoveryFile':
       return addDiscoveryFile(r, action.kind, action.name)
+    case 'discoverySummary':
+      return summariseDiscoveryTranscripts(r, action.files)
     case 'proceedToValue':
       return proceedToValue(r)
     case 'confirmValueCall':

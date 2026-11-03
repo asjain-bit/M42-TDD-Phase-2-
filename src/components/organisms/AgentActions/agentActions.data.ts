@@ -283,7 +283,10 @@ export const buildAgentActions = (request: PartnershipRequest): AgentAction[] =>
         { label: 'Reasoning', value: rec?.rationale ?? 'See the brief.' },
         { label: 'Would change the recommendation', value: p.changeFactors.join('. ') },
       ],
-      output: `Brief drafted. The agent recommends ${recWord.toLowerCase()}. The decision is yours.`,
+      output:
+        recWord === 'Proceed'
+          ? 'Brief drafted. The agent recommends proceed. The decision is yours.'
+          : 'Brief drafted. The agent recommends not taking this further: use Close request. The decision is yours.',
     },
   ]
 }
