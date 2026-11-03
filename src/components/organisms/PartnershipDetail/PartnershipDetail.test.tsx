@@ -331,17 +331,37 @@ describe('PartnershipDetail', () => {
       expect(onProceed).toHaveBeenCalledWith(mockRequest.id, '')
     })
 
-    it('needs a reason to reject', async () => {
+    it('rejects at the brief through Close request: reason, then the email', async () => {
       const user = userEvent.setup()
       renderDetail()
-      const dialog = await decide(user, 'Reject')
-      const reject = within(dialog).getByRole('button', { name: 'Reject request' })
-      expect(reject).toBeDisabled()
-      await user.type(within(dialog).getByLabelText(/^Reason/), 'Duplicate of an existing case')
-      await user.click(reject)
-      expect(onReject).toHaveBeenCalledWith(mockRequest.id, 'Duplicate of an existing case')
+      // The decision popup has no Reject any more
+      await user.click(screen.getByRole('button', { name: 'Next' }))
+      const decision = screen.getByRole('dialog', { name: 'Your decision' })
+      expect(within(decision).queryByRole('radio', { name: /^Reject/ })).not.toBeInTheDocument()
+      await user.click(within(decision).getByRole('button', { name: 'Close decision' }))
+
+      await user.click(screen.getByRole('button', { name: 'Close request' }))
+      const reason = screen.getByRole('dialog', { name: 'Close this request?' })
+      const next = within(reason).getByRole('button', { name: 'Next' })
+      expect(next).toBeDisabled()
+      await user.type(
+        within(reason).getByLabelText(/Reason for closing/),
+        'Duplicate of an existing case'
+      )
+      await user.click(next)
+      const email = screen.getByRole('dialog', { name: 'Email to the partner' })
+      expect((within(email).getByLabelText('Message') as HTMLTextAreaElement).value).toContain(
+        'Duplicate of an existing case'
+      )
+      await user.click(within(email).getByRole('button', { name: 'Send email and close' }))
+      expect(onCaseAction).toHaveBeenCalledWith(
+        mockRequest.id,
+        expect.objectContaining({
+          type: 'rejectWithEmail',
+          reason: 'Duplicate of an existing case',
+        })
+      )
       expect(onProceed).not.toHaveBeenCalled()
-      expect(screen.getAllByText('Closed').length).toBe(5)
     })
 
     it('has no decision section or footer once the brief has been decided', async () => {
@@ -1352,23 +1372,18 @@ describe('PartnershipDetail', () => {
     it('has the sponsor wait for the Director before the value stage', () => {
       renderDetail({ userProfile: sponsorProfile, request: INITIAL_PARTNERSHIP_REQUESTS[2] })
       expect(screen.getByRole('button', { name: /Next/ })).toBeDisabled()
-      expect(screen.queryByLabelText('Upload meeting notes, transcript or recording')).toBeNull()
+      expect(screen.queryByLabelText('Upload transcripts')).toBeNull()
     })
 
-    it('has the Director add optional context after Next, skip it, and hand the case on', async () => {
+    it('has the Director add transcripts after Next, skip the summary, and hand the case on', async () => {
       const user = userEvent.setup()
       renderDetail({ request: INITIAL_PARTNERSHIP_REQUESTS[2] })
       // The signed NDA and pack are behind it: the case opens on the discovery call
       expect(screen.getByRole('heading', { name: 'Discovery Call' })).toBeInTheDocument()
-      await user.upload(
-        screen.getByLabelText('Upload meeting notes, transcript or recording'),
-        new File(['x'], 'call.vtt')
+      await user.upload(screen.getByLabelText('Upload transcripts'), new File(['x'], 'call.vtt'))
+      expect(screen.getByRole('list', { name: 'Transcripts to upload' })).toHaveTextContent(
+        'call.vtt'
       )
-      expect(onCaseAction).toHaveBeenCalledWith(INITIAL_PARTNERSHIP_REQUESTS[2].id, {
-        type: 'discoveryFile',
-        kind: 'transcripts',
-        name: 'call.vtt',
-      })
       await user.click(screen.getByRole('button', { name: 'Skip' }))
       expect(onCaseAction).toHaveBeenCalledWith(INITIAL_PARTNERSHIP_REQUESTS[2].id, {
         type: 'proceedToValue',

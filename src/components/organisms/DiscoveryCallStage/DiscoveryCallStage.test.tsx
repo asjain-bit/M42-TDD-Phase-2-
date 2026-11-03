@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { DiscoveryCallStage } from './DiscoveryCallStage'
@@ -26,38 +26,97 @@ const renderStage = (
   )
 
 describe('DiscoveryCallStage', () => {
-  it('lets the Director add notes, a transcript and a recording in one uploader, or skip', async () => {
+  it('takes transcripts, then writes the meeting summary from them', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const onAction = vi.fn()
+    renderStage(base, 'director', { onAction })
+    expect(screen.getByRole('heading', { name: 'Discovery Call' })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Hold the call on Teams or elsewhere, then upload the transcripts/)
+    ).toBeInTheDocument()
+    // No in-app call any more
+    expect(screen.queryByRole('radiogroup', { name: 'Call format' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Start call/ })).not.toBeInTheDocument()
+
+    const generate = screen.getByRole('button', { name: /Generate summary/ })
+    expect(generate).toBeDisabled()
+    expect(screen.getByText('0 transcripts ready.')).toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Upload transcripts'), [
+      file('call.vtt'),
+      file('notes.pdf'),
+    ])
+    const list = screen.getByRole('list', { name: 'Transcripts to upload' })
+    expect(list).toHaveTextContent('call.vtt')
+    expect(list).toHaveTextContent('notes.pdf')
+    expect(screen.getByText('2 transcripts ready.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove notes.pdf' }))
+    expect(screen.getByText('1 transcript ready.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Generate summary/ }))
+    expect(screen.getByRole('status', { name: 'Writing the meeting summary' })).toHaveTextContent(
+      'Reading 1 transcript · Pulling out key points · Listing next steps'
+    )
+    act(() => vi.advanceTimersByTime(2100))
+    vi.useRealTimers()
+    expect(onAction).toHaveBeenCalledWith({
+      type: 'discoverySummary',
+      files: [{ name: 'call.vtt', size: '1 KB' }],
+    })
+  })
+
+  it('skips straight to the sponsor', async () => {
     const user = userEvent.setup()
     const onAction = vi.fn()
     const onNext = vi.fn()
     renderStage(base, 'director', { onAction, onNext })
-    expect(screen.getByRole('heading', { name: 'Discovery Call' })).toBeInTheDocument()
-    const picker = screen.getByLabelText('Upload meeting notes, transcript or recording')
-    await user.upload(picker, [file('notes.docx'), file('call.vtt'), file('call.mp4')])
-    expect(onAction).toHaveBeenCalledWith({
-      type: 'discoveryFile',
-      kind: 'notes',
-      name: 'notes.docx',
-    })
-    expect(onAction).toHaveBeenCalledWith({
-      type: 'discoveryFile',
-      kind: 'transcripts',
-      name: 'call.vtt',
-    })
-    expect(onAction).toHaveBeenCalledWith({
-      type: 'discoveryFile',
-      kind: 'recordings',
-      name: 'call.mp4',
-    })
     await user.click(screen.getByRole('button', { name: 'Skip' }))
     expect(onAction).toHaveBeenCalledWith({ type: 'proceedToValue' })
     expect(onNext).toHaveBeenCalledTimes(1)
   })
 
-  it('hands the case to the sponsor with Proceed', async () => {
+  it('shows the summary as a file with a preview, and only Proceed', async () => {
     const user = userEvent.setup()
     const onAction = vi.fn()
-    renderStage(base, 'director', { onAction })
+    const withSummary: PartnershipRequest = {
+      ...base,
+      discovery: {
+        notes: [],
+        recordings: [],
+        transcripts: [
+          { name: 'call.vtt', size: '12 KB', uploadedOn: '2 Oct 2026', uploadedBy: 'Zaid Al Ali' },
+        ],
+        summary: {
+          fileName: 'Discovery-call-summary.pdf',
+          generatedOn: '2 Oct 2026',
+          transcriptCount: 1,
+          content: {
+            attendees: [],
+            keyPoints: ['A key point'],
+            vendorCommitments: ['A commitment'],
+            openQuestions: [],
+            risks: [],
+            nextSteps: ['A next step'],
+          },
+        },
+      },
+    }
+    renderStage(withSummary, 'director', { onAction })
+    expect(screen.getByText('Discovery-call-summary.pdf')).toBeInTheDocument()
+    expect(
+      screen.getByText('Meeting summary · from 1 transcript · generated 2 Oct 2026')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Transcripts' })).toHaveTextContent('call.vtt')
+    expect(screen.queryByRole('button', { name: 'Skip' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Generate summary/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Preview/ }))
+    const viewer = screen.getByRole('dialog', { name: 'Discovery-call-summary.pdf' })
+    expect(within(viewer).getByRole('heading', { name: 'Key points' })).toBeInTheDocument()
+    expect(within(viewer).getByText('A next step')).toBeInTheDocument()
+    expect(within(viewer).getByRole('link', { name: /Download/ })).toBeInTheDocument()
+    await user.click(within(viewer).getByRole('button', { name: 'Close preview' }))
+
     await user.click(screen.getByRole('button', { name: 'Proceed' }))
     expect(onAction).toHaveBeenCalledWith({ type: 'proceedToValue' })
   })
@@ -66,7 +125,7 @@ describe('DiscoveryCallStage', () => {
     const user = userEvent.setup()
     const onNext = vi.fn()
     const { rerender } = renderStage(base, 'sponsor', { onNext })
-    expect(screen.queryByLabelText('Upload meeting notes, transcript or recording')).toBeNull()
+    expect(screen.queryByLabelText('Upload transcripts')).toBeNull()
     expect(
       screen.getByText(/Waiting for the Director to hold the discovery call/)
     ).toBeInTheDocument()

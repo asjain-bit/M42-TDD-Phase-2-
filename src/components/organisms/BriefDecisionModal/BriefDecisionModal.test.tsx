@@ -27,7 +27,7 @@ const choose = (user: ReturnType<typeof userEvent.setup>, option: string) =>
   user.click(screen.getByRole('radio', { name: new RegExp(`^${option}`) }))
 
 describe('BriefDecisionModal', () => {
-  it('starts with Decision radio buttons for Proceed, Reject and Request more info', () => {
+  it('starts with Decision radio buttons for Proceed and Request more info (no Reject)', () => {
     renderModal()
     const radios = screen.getAllByRole('radio')
     expect(
@@ -36,7 +36,7 @@ describe('BriefDecisionModal', () => {
           .closest('label')
           ?.textContent?.replace('Suggested by assessment', '')
       )
-    ).toEqual(['Proceed', 'Reject', 'Request more info'])
+    ).toEqual(['Proceed', 'Request more info'])
     expect(radios.every((r) => !(r as HTMLInputElement).checked)).toBe(true)
     // Nothing else until a decision is chosen
     expect(screen.queryByLabelText(/^Reason/)).not.toBeInTheDocument()
@@ -51,17 +51,6 @@ describe('BriefDecisionModal', () => {
     expect(screen.queryByText(/optional/i)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Proceed' }))
     expect(onSubmit).toHaveBeenCalledWith('approve', '')
-  })
-
-  it('needs a reason to reject', async () => {
-    const user = userEvent.setup()
-    const { onSubmit } = renderModal()
-    await choose(user, 'Reject')
-    const reject = screen.getByRole('button', { name: 'Reject request' })
-    expect(reject).toBeDisabled()
-    await user.type(screen.getByLabelText(/^Reason/), 'Duplicate')
-    await user.click(reject)
-    expect(onSubmit).toHaveBeenCalledWith('reject', 'Duplicate')
   })
 
   it('shows the email template in the same popup, with a copy button on each field', async () => {
@@ -97,16 +86,22 @@ describe('BriefDecisionModal', () => {
     expect(screen.getByRole('button', { name: 'Mark information requested' })).toBeDisabled()
   })
 
-  it('hints the option the assessment suggests, scrolls its body and closes', async () => {
+  it('hints Proceed when the assessment suggests it, scrolls its body and closes', async () => {
     const user = userEvent.setup()
-    const { onClose } = renderModal({ agentRecommendation: 'reject' })
-    // The suggestion is a chip on the matching option itself
-    const reject = screen.getByRole('radio', { name: /^Reject/ }).closest('label')!
-    expect(within(reject).getByText('Suggested by assessment')).toBeInTheDocument()
+    const { onClose } = renderModal({ agentRecommendation: 'proceed' })
     const proceed = screen.getByRole('radio', { name: /^Proceed/ }).closest('label')!
-    expect(within(proceed).queryByText('Suggested by assessment')).not.toBeInTheDocument()
+    expect(within(proceed).getByText('Suggested by assessment')).toBeInTheDocument()
     expect(screen.getByRole('dialog').className).toContain('max-h-[90vh]')
     await user.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('points a reject leaning to Close request, with no Reject option', () => {
+    renderModal({ agentRecommendation: 'reject' })
+    expect(screen.queryByRole('radio', { name: /^Reject/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/The assessment points to not taking this further/)).toHaveTextContent(
+      'Close request'
+    )
+    expect(screen.queryByText('Suggested by assessment')).not.toBeInTheDocument()
   })
 })

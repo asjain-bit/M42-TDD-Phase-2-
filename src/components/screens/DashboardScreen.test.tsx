@@ -88,6 +88,7 @@ describe('DashboardScreen', () => {
     const headers = screen.getAllByRole('columnheader').map((h) => h.textContent)
     expect(headers).toEqual([
       'Case ID',
+      'Vendor ID',
       'Company',
       'Solution description',
       'Status',
@@ -1004,7 +1005,7 @@ describe('Case notes panel on the Dashboard', () => {
     renderShared(directorProfile)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Open notes for MedTech Innovations' }))
+    await user.click(screen.getByRole('button', { name: /^Open notes for MedTech Innovations/ }))
     // Still on the table, with the card over it
     expect(screen.getByPlaceholderText('Search partnership requests...')).toBeInTheDocument()
     const card = screen.getByRole('dialog', { name: 'MedTech Innovations' })
@@ -1020,46 +1021,44 @@ describe('Case notes panel on the Dashboard', () => {
     expect(screen.queryByPlaceholderText('Search partnership requests...')).not.toBeInTheDocument()
   })
 
-  it('lets the Director edit the key notes in the card, with an audit event', async () => {
+  it('lets the Director add a note to the log, with an audit event', async () => {
     const user = userEvent.setup()
     const state = renderShared(directorProfile)
-    await user.click(screen.getByRole('button', { name: 'Open notes for MedTech Innovations' }))
+    await user.click(screen.getByRole('button', { name: /^Open notes for MedTech Innovations/ }))
     const card = screen.getByRole('dialog', { name: 'MedTech Innovations' })
-    await user.click(within(card).getByRole('button', { name: 'Edit' }))
-    const editor = within(card).getByRole('textbox', { name: 'Edit key notes' })
+    const editor = within(card).getByRole('textbox', { name: 'Add a note' })
     editor.innerHTML = 'Pilot <mark data-tone="critical">blocked on hosting</mark>'
-    await user.click(within(card).getByRole('button', { name: 'Save' }))
+    editor.dispatchEvent(new Event('input', { bubbles: true }))
+    await user.click(within(card).getByRole('button', { name: 'Add' }))
 
-    expect(screen.getByText('Notes saved.')).toBeInTheDocument()
+    expect(screen.getByText('Note added.')).toBeInTheDocument()
+    // The new note is the latest, shown in the collapsed preview
     expect(within(card).getByText('blocked on hosting')).toHaveAttribute('data-tone', 'critical')
-    expect(within(card).getByText(/Last updated by/)).toHaveTextContent(
-      /Last updated by Zaid Al Ali on \d{2} \w{3} \d{4}/
-    )
     const saved = state.latest.find((r) => r.requestCode === 'PR-124')!
+    expect(saved.notes?.at(-1)).toMatchObject({ author: 'Zaid Al Ali' })
     expect(saved.auditLog.at(-1)).toMatchObject({
-      title: 'Summary note updated',
+      title: 'Note added',
       actor: 'Zaid Al Ali (Director)',
     })
   })
 
-  it('lets every profile on the dashboard edit the key notes', async () => {
+  it('lets every profile on the dashboard add notes', async () => {
     const user = userEvent.setup()
     for (const profile of [adminProfile, internalProfile, strategyProfile, sponsorProfile]) {
       const { unmount } = render(<DashboardScreen userProfile={profile} />)
       await user.click(screen.getAllByRole('button', { name: /^Open notes for/ })[0])
       const card = screen.getByRole('dialog')
-      expect(within(card).getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+      expect(within(card).getByRole('textbox', { name: 'Add a note' })).toBeInTheDocument()
       unmount()
     }
   })
 
-  it('hides the assessment summary in the card from the Internal Interest team', async () => {
+  it('shows the notes log only: no assessment summary in the card', async () => {
     const user = userEvent.setup()
     render(<DashboardScreen userProfile={internalProfile} />)
     await user.click(screen.getAllByRole('button', { name: /^Open notes for/ })[0])
     const card = screen.getByRole('dialog')
-    await user.click(within(card).getByRole('button', { name: 'Expand notes' }))
-    expect(within(card).getByRole('heading', { name: 'Key notes' })).toBeInTheDocument()
+    expect(within(card).getByText(/^All notes · \d+$/)).toBeInTheDocument()
     expect(
       within(card).queryByRole('heading', { name: 'Assessment summary' })
     ).not.toBeInTheDocument()
@@ -1097,6 +1096,7 @@ describe('Stage chips on the Dashboard', () => {
       const { unmount } = render(<DashboardScreen userProfile={profile} />)
       expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
         'Case ID',
+        'Vendor ID',
         'Company name',
         'Focus Area',
         'Solution Maturity',
