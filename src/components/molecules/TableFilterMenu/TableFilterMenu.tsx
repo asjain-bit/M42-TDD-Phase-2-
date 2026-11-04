@@ -68,7 +68,7 @@ export const TableFilterMenu: React.FC<TableFilterMenuProps> = ({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="h-10 px-4 rounded-xl border border-[#e2e8f0] bg-white text-xs font-medium text-[#0d212c] hover:bg-[#f8fafc] flex items-center gap-2 cursor-pointer transition"
+        className="h-10 px-4 rounded-lg border border-[#e2e8f0] bg-white text-xs font-medium text-[#0d212c] hover:bg-[#f8fafc] flex items-center gap-2 cursor-pointer transition"
       >
         <SlidersHorizontal className="w-4 h-4 text-[#64748b]" aria-hidden="true" />
         Filters

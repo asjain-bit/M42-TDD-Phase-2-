@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { AlertTriangle, CheckCircle2, ShieldCheck, Upload, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Upload, X } from 'lucide-react'
 
 interface VendorEvidenceUploaderScreenProps {
   onExit: () => void
@@ -19,6 +19,8 @@ interface FollowUpQuestion {
   category: string
   question: string
   answer: string
+  // Reason added by the admin when requesting the follow-up (optional)
+  reason?: string
 }
 
 // Follow-up questions the agent emailed to the vendor
@@ -29,12 +31,15 @@ const FOLLOW_UP_QUESTIONS: FollowUpQuestion[] = [
     question: 'Provide your current ISO/IEC 27001 certificate.',
     answer:
       'The uploaded document states completion of Stage 1 readiness review for ISO/IEC 27001 with Stage 2 certification audit scheduled.',
+    reason:
+      'The uploaded report only covers the Stage 1 readiness review. Please share the final ISO/IEC 27001 certificate once the Stage 2 audit is complete.',
   },
   {
     id: 4,
     category: 'Security',
     question: 'Describe your identity and access management controls (SSO, MFA, least privilege).',
     answer: '',
+    reason: 'No details were shared on the call about MFA enforcement for administrative accounts.',
   },
   {
     id: 6,
@@ -47,6 +52,7 @@ const FOLLOW_UP_QUESTIONS: FollowUpQuestion[] = [
     category: 'Data',
     question: 'Where is customer data stored, and can data residency be restricted to a region?',
     answer: '',
+    reason: 'Please confirm whether customer data can be hosted within the UAE region.',
   },
 ]
 
@@ -56,15 +62,16 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
   const [answers, setAnswers] = useState<Record<number, string>>(() =>
     Object.fromEntries(FOLLOW_UP_QUESTIONS.map((q) => [q.id, q.answer]))
   )
-  const [files, setFiles] = useState<Record<number, EvidenceFile[]>>({
-    3: [
-      {
-        name: 'ISO_27001_Readiness_Report_2026.pdf',
-        size: '1.4 MB',
-        type: 'PDF',
-        date: '25 Aug 2026',
-      },
-    ],
+  // Submit stays disabled until the vendor edits an answer or uploads evidence
+  const [hasChanges, setHasChanges] = useState(false)
+  // Only one evidence file per question; re-uploading replaces it
+  const [files, setFiles] = useState<Record<number, EvidenceFile | undefined>>({
+    3: {
+      name: 'ISO_27001_Readiness_Report_2026.pdf',
+      size: '1.4 MB',
+      type: 'PDF',
+      date: '25 Aug 2026',
+    },
   })
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -78,15 +85,10 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
       type: file.name.split('.').pop()?.toUpperCase() || 'FILE',
       date: 'Today',
     }
-    setFiles((prev) => ({ ...prev, [questionId]: [...(prev[questionId] || []), newFile] }))
+    setFiles((prev) => ({ ...prev, [questionId]: newFile }))
+    setHasChanges(true)
     e.target.value = ''
   }
-
-  const removeFile = (questionId: number, index: number) =>
-    setFiles((prev) => ({
-      ...prev,
-      [questionId]: (prev[questionId] || []).filter((_, i) => i !== index),
-    }))
 
   return (
     <div className="min-h-screen w-full bg-[#f8fafc] text-[#0d212c] font-sans antialiased flex flex-col">
@@ -115,12 +117,6 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
               Thank you. Your updated answers and evidence have been shared with the M42 team for
               review.
             </p>
-            <button
-              onClick={onExit}
-              className="mt-2 px-5 py-2.5 rounded-xl bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0"
-            >
-              Back to sign in
-            </button>
           </div>
         </main>
       ) : (
@@ -136,7 +132,7 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
 
             <div className="bg-white p-6 rounded-2xl border border-[#e2e8f0] shadow-xs divide-y divide-[#e2e8f0]/80">
               {FOLLOW_UP_QUESTIONS.map((q) => {
-                const questionFiles = files[q.id] || []
+                const evidenceFile = files[q.id]
                 return (
                   <div key={q.id} className="py-6 first:pt-0 last:pb-0 flex flex-col gap-3">
                     <h4 className="font-bold text-[#0d212c] text-sm">
@@ -154,75 +150,64 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
                         id={`vendor-answer-${q.id}`}
                         rows={3}
                         value={answers[q.id] || ''}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                        }
+                          setHasChanges(true)
+                        }}
                         placeholder="Type your answer..."
                         className="w-full px-4 py-3 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none"
                       />
                     </div>
 
-                    {/* Evidence — same layout as the admin portal */}
-                    <div className="p-4 sm:p-5 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex flex-col gap-2.5 min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-[#0d212c]">
-                          <ShieldCheck className="w-4 h-4 text-[#0d7280]" />
-                          <span>
-                            Evidence{questionFiles.length > 0 ? ` (${questionFiles.length})` : ''}
-                          </span>
-                        </div>
-                        {questionFiles.length === 0 ? (
-                          <div className="flex flex-col gap-0.5">
+                    {/* Evidence — the admin's reason (when given), a divider, then the one file */}
+                    <div className="p-4 sm:p-5 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] flex flex-col gap-4">
+                      {q.reason && (
+                        <>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-bold text-[#0d212c]">Reason</span>
+                            <p className="text-xs font-medium text-[#475569] leading-relaxed">
+                              {q.reason}
+                            </p>
+                          </div>
+                          <div className="h-px bg-[#e2e8f0]" />
+                        </>
+                      )}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex flex-col gap-2.5 min-w-0 flex-1">
+                          {!evidenceFile ? (
                             <span className="text-xs font-bold text-[#0d212c]">
-                              No evidence uploaded yet
+                              No evidence uploaded as of now
                             </span>
-                            <span className="text-[11px] text-[#64748b]">
-                              Upload supporting evidence for this answer.
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-3">
-                            {questionFiles.map((file, idx) => (
-                              <div
-                                key={`${file.name}-${idx}`}
-                                className="p-3 rounded-xl border border-[#e2e8f0] bg-white inline-flex items-center justify-between gap-4 text-xs w-full sm:w-auto min-w-[280px] shadow-2xs"
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="px-2.5 py-1 rounded-lg bg-[#eff6ff] text-[#2563eb] font-bold text-[10px] shrink-0">
-                                    {file.type}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <h5 className="font-bold text-xs text-[#0d212c] truncate">
-                                      {file.name}
-                                    </h5>
-                                    <span className="text-[10px] text-[#64748b] block">
-                                      {file.size} • {file.date}
-                                    </span>
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => removeFile(q.id, idx)}
-                                  className="p-1 text-[#64748b] hover:text-[#dc2626] cursor-pointer bg-transparent border-0"
-                                  title="Remove file"
-                                  aria-label={`Remove ${file.name}`}
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
+                          ) : (
+                            <div className="p-3 rounded-xl border border-[#e2e8f0] bg-white inline-flex items-center gap-2.5 text-xs w-full sm:w-auto sm:self-start min-w-0 sm:min-w-[280px] sm:max-w-[360px] shadow-2xs">
+                              <div className="px-2.5 py-1 rounded-lg bg-[#eff6ff] text-[#2563eb] font-bold text-[10px] shrink-0">
+                                {evidenceFile.type}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                              <div className="min-w-0">
+                                <h5
+                                  className="font-bold text-xs text-[#0d212c] truncate"
+                                  title={evidenceFile.name}
+                                >
+                                  {evidenceFile.name}
+                                </h5>
+                                <span className="text-[10px] text-[#64748b] block">
+                                  {evidenceFile.size} • {evidenceFile.date}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
 
-                      <label className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#0d7280] text-[#0d7280] hover:bg-[#f0fdfa] font-bold text-xs cursor-pointer transition shadow-2xs shrink-0 self-start sm:self-center">
-                        <Upload className="w-3.5 h-3.5 text-[#0d7280]" />
-                        <span>Upload evidence</span>
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => handleFileUpload(q.id, e)}
-                        />
-                      </label>
+                        <label className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-[#0d7280] text-[#0d7280] hover:bg-[#f0fdfa] font-bold text-xs cursor-pointer transition shadow-2xs shrink-0 self-start sm:self-center">
+                          <Upload className="w-3.5 h-3.5 text-[#0d7280]" />
+                          <span>{evidenceFile ? 'Re-upload evidence' : 'Upload evidence'}</span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(q.id, e)}
+                          />
+                        </label>
+                      </div>
                     </div>
                   </div>
                 )
@@ -234,13 +219,14 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
             <div className="max-w-4xl mx-auto px-8 py-4 flex items-center justify-end gap-3">
               <button
                 onClick={() => setShowCancelConfirm(true)}
-                className="px-5 py-2.5 rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+                className="px-5 py-2.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={() => setIsSubmitted(true)}
-                className="px-5 py-2.5 rounded-xl bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0"
+                disabled={!hasChanges}
+                className="px-5 py-2.5 rounded-lg bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#36c0c9]"
               >
                 Submit
               </button>
@@ -273,13 +259,13 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setShowCancelConfirm(false)}
-                className="py-3 rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+                className="py-3 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
               >
                 Keep editing
               </button>
               <button
                 onClick={onExit}
-                className="py-3 rounded-xl bg-[#dc2626] hover:bg-[#b91c1c] text-white text-xs font-bold transition cursor-pointer border-0"
+                className="py-3 rounded-lg bg-[#dc2626] hover:bg-[#b91c1c] text-white text-xs font-bold transition cursor-pointer border-0"
               >
                 Yes, cancel
               </button>

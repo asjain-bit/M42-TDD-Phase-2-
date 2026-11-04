@@ -98,14 +98,16 @@ describe('ValueDueDiligenceStage', () => {
     },
   }
 
-  it('fills in the TDD report by itself after a proceed, with the simple animation', () => {
+  it('waits for the TDD Admin to complete the assessments before the report appears', () => {
     vi.useFakeTimers()
     const onAction = vi.fn()
     render(<ValueDueDiligenceStage request={proceeded} role="sponsor" onAction={onAction} />)
-    expect(screen.getByText('GENERATING')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Upload TDD report')).not.toBeInTheDocument()
+    expect(screen.getByText('The TDD report is not ready yet')).toBeInTheDocument()
+    expect(screen.queryByText('GENERATING')).not.toBeInTheDocument()
     for (let i = 0; i < 5; i++) act(() => vi.advanceTimersByTime(1100))
-    expect(onAction).toHaveBeenCalledWith({ type: 'generateTdd' })
+    // Nothing is generated on its own
+    expect(onAction).not.toHaveBeenCalledWith({ type: 'generateTdd' })
+    expect(screen.queryByRole('heading', { name: 'Sponsorship' })).not.toBeInTheDocument()
     vi.useRealTimers()
   })
 
@@ -119,10 +121,12 @@ describe('ValueDueDiligenceStage', () => {
     const { unmount } = render(
       <ValueDueDiligenceStage request={request} role="sponsor" onAction={onAction} />
     )
-    expect(screen.getByRole('list', { name: 'TDD report' })).toBeInTheDocument()
-    // The report is laid out as a PDF document
+    // The report is a file; View opens it in the document viewer, like the NDA
     expect(screen.getByText(/TDD_Report_PR-\d+\.pdf/)).toBeInTheDocument()
-    expect(screen.getByRole('article', { name: 'TDD report document' })).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'TDD report' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Preview|View/ }))
+    expect(screen.getByRole('list', { name: 'TDD report' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Close preview' }))
     // Each answer asks for a confirmation first
     await user.click(screen.getByRole('button', { name: 'Yes, sponsor' }))
     expect(onAction).not.toHaveBeenCalled()

@@ -44,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'questionnaires', label: 'Questionnaires', icon: FileText },
     { id: 'vendors', label: 'Vendors', icon: Building2 },
     { id: 'agents', label: 'Agents', icon: Bot },
-    { id: 'usage-insights', label: 'Usage Insights', icon: BarChart3 },
+    { id: 'usage-insights', label: 'Value and ROI Insights', icon: BarChart3 },
   ]
 
   const userInitials = userName
@@ -186,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex items-center justify-center gap-3 w-full mt-2">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="px-6 py-3 rounded-xl border border-[#e2e8f0] text-xs font-bold text-[#0d212c] hover:bg-slate-50 cursor-pointer flex-1 bg-transparent transition"
+                className="px-6 py-3 rounded-lg border border-[#e2e8f0] text-xs font-bold text-[#0d212c] hover:bg-slate-50 cursor-pointer flex-1 bg-transparent transition"
               >
                 Cancel
               </button>
@@ -195,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setShowLogoutConfirm(false)
                   onSignOut?.()
                 }}
-                className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer flex-1 border-0 transition shadow-2xs"
+                className="px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer flex-1 border-0 transition shadow-2xs"
               >
                 Logout
               </button>

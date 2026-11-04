@@ -14,6 +14,8 @@ import {
   buildSplitCases,
   finalizeSponsorship,
   generateTddReport,
+  completeTddAssessments,
+  isAwaitingTddAdmin,
   applyCaseAction,
   proceedToValue,
   uploadSignedNda,
@@ -889,5 +891,31 @@ describe('hasSignedNda', () => {
       hasSignedNda({ ...pending, nda: { versions: [version(1, false), version(2, true)] } })
     ).toBe(true)
     expect(hasSignedNda(uploadSignedNda(pending, 'signed.pdf'))).toBe(true)
+  })
+})
+
+describe('TDD Admin completes the assessments', () => {
+  const genomicx = INITIAL_PARTNERSHIP_REQUESTS.find((r) => r.id === 'req-003')!
+  const atValue = {
+    ...genomicx,
+    discovery: { notes: [], transcripts: [], recordings: [], proceededOn: '17 Oct 2026' },
+    value: { decision: { status: 'proceeded' as const, date: '21 Oct 2026' } },
+  }
+
+  it('waits on the TDD Admin only once the sponsor has proceeded at Value & Due Diligence', () => {
+    expect(isAwaitingTddAdmin(genomicx)).toBe(false)
+    expect(isAwaitingTddAdmin({ ...atValue, value: {} })).toBe(false)
+    expect(isAwaitingTddAdmin(atValue)).toBe(true)
+  })
+
+  it('logs the completion and generates the TDD report', () => {
+    const next = completeTddAssessments(atValue, 'Zaid Al Ali (TDD Admin)')
+    expect(next.value?.tddGeneratedOn).toBeTruthy()
+    expect(next.auditLog?.map((e) => e.title)).toEqual(
+      expect.arrayContaining(['TDD assessments completed', 'TDD report generated'])
+    )
+    expect(isAwaitingTddAdmin(next)).toBe(false)
+    // Nothing happens before the case is waiting on the TDD Admin
+    expect(completeTddAssessments(genomicx, 'Zaid Al Ali (TDD Admin)')).toBe(genomicx)
   })
 })

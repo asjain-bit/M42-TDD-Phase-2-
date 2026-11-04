@@ -187,7 +187,7 @@ export const AdminActionModal: React.FC<AdminActionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="h-11 px-6 rounded-xl border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
+            className="h-11 px-6 rounded-lg border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
           >
             Cancel
           </button>
@@ -201,7 +201,7 @@ export const AdminActionModal: React.FC<AdminActionModalProps> = ({
                 reason: reason.trim(),
               })
             }
-            className={`h-11 px-6 rounded-xl text-white text-sm font-semibold transition cursor-pointer disabled:bg-slate-400 disabled:cursor-not-allowed ${
+            className={`h-11 px-6 rounded-lg text-white text-sm font-semibold transition cursor-pointer disabled:bg-slate-400 disabled:cursor-not-allowed ${
               isProceed ? 'bg-[#36c0c9] hover:bg-[#2fb0b9]' : 'bg-red-600 hover:bg-red-700'
             }`}
           >

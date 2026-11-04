@@ -533,28 +533,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
-          <TableFilterMenu
-            stage={stageFilter}
-            stageOptions={STAGE_OPTIONS}
-            sla={slaFilter}
-            slaOptions={isNonDirector ? undefined : SLA_OPTIONS}
-            sort={sortBy}
-            sortOptions={SORT_OPTIONS}
-            onStageChange={(v) => {
-              setStageFilter(v)
-              setPage(1)
-            }}
-            onSlaChange={(v) => {
-              setSlaFilter(v)
-              setPage(1)
-            }}
-            onSortChange={(v) => {
-              setSortBy(v)
-              setPage(1)
-            }}
-            activeCount={activeFilterCount}
-            onClear={clearFilters}
-          />
           {statusRole === 'director' && (
             <Button
               variant="outline"
@@ -578,6 +556,29 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               showButton={false}
             />
           </div>
+          {/* Filter always sits at the far right */}
+          <TableFilterMenu
+            stage={stageFilter}
+            stageOptions={STAGE_OPTIONS}
+            sla={slaFilter}
+            slaOptions={isNonDirector ? undefined : SLA_OPTIONS}
+            sort={sortBy}
+            sortOptions={SORT_OPTIONS}
+            onStageChange={(v) => {
+              setStageFilter(v)
+              setPage(1)
+            }}
+            onSlaChange={(v) => {
+              setSlaFilter(v)
+              setPage(1)
+            }}
+            onSortChange={(v) => {
+              setSortBy(v)
+              setPage(1)
+            }}
+            activeCount={activeFilterCount}
+            onClear={clearFilters}
+          />
         </div>
       </div>
 
@@ -804,7 +805,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           title="Open notes"
                           className={`relative w-8 h-8 rounded-lg inline-flex items-center justify-center border cursor-pointer transition ${
                             openNotes?.id === req.id
-                              ? 'border-[var(--app-accent)] bg-[var(--app-accent-soft)] text-[var(--app-accent)]'
+                              ? 'border-border-strong bg-bg-hover text-text-primary'
                               : 'border-border-default text-text-secondary hover:text-text-primary hover:bg-bg-hover'
                           }`}
                         >

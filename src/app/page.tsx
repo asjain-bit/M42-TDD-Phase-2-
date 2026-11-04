@@ -202,7 +202,6 @@ export default function HomePage() {
           : null
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'usage', label: 'Value & ROI', icon: BarChart3 },
     ...(isInternalTeam
       ? [{ id: 'my-interests', label: 'Internal interests', icon: Lightbulb }]
       : []),
@@ -212,6 +211,8 @@ export default function HomePage() {
           { id: 'existing-projects', label: 'Existing Projects', icon: FolderKanban },
         ]
       : []),
+    // Value & ROI always sits last in the left nav
+    { id: 'usage', label: 'Value & ROI', icon: BarChart3 },
   ]
 
   const handleSignOut = () => {
@@ -220,8 +221,9 @@ export default function HomePage() {
 
   const handleVendorSubmit = (values: VendorFormValues) => {
     const code = nextCaseCode(requests)
-    setRequests((prev) => [buildCaseFromForm(values, code, new Date(), prev), ...prev])
-    return code
+    const newCase = buildCaseFromForm(values, code, new Date(), requests)
+    setRequests((prev) => [newCase, ...prev])
+    return { caseId: code, vendorId: newCase.vendorId ?? '' }
   }
 
   if (!isAuthenticated) {
@@ -241,6 +243,11 @@ export default function HomePage() {
       <TddAdminApp
         userName={userProfile.name}
         userEmail={userProfile.email}
+        userAvatarUrl={userProfile.avatarUrl}
+        requests={requests}
+        onRequestsChange={setRequests}
+        usageAssumptions={usageAssumptions}
+        onRecalculate={setUsageAssumptions}
         onSignOut={handleSignOut}
       />
     )

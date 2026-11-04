@@ -262,7 +262,7 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
               <>
                 <button
                   onClick={() => setShowAddQuestionModal(true)}
-                  className="px-4 py-2 rounded-xl border border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-slate-50 text-[#0d212c] bg-white font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer transition"
+                  className="px-4 py-2 rounded-lg border border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-slate-50 text-[#0d212c] bg-white font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer transition"
                 >
                   <Plus className="w-4 h-4 text-[#0d212c]" />
                   <span>Add question</span>
@@ -273,7 +273,7 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
                     questions.length === 0 ||
                     questions.some((q) => !q.question.trim() || !q.responseCue.trim())
                   }
-                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold px-6 py-2 rounded-xl text-xs shadow-xs cursor-pointer transition border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold px-6 py-2 rounded-lg text-xs shadow-xs cursor-pointer transition border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Publish questionnaire
                 </button>
@@ -293,7 +293,7 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
                     questions.length === 0 ||
                     questions.some((q) => !q.question.trim() || !q.responseCue.trim())
                   }
-                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold px-6 py-2 rounded-xl text-xs shadow-xs cursor-pointer transition border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold px-6 py-2 rounded-lg text-xs shadow-xs cursor-pointer transition border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Publish questionnaire
                 </button>
@@ -303,7 +303,7 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
             <>
               <button
                 onClick={() => setShowAddQuestionModal(true)}
-                className="px-4 py-2 rounded-xl border border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-slate-50 text-[#0d212c] bg-white font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer transition"
+                className="px-4 py-2 rounded-lg border border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-slate-50 text-[#0d212c] bg-white font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer transition"
               >
                 <Plus className="w-4 h-4 text-[#0d212c]" />
                 <span>Add question</span>
@@ -314,7 +314,7 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
                   questions.length === 0 ||
                   questions.some((q) => !q.question.trim() || !q.responseCue.trim())
                 }
-                className="bg-[#36c0c9] hover:bg-[#2eb0b9] text-white font-bold px-6 py-2 rounded-xl text-xs cursor-pointer shadow-xs border-0 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-[#36c0c9] hover:bg-[#2eb0b9] text-white font-bold px-6 py-2 rounded-lg text-xs cursor-pointer shadow-xs border-0 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
               </button>
@@ -341,7 +341,7 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
             </p>
             <button
               onClick={() => setShowAddQuestionModal(true)}
-              className="mt-2 bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-6 rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer border-0"
+              className="mt-2 bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-6 rounded-lg text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer border-0"
             >
               <Plus className="w-4 h-4 text-white" />
               <span>Add question</span>
@@ -525,18 +525,18 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-[#e2e8f0]">
+              <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowAddQuestionModal(false)}
-                  className="px-4 py-2 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!newQuestionText.trim() || !newResponseCue.trim()}
-                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2 px-6 rounded-xl text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition border-0"
+                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2 px-6 rounded-lg text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition border-0"
                 >
                   Save question
                 </button>

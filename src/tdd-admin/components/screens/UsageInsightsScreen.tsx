@@ -814,7 +814,7 @@ export const UsageInsightsScreen: React.FC = () => {
               type="button"
               disabled={selectedWeekIndex === 0}
               onClick={goToPrevWeek}
-              className="w-8 h-8 flex items-center justify-center rounded-xl border border-[#e2e8f0] bg-white hover:bg-[#f8fafc] text-[#0d212c] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#e2e8f0] bg-white hover:bg-[#f8fafc] text-[#0d212c] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
               title="Previous week"
               aria-label="Previous week"
             >
@@ -826,7 +826,7 @@ export const UsageInsightsScreen: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setWeekDropdownOpen((o) => !o)}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-[#e2e8f0] rounded-xl text-xs font-semibold text-[#0d212c] hover:border-[#cbd5e1] hover:bg-[#f8fafc] transition-all shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-[#e2e8f0] rounded-lg text-xs font-semibold text-[#0d212c] hover:border-[#cbd5e1] hover:bg-[#f8fafc] transition-all shadow-2xs cursor-pointer"
               >
                 <Calendar className="w-3.5 h-3.5 text-[#36c0c9] shrink-0" />
                 <span>{selectedWeek.label}</span>
@@ -884,7 +884,7 @@ export const UsageInsightsScreen: React.FC = () => {
               type="button"
               disabled={selectedWeekIndex === OCTOBER_WEEKS.length - 1}
               onClick={goToNextWeek}
-              className="w-8 h-8 flex items-center justify-center rounded-xl border border-[#e2e8f0] bg-white hover:bg-[#f8fafc] text-[#0d212c] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#e2e8f0] bg-white hover:bg-[#f8fafc] text-[#0d212c] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
               title="Next week"
               aria-label="Next week"
             >
@@ -895,7 +895,7 @@ export const UsageInsightsScreen: React.FC = () => {
             <div className="relative group flex items-center">
               <button
                 type="button"
-                className="w-8 h-8 flex items-center justify-center rounded-xl border border-transparent hover:border-[#e2e8f0] text-[#94a3b8] hover:text-[#0d212c] hover:bg-white transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-transparent hover:border-[#e2e8f0] text-[#94a3b8] hover:text-[#0d212c] hover:bg-white transition-colors cursor-pointer"
                 title="Week selection info"
                 aria-label="Week selection info"
               >

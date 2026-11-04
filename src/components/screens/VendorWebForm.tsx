@@ -24,9 +24,14 @@ import {
   isVendorIdValid,
 } from '@/types/vendorForm'
 
+export interface SubmittedIds {
+  caseId: string
+  vendorId: string
+}
+
 export interface VendorWebFormProps {
-  /** Receives the finished form and returns the case ID created for it */
-  onSubmitCase: (values: VendorFormValues) => string
+  /** Receives the finished form and returns the case ID and Vendor ID created for it */
+  onSubmitCase: (values: VendorFormValues) => SubmittedIds
   onSignOut?: () => void
 }
 
@@ -148,7 +153,7 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
   const [isChecking, setIsChecking] = useState(false)
   const [suggestions, setSuggestions] = useState<VendorFormSuggestion[] | null>(null)
   const [confirming, setConfirming] = useState(false)
-  const [caseId, setCaseId] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState<SubmittedIds | null>(null)
   const [checkStep, setCheckStep] = useState(0)
   const [hasRunCheck, setHasRunCheck] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -226,14 +231,14 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
 
   const handleConfirm = () => {
     setConfirming(false)
-    setCaseId(onSubmitCase(values))
+    setSubmitted(onSubmitCase(values))
   }
 
   const reset = () => {
     setValues(EMPTY_VENDOR_FORM)
     setShowErrors(false)
     setSuggestions(null)
-    setCaseId(null)
+    setSubmitted(null)
   }
 
   const textField = (
@@ -279,19 +284,40 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
     )
   }
 
-  const header = (
+  // Sign out shows only once the request has been submitted (prototype navigation)
+  const header = (withSignOut: boolean) => (
     <header className="w-full bg-white border-b border-[#e2e8f0] px-6 lg:px-10 py-3.5 flex items-center justify-between shrink-0 z-30">
       <div className="flex items-center gap-3">
         <img src="/dark-logo.png" alt="M42 logo" className="h-7 w-auto object-contain" />
         <span className="text-sm font-semibold text-[#0d212c]">Partnership request</span>
       </div>
+      {withSignOut && onSignOut && (
+        <div className="relative group inline-flex">
+          <button
+            type="button"
+            onClick={onSignOut}
+            aria-describedby="vendor-signout-note"
+            className="text-sm font-medium text-red-600 hover:text-red-700 hover:underline cursor-pointer"
+          >
+            Sign out
+          </button>
+          <div
+            id="vendor-signout-note"
+            role="tooltip"
+            className="pointer-events-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity absolute right-0 top-full mt-2 z-50 w-64 p-2.5 bg-[#0d212c] text-white text-[11px] font-medium leading-relaxed rounded-xl shadow-xl"
+          >
+            Prototype only: lets you leave the vendor form and switch profiles. It will not be part
+            of the final application.
+          </div>
+        </div>
+      )}
     </header>
   )
 
-  if (caseId) {
+  if (submitted) {
     return (
       <div className="min-h-screen bg-[#f8fafc] text-[#0d212c] font-sans antialiased flex flex-col">
-        {header}
+        {header(true)}
         <main className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-md bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-8 flex flex-col items-center text-center gap-5 animate-in fade-in zoom-in-95 duration-300">
             <div className="w-14 h-14 rounded-full bg-emerald-50 text-[#10b981] flex items-center justify-center">
@@ -303,13 +329,25 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
                 Thank you. M42 will review your partnership request and get in touch.
               </p>
             </div>
-            <div className="w-full rounded-xl bg-[#f0fdfa] border border-[#ccfbf1] py-4 flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-[#64748b]">
-                Your case ID
-              </span>
-              <span className="text-3xl font-semibold tracking-tight text-[#0f766e]">{caseId}</span>
+            <div className="w-full rounded-xl bg-[#f0fdfa] border border-[#ccfbf1] grid grid-cols-2 divide-x divide-[#ccfbf1]">
+              <div className="py-4 px-3 flex flex-col gap-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-[#64748b]">
+                  Your case ID
+                </span>
+                <span className="text-xl font-semibold tracking-tight text-[#0f766e]">
+                  {submitted.caseId}
+                </span>
+              </div>
+              <div className="py-4 px-3 flex flex-col gap-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-[#64748b]">
+                  Your Vendor ID
+                </span>
+                <span className="text-xl font-semibold tracking-tight text-[#0f766e]">
+                  {submitted.vendorId}
+                </span>
+              </div>
             </div>
-            <p className="text-xs text-[#64748b]">Keep this ID to follow up on your request.</p>
+            <p className="text-xs text-[#64748b]">Keep these IDs to follow up on your request.</p>
             <button
               type="button"
               onClick={reset}
@@ -325,7 +363,7 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden bg-[#f8fafc] text-[#0d212c] font-sans antialiased">
-      {header}
+      {header(false)}
 
       <div className="relative flex-1 min-h-0 overflow-y-auto">
         <main
@@ -347,7 +385,7 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
                 onClick={handleRunCheck}
                 disabled={checkDisabled}
                 aria-describedby="run-check-tip"
-                className="h-11 px-5 rounded-xl bg-[#e6f7f8] hover:bg-[#d5f0f2] text-sm font-semibold text-[#0f766e] disabled:opacity-60 disabled:hover:bg-[#e6f7f8] disabled:cursor-not-allowed cursor-pointer transition flex items-center gap-2"
+                className="h-11 px-5 rounded-lg bg-[#e6f7f8] hover:bg-[#d5f0f2] text-sm font-semibold text-[#0f766e] disabled:opacity-60 disabled:hover:bg-[#e6f7f8] disabled:cursor-not-allowed cursor-pointer transition flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4 text-[#36c0c9]" aria-hidden="true" />
                 Run AI check
@@ -582,7 +620,7 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
             <button
               type="button"
               onClick={() => setCancelling(true)}
-              className="h-11 px-6 rounded-xl border border-[#cbd5e1] bg-white hover:bg-slate-50 text-sm font-semibold text-[#0d212c] cursor-pointer transition"
+              className="h-11 px-6 rounded-lg border border-[#cbd5e1] bg-white hover:bg-slate-50 text-sm font-semibold text-[#0d212c] cursor-pointer transition"
             >
               Cancel
             </button>
@@ -590,7 +628,7 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
               type="button"
               disabled={missing.length > 0}
               onClick={handleSubmit}
-              className="h-11 px-6 rounded-xl bg-[#36c0c9] hover:bg-[#2fb0b9] text-white text-sm font-semibold shadow-xs cursor-pointer transition disabled:opacity-50 disabled:hover:bg-[#36c0c9] disabled:cursor-not-allowed"
+              className="h-11 px-6 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] text-white text-sm font-semibold shadow-xs cursor-pointer transition disabled:opacity-50 disabled:hover:bg-[#36c0c9] disabled:cursor-not-allowed"
             >
               Submit request
             </button>

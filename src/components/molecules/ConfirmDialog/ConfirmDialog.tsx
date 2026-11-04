@@ -73,7 +73,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="h-12 rounded-xl border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+              className="h-12 rounded-lg border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
             >
               {cancelLabel}
             </button>
@@ -82,7 +82,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             type="button"
             disabled={confirmDisabled}
             onClick={onConfirm}
-            className={`h-12 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold shadow-lg transition cursor-pointer ${
+            className={`h-12 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold shadow-lg transition cursor-pointer ${
               danger
                 ? 'bg-red-600 hover:bg-red-700 shadow-red-600/25'
                 : 'bg-[#36c0c9] hover:bg-[#2fb0b9] shadow-[#36c0c9]/25'

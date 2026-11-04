@@ -18,6 +18,17 @@ export const NOTE_LOG_TONES: { tone: NoteTone; label: string }[] = [
   { tone: 'neutral', label: 'Neutral' },
 ]
 
+/** How many Risk, Positive and Neutral highlights the case notes log holds */
+export const countNoteTones = (notes: { html: string }[] = []) =>
+  NOTE_LOG_TONES.map(({ tone, label }) => ({
+    tone,
+    label,
+    count: notes.reduce(
+      (n, note) => n + (note.html.match(new RegExp(`data-tone="${tone}"`, 'g'))?.length ?? 0),
+      0
+    ),
+  }))
+
 /** Swatch colours for each tone, from the status tokens (editor toolbar and legend) */
 export const NOTE_TONE_CLASSES: Record<NoteTone, string> = {
   critical: 'bg-status-error-bg border-status-error-border text-status-error-text',

@@ -25,9 +25,8 @@ import { ConfigureVendorCallScreen, VendorDispatchData } from './ConfigureVendor
 
 interface VendorRow {
   id: string
-  /** VND-001, VND-002, ...: unique per vendor */
-  vendorId: string
   caseId: string
+  vendorId: string
   name: string
   legalName: string
   email: string
@@ -40,15 +39,29 @@ interface VendorRow {
   recipients?: string[]
 }
 
-// Vendor IDs follow the VND-### format; a new vendor takes the next number after the highest one
-const getNextVendorId = (rows: VendorRow[]) =>
-  `VND-${String(
-    Math.max(0, ...rows.map((row) => Number(row.vendorId.replace('VND-', '')) || 0)) + 1
-  ).padStart(3, '0')}`
-
 // Case IDs follow the PR-### format; new vendors take the next number after the highest one
 const getNextCaseId = (rows: VendorRow[]) =>
   `PR-${Math.max(0, ...rows.map((row) => Number(row.caseId.replace('PR-', '')) || 0)) + 1}`
+
+// Round labels already used by earlier assessments of each case
+const USED_ROUND_LABELS: Record<string, string[]> = {
+  'PR-126': ['Round 1'],
+  'PR-125': ['Round 2', 'Round 1'],
+  'PR-124': ['Initial Review'],
+  'PR-123': ['Stage 2 Audit'],
+  'PR-122': ['Round 1 - Technical'],
+  'PR-121': ['Follow-up Audit', 'Round 1'],
+  'PR-120': ['Round 3', 'Round 2', 'Round 1'],
+  'PR-119': ['Annual Re-evaluation'],
+  'PR-118': ['Stage 1 Discovery'],
+  'PR-117': ['Pre-onboarding'],
+  'PR-116': ['Round 2 - Compliance', 'Round 1 - Compliance'],
+  'PR-115': ['Final Review'],
+}
+
+// Vendor IDs follow the VND-#### format, numbered the same way
+const getNextVendorId = (rows: VendorRow[]) =>
+  `VND-${Math.max(0, ...rows.map((row) => Number(row.vendorId.replace('VND-', '')) || 0)) + 1}`
 
 interface SearchVendorResult {
   id: string
@@ -180,8 +193,8 @@ export const VendorsScreen: React.FC = () => {
   const [vendors, setVendors] = useState<VendorRow[]>([
     {
       id: 'v-1',
-      vendorId: 'VND-001',
       caseId: 'PR-126',
+      vendorId: 'VND-1026',
       name: 'Presight AI | See the Future Today',
       legalName: 'Presight AI Holding PLC',
       email: 'compliance@presight.ai',
@@ -200,8 +213,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-2',
-      vendorId: 'VND-002',
       caseId: 'PR-125',
+      vendorId: 'VND-1025',
       name: 'Directus Inc.',
       legalName: 'Directus Open Source Ltd',
       email: 'security@directus.io',
@@ -214,8 +227,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-3',
-      vendorId: 'VND-003',
       caseId: 'PR-124',
+      vendorId: 'VND-1024',
       name: 'Pango Group LLC',
       legalName: 'Pango Cybersecurity Global',
       email: 'legal@pango.com',
@@ -228,8 +241,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-4',
-      vendorId: 'VND-004',
       caseId: 'PR-123',
+      vendorId: 'VND-1023',
       name: 'Apex Systems Advisory',
       legalName: 'Apex Healthcare Solutions Inc.',
       email: 'contact@apexsystems.com',
@@ -248,8 +261,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-5',
-      vendorId: 'VND-005',
       caseId: 'PR-122',
+      vendorId: 'VND-1022',
       name: 'Delphi AI Technologies',
       legalName: 'Delphi Intelligence Systems',
       email: 'audit@delphiai.com',
@@ -262,8 +275,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-6',
-      vendorId: 'VND-006',
       caseId: 'PR-121',
+      vendorId: 'VND-1021',
       name: 'BioHealth Analytics',
       legalName: 'BioHealth Data Group GMBH',
       email: 'info@biohealth.de',
@@ -276,8 +289,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-7',
-      vendorId: 'VND-007',
       caseId: 'PR-120',
+      vendorId: 'VND-1020',
       name: 'CloudScale AI Systems',
       legalName: 'CloudScale Technologies B.V.',
       email: 'ops@cloudscale.nl',
@@ -290,8 +303,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-[#8]',
-      vendorId: 'VND-008',
       caseId: 'PR-119',
+      vendorId: 'VND-1019',
       name: 'CyberGuard Solutions',
       legalName: 'CyberGuard Security Systems SAS',
       email: 'trust@cyberguard.fr',
@@ -304,8 +317,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-9',
-      vendorId: 'VND-009',
       caseId: 'PR-118',
+      vendorId: 'VND-1018',
       name: 'HealthCloud Telemetry',
       legalName: 'HealthCloud Global Pte. Ltd.',
       email: 'support@healthcloud.sg',
@@ -318,8 +331,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-10',
-      vendorId: 'VND-010',
       caseId: 'PR-117',
+      vendorId: 'VND-1017',
       name: 'PharmaTech Analytics',
       legalName: 'PharmaTech Clinical Systems KSA',
       email: 'regulatory@pharmatech.sa',
@@ -332,8 +345,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-11',
-      vendorId: 'VND-011',
       caseId: 'PR-116',
+      vendorId: 'VND-1016',
       name: 'MedSec Audit Co',
       legalName: 'MedSec Compliance Services UAE',
       email: 'audits@medsec.ae',
@@ -346,8 +359,8 @@ export const VendorsScreen: React.FC = () => {
     },
     {
       id: 'v-12',
-      vendorId: 'VND-012',
       caseId: 'PR-115',
+      vendorId: 'VND-1015',
       name: 'Global Diagnostics IT',
       legalName: 'Global Diagnostics Technology Corp',
       email: 'info@globaldiag.com',
@@ -366,8 +379,8 @@ export const VendorsScreen: React.FC = () => {
       const matchesStatus = statusFilter === 'all' || v.status === statusFilter
       const query = searchTerm.toLowerCase()
       const matchesSearch =
-        v.vendorId.toLowerCase().includes(query) ||
         v.caseId.toLowerCase().includes(query) ||
+        v.vendorId.toLowerCase().includes(query) ||
         v.name.toLowerCase().includes(query) ||
         v.legalName.toLowerCase().includes(query) ||
         v.email.toLowerCase().includes(query) ||
@@ -520,8 +533,8 @@ export const VendorsScreen: React.FC = () => {
 
     const newVendor: VendorRow = {
       id: `v-${Date.now()}`,
-      vendorId: getNextVendorId(vendors),
       caseId: getNextCaseId(vendors),
+      vendorId: getNextVendorId(vendors),
       name: vendorTitle,
       legalName: vendorTitle,
       email: findRecipients[0] || `compliance@${domainStr}`,
@@ -560,8 +573,8 @@ export const VendorsScreen: React.FC = () => {
     const domainStr = manualWebsite.replace('https://', '').split('/')[0] || 'vendor.com'
     const newVendor: VendorRow = {
       id: `v-${Date.now()}`,
-      vendorId: getNextVendorId(vendors),
       caseId: getNextCaseId(vendors),
+      vendorId: getNextVendorId(vendors),
       name: manualDisplayName.trim(),
       legalName: manualLegalName.trim() || manualDisplayName.trim(),
       email: manualRecipients[0] || `contact@${domainStr}`,
@@ -633,6 +646,7 @@ export const VendorsScreen: React.FC = () => {
       flag: activeDispatchVendor.flag,
       email: activeDispatchVendor.email,
       recipients: activeDispatchVendor.recipients,
+      usedRoundLabels: USED_ROUND_LABELS[activeDispatchVendor.caseId] ?? [],
     }
 
     return (
@@ -692,15 +706,6 @@ export const VendorsScreen: React.FC = () => {
             />
           </div>
 
-          <FilterMenu
-            fields={vendorFilterFields}
-            values={vendorFilters}
-            onChange={(values) => {
-              setVendorFilters(values)
-              setCurrentPage(1)
-            }}
-          />
-
           <button
             onClick={() => {
               setOnboardingMode('find')
@@ -716,11 +721,21 @@ export const VendorsScreen: React.FC = () => {
               setManualCountry('')
               setShowAddVendorModal(true)
             }}
-            className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2 px-5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer border-0 shrink-0"
+            className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2 px-5 rounded-lg text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer border-0 shrink-0"
           >
             <Plus className="w-4 h-4 text-white" />
             <span>Add Vendor</span>
           </button>
+
+          {/* Filter always sits at the far right */}
+          <FilterMenu
+            fields={vendorFilterFields}
+            values={vendorFilters}
+            onChange={(values) => {
+              setVendorFilters(values)
+              setCurrentPage(1)
+            }}
+          />
         </div>
       </div>
 
@@ -747,7 +762,7 @@ export const VendorsScreen: React.FC = () => {
                 setStatusFilter(chip.key as 'all' | 'Activated' | 'Deactivated')
                 setCurrentPage(1)
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
                 isSelected
                   ? 'bg-[#36c0c9] text-white font-bold shadow-xs'
                   : 'bg-white text-[#64748b] border border-[#e2e8f0] hover:bg-[#f8fafc]'
@@ -773,8 +788,8 @@ export const VendorsScreen: React.FC = () => {
             <thead>
               <tr className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] text-xs font-bold">
                 <th className="py-3.5 px-5 whitespace-nowrap">Vendor ID</th>
-                <th className="py-3.5 px-5">Vendor Name</th>
                 <th className="py-3.5 px-5 whitespace-nowrap">Case ID</th>
+                <th className="py-3.5 px-5">Vendor Name</th>
                 <th className="py-3.5 px-5">Domain</th>
                 <th className="py-3.5 px-5">Recipients</th>
                 <th className="py-3.5 px-5">Country</th>
@@ -788,6 +803,9 @@ export const VendorsScreen: React.FC = () => {
                   <td className="py-4 px-5 text-xs font-bold text-[#0d212c] whitespace-nowrap">
                     {getNextVendorId(vendors)}
                   </td>
+                  <td className="py-4 px-5 text-xs font-bold text-[#0d212c] whitespace-nowrap">
+                    {getNextCaseId(vendors)}
+                  </td>
                   <td className="py-4 px-5 font-semibold text-xs text-[#0d212c]">
                     <div className="flex items-center gap-2.5">
                       <Loader2 className="w-4 h-4 animate-spin text-[#36c0c9] shrink-0" />
@@ -798,9 +816,6 @@ export const VendorsScreen: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                  </td>
-                  <td className="py-4 px-5 text-xs font-bold text-[#0d212c] whitespace-nowrap">
-                    {getNextCaseId(vendors)}
                   </td>
                   <td className="py-4 px-5 text-xs text-[#64748b] italic">Processing domain...</td>
                   <td className="py-4 px-5 text-xs text-[#64748b]">
@@ -833,6 +848,9 @@ export const VendorsScreen: React.FC = () => {
                     <td className="py-4 px-5 text-xs font-bold text-[#0d212c] whitespace-nowrap">
                       {vendor.vendorId}
                     </td>
+                    <td className="py-4 px-5 text-xs font-bold text-[#0d212c] whitespace-nowrap">
+                      {vendor.caseId}
+                    </td>
                     <td className="py-4 px-5">
                       <div className="flex flex-col min-w-0 gap-[2px]">
                         <span
@@ -848,9 +866,6 @@ export const VendorsScreen: React.FC = () => {
                           {vendor.legalName}
                         </span>
                       </div>
-                    </td>
-                    <td className="py-4 px-5 text-xs font-bold text-[#0d212c] whitespace-nowrap">
-                      {vendor.caseId}
                     </td>
 
                     <td className="py-4 px-5 text-xs">
@@ -1091,17 +1106,6 @@ export const VendorsScreen: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEditedVendor} className="flex flex-col gap-4">
-              {/* Vendor ID: read-only */}
-              <div>
-                <span className="block text-xs font-bold text-[#0d212c] mb-1.5">Vendor ID</span>
-                <div
-                  aria-label="Vendor ID"
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-xs font-bold text-[#0d212c]"
-                >
-                  {editingVendor.vendorId}
-                </div>
-              </div>
-
               {/* Vendor name */}
               <div>
                 <label className="block text-xs font-bold text-[#0d212c] mb-1.5">
@@ -1284,14 +1288,14 @@ export const VendorsScreen: React.FC = () => {
                     setEditRecipientInput('')
                     setEditRecipientError(null)
                   }}
-                  className="px-4 py-2 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer bg-transparent"
+                  className="px-4 py-2 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer bg-transparent"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={(editingVendor.recipients || []).length > 5}
-                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-5 py-2 rounded-xl cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-5 py-2 rounded-lg cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save changes
                 </button>
@@ -1338,7 +1342,7 @@ export const VendorsScreen: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setConfirmStatusVendor(null)}
-                className="px-6 py-3 rounded-xl border border-[#e2e8f0] text-xs font-bold text-[#0d212c] hover:bg-slate-50 cursor-pointer flex-1 bg-transparent transition"
+                className="px-6 py-3 rounded-lg border border-[#e2e8f0] text-xs font-bold text-[#0d212c] hover:bg-slate-50 cursor-pointer flex-1 bg-transparent transition"
               >
                 Cancel
               </button>
@@ -1348,7 +1352,7 @@ export const VendorsScreen: React.FC = () => {
                   toggleVendorStatus(confirmStatusVendor.vendor)
                   setConfirmStatusVendor(null)
                 }}
-                className={`px-6 py-3 rounded-xl text-white text-xs font-bold cursor-pointer flex-1 border-0 transition shadow-2xs ${
+                className={`px-6 py-3 rounded-lg text-white text-xs font-bold cursor-pointer flex-1 border-0 transition shadow-2xs ${
                   confirmStatusVendor.targetStatus === 'Deactivated'
                     ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-[#36c0c9] hover:bg-[#2badb6]'
@@ -1677,7 +1681,7 @@ export const VendorsScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleCloseAddVendorModal}
-                      className="px-4 py-2.5 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer bg-transparent"
+                      className="px-4 py-2.5 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer bg-transparent"
                     >
                       Cancel
                     </button>
@@ -1687,7 +1691,7 @@ export const VendorsScreen: React.FC = () => {
                         isAddingVendor || !selectedSearchResult || findRecipients.length > 5
                       }
                       onClick={handleAddVendorFromFind}
-                      className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-2.5 rounded-xl transition cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed border-0 flex items-center justify-center gap-2"
+                      className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-2.5 rounded-lg transition cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed border-0 flex items-center justify-center gap-2"
                     >
                       {isAddingVendor ? (
                         <>
@@ -1893,7 +1897,7 @@ export const VendorsScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleCloseAddVendorModal}
-                      className="px-4 py-2.5 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer bg-transparent"
+                      className="px-4 py-2.5 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer bg-transparent"
                     >
                       Cancel
                     </button>
@@ -1902,7 +1906,7 @@ export const VendorsScreen: React.FC = () => {
                       disabled={
                         isAddingVendor || !manualDisplayName.trim() || manualRecipients.length > 5
                       }
-                      className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-2.5 rounded-xl transition cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed border-0 flex items-center justify-center gap-2"
+                      className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-2.5 rounded-lg transition cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed border-0 flex items-center justify-center gap-2"
                     >
                       {isAddingVendor ? (
                         <>

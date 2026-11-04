@@ -224,7 +224,9 @@ describe('DashboardScreen', () => {
 
     await user.click(screen.getByText('MedTech Innovations'))
     expect(screen.getByText('ANALYZING')).toBeInTheDocument()
-    expect(screen.queryByRole('tab', { name: 'Review' })).not.toBeInTheDocument()
+    // The animation runs in the brief area: the tabs and vendor details stay in view
+    expect(screen.getByRole('tab', { name: 'Review' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'MedTech Innovations' })).toBeInTheDocument()
 
     finishThinking()
     expect(screen.getByRole('heading', { name: 'Initial Assessment Brief' })).toBeInTheDocument()
@@ -329,13 +331,10 @@ describe('DashboardScreen', () => {
     // finding the Strategy team for the next stage
     expect(screen.queryByText('ANALYZING')).not.toBeInTheDocument()
     expect(screen.getByText('Finding the Strategy team…')).toBeInTheDocument()
-    // The animation takes the whole page: only the tabs stay
+    // The animation runs in the stage area: the back link, tabs and stages stay in view
     expect(screen.getByRole('tablist')).toBeInTheDocument()
-    expect(screen.queryByRole('navigation', { name: 'Review progress' })).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Back to Partnership Requests' })
-    ).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'MedTech Innovations' })).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Review progress' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to Partnership Requests' })).toBeInTheDocument()
     finishThinking()
     const stepper = within(screen.getByRole('navigation', { name: 'Review progress' }))
     expect(stepper.getByRole('button', { name: /Internal Canvas/ })).toHaveTextContent('Approved')
@@ -887,11 +886,35 @@ describe('NDA & Discovery, Value and the Sponsor profile', () => {
         { name: 'Proceed' }
       )
     )
-    // One popup only: the decision is recorded and the agent fills in the TDD report
+    // One popup only: the decision is recorded, and the TDD report waits for the TDD Admin
     expect(screen.queryByRole('dialog', { name: 'Submit your decision?' })).toBeNull()
-    expect(screen.getByText('GENERATING')).toBeInTheDocument()
-    finishThinking()
+    expect(screen.getByText('The TDD report is not ready yet')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Yes, sponsor' })).not.toBeInTheDocument()
+  })
+
+  it('has the Sponsor view the TDD report and sponsor once the TDD Admin has completed the assessments', async () => {
+    const user = setup()
+    const reportReady = INITIAL_PARTNERSHIP_REQUESTS.map((r) =>
+      r.id === 'req-003'
+        ? {
+            ...r,
+            discovery: { notes: [], transcripts: [], recordings: [], proceededOn: '17 Oct 2026' },
+            value: {
+              callConfirmedOn: '19 Oct 2026',
+              businessCase: { name: 'case.pdf', uploadedOn: '20 Oct', uploadedBy: 'Parag Agarwal' },
+              decision: { status: 'proceeded' as const, date: '21 Oct 2026' },
+              tddGeneratedOn: '22 Oct 2026',
+            },
+          }
+        : r
+    )
+    render(<Shared profile={sponsorProfile} initial={reportReady} />)
+    await user.click(screen.getByText('GenomicX MENA FZ-LLC'))
+    const stepper = within(screen.getByRole('navigation', { name: 'Review progress' }))
+    // The report opens in the document viewer
+    await user.click(screen.getByRole('button', { name: /Preview/ }))
     expect(screen.getByRole('list', { name: 'TDD report' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Close preview' }))
     // The sponsor's final answer completes the stage
     await user.click(screen.getByRole('button', { name: 'Yes, sponsor' }))
     await user.click(

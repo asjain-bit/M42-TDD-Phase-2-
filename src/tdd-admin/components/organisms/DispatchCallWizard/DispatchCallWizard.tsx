@@ -88,7 +88,7 @@ export const DispatchCallWizard: React.FC<DispatchCallWizardProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#e2e8f0] text-[#64748b] hover:bg-[#f1f5f9] cursor-pointer"
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#e2e8f0] text-[#64748b] hover:bg-[#f1f5f9] cursor-pointer"
           >
             Cancel
           </button>
@@ -269,7 +269,7 @@ export const DispatchCallWizard: React.FC<DispatchCallWizardProps> = ({
                   </button>
                   <button
                     onClick={() => setCurrentStep(2)}
-                    className="bg-[#e2e8f0] hover:bg-[#cbd5e1] text-[#0d212c] font-bold text-xs px-5 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2"
+                    className="bg-[#e2e8f0] hover:bg-[#cbd5e1] text-[#0d212c] font-bold text-xs px-5 py-2.5 rounded-lg transition cursor-pointer flex items-center gap-2"
                   >
                     <span>Continue to configure Sam</span>
                     <ArrowRight className="w-4 h-4" />
@@ -339,7 +339,7 @@ export const DispatchCallWizard: React.FC<DispatchCallWizardProps> = ({
                           key={ev}
                           type="button"
                           onClick={() => setSelectedVoice(ev)}
-                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer ${
                             selectedVoice === ev
                               ? 'bg-[#e2e8f0] border-[#0d212c] text-[#0d212c]'
                               : 'bg-white border-[#e2e8f0] text-[#64748b] hover:bg-[#f1f5f9]'
@@ -417,7 +417,7 @@ export const DispatchCallWizard: React.FC<DispatchCallWizardProps> = ({
                   </button>
                   <button
                     onClick={() => setCurrentStep(3)}
-                    className="bg-[#e2e8f0] hover:bg-[#cbd5e1] text-[#0d212c] font-bold text-xs px-5 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2"
+                    className="bg-[#e2e8f0] hover:bg-[#cbd5e1] text-[#0d212c] font-bold text-xs px-5 py-2.5 rounded-lg transition cursor-pointer flex items-center gap-2"
                   >
                     <span>Continue to review</span>
                     <ArrowRight className="w-4 h-4" />
@@ -463,7 +463,7 @@ export const DispatchCallWizard: React.FC<DispatchCallWizardProps> = ({
                   </button>
                   <Button
                     onClick={onComplete}
-                    className="bg-[#e2e8f0] hover:bg-[#cbd5e1] text-[#0d212c] font-bold text-xs px-6 py-2.5 rounded-xl cursor-pointer"
+                    className="bg-[#e2e8f0] hover:bg-[#cbd5e1] text-[#0d212c] font-bold text-xs px-6 py-2.5 rounded-lg cursor-pointer"
                   >
                     Launch assessment call
                   </Button>

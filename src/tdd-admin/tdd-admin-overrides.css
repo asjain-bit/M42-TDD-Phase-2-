@@ -1,0 +1,10 @@
+/*
+ * TDD Admin profile view — adjustments that keep it in line with the other profile views.
+ * Kept apart from tdd-admin.css, which scripts/sync-tdd-admin.sh regenerates.
+ */
+
+/* Headings use the same semibold weight as the other profile views */
+.tdd-admin {
+  --font-weight-black: 700;
+  --font-weight-extrabold: 600;
+}

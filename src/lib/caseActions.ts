@@ -1207,6 +1207,32 @@ export const generateTddReport = (r: PartnershipRequest): PartnershipRequest =>
         }
       )
 
+/**
+ * The case waits on the TDD Admin: it is at Value & Due Diligence, the sponsor has proceeded on the
+ * business case, and the technical due diligence report has not been generated yet
+ */
+export const isAwaitingTddAdmin = (r: PartnershipRequest) =>
+  getStageLabel(r) === 'Value & Due Diligence' &&
+  r.value?.decision?.status === 'proceeded' &&
+  !r.value?.tddGeneratedOn
+
+/**
+ * The TDD Admin marks every assessment round as completed; the agent then generates the
+ * technical due diligence report for the sponsor
+ */
+export const completeTddAssessments = (r: PartnershipRequest, actor: string): PartnershipRequest =>
+  isAwaitingTddAdmin(r)
+    ? generateTddReport(
+        appendAudit(r, {
+          title: 'TDD assessments completed',
+          description:
+            'All technical due diligence assessment rounds were marked as completed. The report is being generated.',
+          actor,
+          kind: 'approval',
+        })
+      )
+    : r
+
 /** The sponsor's final answer after the TDD report: sponsor the partnership, or decline it */
 export const finalizeSponsorship = (
   r: PartnershipRequest,

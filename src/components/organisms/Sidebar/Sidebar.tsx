@@ -312,7 +312,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex items-center justify-center gap-3 w-full mt-2">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="px-6 py-3 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer flex-1 bg-transparent transition"
+                className="px-6 py-3 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer flex-1 bg-transparent transition"
               >
                 Cancel
               </button>
@@ -321,7 +321,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setShowLogoutConfirm(false)
                   onSignOut?.()
                 }}
-                className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer flex-1 border-0 transition shadow-2xs"
+                className="px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer flex-1 border-0 transition shadow-2xs"
               >
                 Logout
               </button>

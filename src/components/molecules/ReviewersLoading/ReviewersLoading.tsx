@@ -20,6 +20,7 @@ export const ReviewersLoading: React.FC<ReviewersLoadingProps> = ({
   const isInternal = team === 'internal'
   return (
     <ThinkingMode
+      inline
       stepMs={1100}
       onComplete={onComplete}
       className={className}

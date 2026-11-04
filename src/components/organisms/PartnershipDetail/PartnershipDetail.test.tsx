@@ -187,11 +187,13 @@ describe('PartnershipDetail', () => {
       expect(screen.getByText('ANALYZING')).toBeInTheDocument()
       // Simple: one line of progress, no checklist
       expect(screen.getByRole('status')).toHaveTextContent('Reading vendor form details…')
-      expect(screen.queryByRole('list')).not.toBeInTheDocument()
-      // Nothing else is on screen while the agent thinks
-      expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+      // The agent thinks in the brief area: the back link and tabs stay in view
+      expect(screen.getByRole('tablist')).toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: 'Back to Partnership Requests' })
+        screen.getByRole('button', { name: 'Back to Partnership Requests' })
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('heading', { name: 'Initial Assessment Brief' })
       ).not.toBeInTheDocument()
       expect(onLog).not.toHaveBeenCalled()
 

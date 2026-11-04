@@ -267,11 +267,14 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
   const [emailQuestionSearch, setEmailQuestionSearch] = useState('')
   const [emailConfidenceFilter, setEmailConfidenceFilter] = useState<ConfidenceLevel | null>(null)
   const [emailSelectedQuestions, setEmailSelectedQuestions] = useState<number[]>([])
+  // Reason per question, shared with the vendor along with the follow-up
+  const [emailQuestionReasons, setEmailQuestionReasons] = useState<Record<number, string>>({})
 
   const openEmailVendorModal = () => {
     setEmailQuestionSearch('')
     setEmailConfidenceFilter(null)
     setEmailSelectedQuestions([])
+    setEmailQuestionReasons({})
     setShowEmailVendorModal(true)
   }
 
@@ -1031,6 +1034,21 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                             )}
                           </div>
                         )}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[11px] font-bold text-[#0d212c]">Reason</span>
+                          <textarea
+                            rows={2}
+                            value={emailQuestionReasons[q.id] || ''}
+                            onChange={(e) =>
+                              setEmailQuestionReasons((prev) => ({
+                                ...prev,
+                                [q.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Add a reason for the vendor..."
+                            className="w-full px-3 py-2 rounded-xl border border-[#cbd5e1] text-[11px] font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none cursor-text"
+                          />
+                        </div>
                       </div>
                     </label>
                   )
@@ -1038,21 +1056,21 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
               )}
             </div>
 
-            <div className="mx-8 py-4 flex items-center justify-between gap-3 border-t border-[#e2e8f0]">
+            <div className="mx-8 py-4 flex items-center justify-between gap-3">
               <span className="text-xs text-[#64748b] font-medium">
                 {emailSelectedQuestions.length} selected
               </span>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowEmailVendorModal(false)}
-                  className="px-5 py-2.5 rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSendVendorEmail}
                   disabled={emailSelectedQuestions.length === 0}
-                  className="px-5 py-2.5 rounded-xl bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 rounded-lg bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Send Email
                 </button>
@@ -1095,14 +1113,14 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setShowCancelModal(false)}
-                className="py-3 rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+                className="py-3 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
               >
                 Keep Assessment
               </button>
               <button
                 onClick={handleConfirmCancel}
                 disabled={!cancelReason.trim()}
-                className="py-3 rounded-xl bg-[#dc2626] hover:bg-[#b91c1c] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="py-3 rounded-lg bg-[#dc2626] hover:bg-[#b91c1c] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Confirm Cancel
               </button>
@@ -1242,17 +1260,17 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-[#e2e8f0]">
+            <div className="grid grid-cols-2 gap-3 pt-4">
               <button
                 onClick={() => setShowRescheduleModal(false)}
-                className="py-3 rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+                className="py-3 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmReschedule}
                 disabled={!isRescheduleValid}
-                className="py-3 rounded-xl bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="py-3 rounded-lg bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Confirm Reschedule
               </button>
@@ -1387,7 +1405,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
             {!isScheduled && (
               <button
                 onClick={() => alert(`Downloading PDF report for ${assessment.vendor}...`)}
-                className="px-4 py-2 rounded-xl border border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-slate-50 text-[#0d212c] bg-white font-bold text-xs flex items-center gap-2 shadow-2xs cursor-pointer transition"
+                className="px-4 py-2 rounded-lg border border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-slate-50 text-[#0d212c] bg-white font-bold text-xs flex items-center gap-2 shadow-2xs cursor-pointer transition"
               >
                 <Download className="w-4 h-4 text-[#0d212c]" />
                 <span>Download PDF</span>
@@ -1404,7 +1422,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                       ? 'Please add comments to all low confidence questions before finalizing'
                       : undefined
                 }
-                className={`text-white font-bold text-xs px-5 py-2 rounded-xl transition border-0 shadow-2xs ${
+                className={`text-white font-bold text-xs px-5 py-2 rounded-lg transition border-0 shadow-2xs ${
                   currentStatus === 'finalised' || !allLowConfidenceCommentsAdded
                     ? 'bg-[#0d212c] opacity-40 cursor-not-allowed'
                     : 'bg-[#0d212c] hover:bg-[#122e3d] cursor-pointer'
@@ -1621,21 +1639,6 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-[#0d212c]">Agent confidence evaluation</h3>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                    isScheduled
-                      ? 'bg-[#fef7e0] text-[#b06000]'
-                      : currentStatus === 'completed' || currentStatus === 'finalised'
-                        ? 'bg-[#e6f4ea] text-[#137333]'
-                        : 'bg-[#fef7e0] text-[#b06000]'
-                  }`}
-                >
-                  {isScheduled
-                    ? 'Pending'
-                    : currentStatus === 'completed' || currentStatus === 'finalised'
-                      ? 'Completed'
-                      : 'Draft'}
-                </span>
               </div>
 
               <div className="bg-white p-6 rounded-2xl border border-[#e2e8f0] shadow-xs">
@@ -1723,7 +1726,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                   <div className="p-4 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] flex items-center gap-4">
                     <button
                       onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-                      className="w-10 h-10 rounded-xl bg-[#0d212c] text-white flex items-center justify-center shadow-xs shrink-0 hover:bg-[#08171f] transition cursor-pointer"
+                      className="w-10 h-10 rounded-lg bg-[#0d212c] text-white flex items-center justify-center shadow-xs shrink-0 hover:bg-[#08171f] transition cursor-pointer"
                     >
                       {isPlayingAudio ? (
                         <Pause className="w-4 h-4" />
@@ -1761,7 +1764,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
 
                       <button
                         onClick={() => alert('Downloading interview audio...')}
-                        className="p-2 rounded-xl border border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-slate-100 text-[#0d212c] bg-white transition cursor-pointer flex items-center justify-center"
+                        className="p-2 rounded-lg border border-[#cbd5e1] hover:border-[#94a3b8] hover:bg-slate-100 text-[#0d212c] bg-white transition cursor-pointer flex items-center justify-center"
                         title="Download interview audio"
                         aria-label="Download interview audio"
                       >
@@ -1812,7 +1815,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                       <div className="relative group">
                         <button
                           onClick={openEmailVendorModal}
-                          className="px-4 py-2 rounded-xl text-xs font-bold border border-[#36c0c9]/30 bg-[#ddf7f9] hover:bg-[#c9f1f4] text-[#0d7280] transition cursor-pointer"
+                          className="px-4 py-2 rounded-lg text-xs font-bold border border-[#36c0c9]/30 bg-[#ddf7f9] hover:bg-[#c9f1f4] text-[#0d7280] transition cursor-pointer"
                         >
                           Email Vendor
                         </button>
@@ -1992,14 +1995,14 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                       <div className="flex justify-end gap-2.5">
                                         <button
                                           onClick={() => setConfidenceEditQuestionId(null)}
-                                          className="px-6 py-2.5 rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+                                          className="px-6 py-2.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
                                         >
                                           Cancel
                                         </button>
                                         <button
                                           onClick={handleConfirmConfidenceChange}
                                           disabled={!newConfidence || !confidenceReason.trim()}
-                                          className="px-9 py-2.5 rounded-xl bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                          className="px-9 py-2.5 rounded-lg bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                           Save
                                         </button>
@@ -2096,9 +2099,18 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                           <h5 className="font-bold text-xs text-[#0d212c] truncate">
                                             {file.name}
                                           </h5>
-                                          <span className="text-[10px] text-[#64748b] block">
-                                            {file.size} • {file.date}
-                                          </span>
+                                          <div className="flex items-center gap-2 mt-0.5">
+                                            <span className="px-2 py-0.5 rounded-full bg-[#ddf7f9] text-[#0d7280] text-[10px] font-bold whitespace-nowrap shrink-0">
+                                              Manually added
+                                            </span>
+                                            <span
+                                              className="w-px h-3 bg-[#cbd5e1] shrink-0"
+                                              aria-hidden="true"
+                                            />
+                                            <span className="text-[10px] text-[#64748b] whitespace-nowrap">
+                                              {file.size} • {file.date}
+                                            </span>
+                                          </div>
                                         </div>
                                       </div>
 
@@ -2214,7 +2226,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                       onClick={() =>
                                         setOpenCommentInput((prev) => ({ ...prev, [q.id]: true }))
                                       }
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#cbd5e1] bg-white text-xs font-semibold text-[#0d212c] shadow-2xs cursor-pointer"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#cbd5e1] bg-white text-xs font-semibold text-[#0d212c] shadow-2xs cursor-pointer"
                                     >
                                       <MessageSquare className="w-3.5 h-3.5" />
                                       <span>Add comment</span>
@@ -2278,7 +2290,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                             }))
                                             setCommentTexts((prev) => ({ ...prev, [q.id]: '' }))
                                           }}
-                                          className="px-3 py-1.5 rounded-xl text-xs font-medium text-[#64748b] hover:text-[#0d212c] cursor-pointer"
+                                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#64748b] hover:text-[#0d212c] cursor-pointer"
                                         >
                                           Cancel
                                         </button>
@@ -2286,7 +2298,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                           type="button"
                                           onClick={() => handleAddComment(q.id)}
                                           disabled={!commentText.trim() || commentLength > 500}
-                                          className="px-3.5 py-1.5 rounded-xl bg-[#0d212c] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold cursor-pointer border-0 shadow-2xs"
+                                          className="px-3.5 py-1.5 rounded-lg bg-[#0d212c] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold cursor-pointer border-0 shadow-2xs"
                                         >
                                           Add comment
                                         </button>

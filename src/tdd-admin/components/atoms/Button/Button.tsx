@@ -9,7 +9,7 @@ import { ButtonProps } from './Button.types'
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'primary', size = 'md', className = '', children, disabled, ...props }, ref) => {
     const baseStyle =
-      'inline-flex items-center justify-center font-semibold transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#cbd5e1] disabled:pointer-events-none disabled:opacity-50 cursor-pointer rounded-xl select-none'
+      'inline-flex items-center justify-center font-semibold transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#cbd5e1] disabled:pointer-events-none disabled:opacity-50 cursor-pointer rounded-lg select-none'
 
     const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
       primary: 'bg-[#0d212c] text-white hover:bg-[#122e3d] active:bg-[#08171f] shadow-xs font-bold',

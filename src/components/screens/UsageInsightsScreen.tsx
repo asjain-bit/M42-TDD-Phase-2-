@@ -40,8 +40,7 @@ import {
 } from '@/lib/usageInsights'
 import { INITIAL_PARTNERSHIP_REQUESTS, type PartnershipRequest } from '@/types/partnership.types'
 import { Button } from '@/components/atoms/Button'
-import { StageChip } from '@/components/molecules/StageChip'
-import { getStageProgress } from '@/lib/caseActions'
+import { WORKFLOW_STAGES, getStageLabel } from '@/lib/caseActions'
 import { CreateKpiModal } from '@/components/organisms/CreateKpiModal'
 import {
   describeCustomKpi,
@@ -278,6 +277,10 @@ export interface UsageInsightsScreenProps {
   /** The inputs the numbers are calculated from, kept by the page so every profile sees them */
   assumptions?: UsageAssumptions
   onRecalculate?: (assumptions: UsageAssumptions) => void
+  /** Shown under the inputs when they cannot be edited */
+  readOnlyNote?: string
+  /** Replaces the Assessments by Status section, e.g. with TDD Admin's own assessments */
+  renderStatusSection?: (weekIndex: number) => React.ReactNode
 }
 
 export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
@@ -288,6 +291,8 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
   onDeleteKpi,
   assumptions: sharedAssumptions,
   onRecalculate,
+  readOnlyNote = 'Only an admin can edit the inputs.',
+  renderStatusSection,
 }) => {
   const [weekIndex, setWeekIndex] = useState(DEFAULT_WEEK_INDEX)
   const [ownAssumptions, setOwnAssumptions] = useState<UsageAssumptions>(DEFAULT_ASSUMPTIONS)
@@ -363,10 +368,15 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
   const kpiValues = kpiValuesFor(week, assumptions)
 
   const groups = groupAssessmentsByStatus(requests)
-  const stageOf = (item: { name: string; code: string }) => {
-    const r = requests.find((c) => c.requestCode === item.code && c.companyName === item.name)
-    return r ? getStageProgress(r) : undefined
-  }
+  // In Progress is shown per workflow stage: how many assessments are at each of the six stages
+  const stageCounts = (items: { name: string; code: string }[]) =>
+    WORKFLOW_STAGES.map((stage) => ({
+      stage,
+      count: items.filter((item) => {
+        const r = requests.find((c) => c.requestCode === item.code && c.companyName === item.name)
+        return r && getStageLabel(r) === stage
+      }).length,
+    }))
 
   const shown = showAll ? 6 : 4
 
@@ -474,7 +484,7 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
                         type="button"
                         onClick={() => setKpiModal({ kpi })}
                         aria-label={`Edit ${kpi.name}`}
-                        className="p-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-hover cursor-pointer transition"
+                        className="p-1 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-hover cursor-pointer transition"
                       >
                         <Pencil className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
                       </button>
@@ -482,7 +492,7 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
                         type="button"
                         onClick={() => onDeleteKpi?.(kpi.id)}
                         aria-label={`Delete ${kpi.name}`}
-                        className="p-1 rounded-md text-text-tertiary hover:text-text-error hover:bg-bg-hover cursor-pointer transition"
+                        className="p-1 rounded-lg text-text-tertiary hover:text-text-error hover:bg-bg-hover cursor-pointer transition"
                       >
                         <Trash2 className="w-3.5 h-3.5" strokeWidth={2} aria-hidden="true" />
                       </button>
@@ -729,7 +739,7 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
                 ? editingInputs
                   ? 'Recalculate to apply your changes.'
                   : 'Read-only until you edit the inputs.'
-                : 'Only an admin can edit the inputs.'}
+                : readOnlyNote}
             </span>
             {canRecalculate &&
               (editingInputs ? (
@@ -762,60 +772,95 @@ export const UsageInsightsScreen: React.FC<UsageInsightsScreenProps> = ({
       )}
 
       {/* Assessments by status */}
-      <section aria-labelledby="usage-status" className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 id="usage-status" className="text-lg font-semibold text-[#0d212c]">
-            Assessments by Status
-          </h2>
-          <span className="text-sm text-[#64748b]">Week of {week.full}</span>
-        </div>
-        <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-5 sm:p-6 flex flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:divide-x md:divide-[#f1f5f9]">
-            {groups.map((group) => (
-              <div
-                key={group.title}
-                className="flex flex-col gap-3 md:first:pl-0 md:pl-6 md:pr-6 md:last:pr-0"
-              >
-                <h3 className="text-base font-semibold text-[#0d212c]">{group.title}</h3>
-                <ul aria-label={group.title} className="flex flex-col divide-y divide-[#f1f5f9]">
-                  {group.items.length === 0 && (
-                    <li className="py-3 text-sm text-[#94a3b8]">No assessments</li>
-                  )}
-                  {group.items.slice(0, shown).map((item) => (
-                    <li
-                      key={`${item.name}-${item.code}`}
-                      className="flex items-start justify-between gap-4 py-3 text-sm"
-                    >
-                      <div className="flex flex-col gap-1.5 min-w-0">
-                        <span className="text-[#0d212c] truncate" title={item.name}>
-                          {item.name}
-                        </span>
-                        {/* The same stage chip as the dashboard's Stage column */}
-                        {stageOf(item) && <StageChip progress={stageOf(item)!} />}
-                      </div>
-                      <span className="text-[#36c0c9] font-medium whitespace-nowrap pl-3 shrink-0">
-                        {item.code}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+      {renderStatusSection ? (
+        renderStatusSection(weekIndex)
+      ) : (
+        <section aria-labelledby="usage-status" className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 id="usage-status" className="text-lg font-semibold text-[#0d212c]">
+              Assessments by Status
+            </h2>
+            <span className="text-sm text-[#64748b]">Week of {week.full}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowAll((s) => !s)}
-            className="self-center inline-flex items-center gap-1 text-sm font-medium text-[#36c0c9] hover:text-[#2fb0b9] cursor-pointer transition"
-          >
-            {showAll ? 'See less' : 'See more'}
-            {showAll ? (
-              <ChevronUp className="w-4 h-4" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="w-4 h-4" aria-hidden="true" />
+          <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-5 sm:p-6 flex flex-col gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:divide-x md:divide-[#f1f5f9]">
+              {groups.map((group) => (
+                <div
+                  key={group.title}
+                  className="flex flex-col gap-3 md:first:pl-0 md:pl-6 md:pr-6 md:last:pr-0"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="text-base font-semibold text-[#0d212c]">{group.title}</h3>
+                    <span
+                      className="text-base font-semibold text-[#0d212c]"
+                      aria-label={`${group.items.length} ${group.title.toLowerCase()}`}
+                    >
+                      {group.items.length}
+                    </span>
+                  </div>
+                  {group.title === 'In Progress' ? (
+                    <ul
+                      aria-label={group.title}
+                      className="flex flex-col divide-y divide-[#f1f5f9]"
+                    >
+                      {stageCounts(group.items).map(({ stage, count }) => (
+                        <li
+                          key={stage}
+                          className="flex items-center justify-between gap-4 py-3 text-sm"
+                        >
+                          <span className="text-[#0d212c] truncate" title={stage}>
+                            {stage}
+                          </span>
+                          <span className="text-[#36c0c9] font-medium whitespace-nowrap pl-3 shrink-0">
+                            {count}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <ul
+                      aria-label={group.title}
+                      className="flex flex-col divide-y divide-[#f1f5f9]"
+                    >
+                      {group.items.length === 0 && (
+                        <li className="py-3 text-sm text-[#94a3b8]">No assessments</li>
+                      )}
+                      {group.items.slice(0, shown).map((item) => (
+                        <li
+                          key={`${item.name}-${item.code}`}
+                          className="flex items-center justify-between gap-4 py-3 text-sm"
+                        >
+                          <span className="text-[#0d212c] truncate" title={item.name}>
+                            {item.name}
+                          </span>
+                          <span className="text-[#36c0c9] font-medium whitespace-nowrap pl-3 shrink-0">
+                            {item.code}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Only Completed and Closed list cases, so See more is needed only when they run long */}
+            {groups.some((g) => g.title !== 'In Progress' && g.items.length > 4) && (
+              <button
+                type="button"
+                onClick={() => setShowAll((s) => !s)}
+                className="self-center inline-flex items-center gap-1 text-sm font-medium text-[#36c0c9] hover:text-[#2fb0b9] cursor-pointer transition"
+              >
+                {showAll ? 'See less' : 'See more'}
+                {showAll ? (
+                  <ChevronUp className="w-4 h-4" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                )}
+              </button>
             )}
-          </button>
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

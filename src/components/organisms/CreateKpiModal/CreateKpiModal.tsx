@@ -220,7 +220,7 @@ export const CreateKpiModal: React.FC<CreateKpiModalProps> = ({
                           ? `A KPI needs at least ${MIN_KPI_INPUTS} inputs`
                           : 'Remove input'
                       }
-                      className="h-8 w-8 rounded-md text-text-tertiary hover:text-text-error hover:bg-bg-hover disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-tertiary inline-flex items-center justify-center cursor-pointer transition"
+                      className="h-8 w-8 rounded-lg text-text-tertiary hover:text-text-error hover:bg-bg-hover disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-tertiary inline-flex items-center justify-center cursor-pointer transition"
                     >
                       <X className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
                     </button>

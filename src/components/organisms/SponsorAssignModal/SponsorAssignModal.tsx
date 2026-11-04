@@ -110,7 +110,7 @@ export const SponsorAssignModal: React.FC<SponsorAssignModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="h-11 px-6 rounded-xl border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
+            className="h-11 px-6 rounded-lg border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
           >
             Cancel
           </button>
@@ -118,7 +118,7 @@ export const SponsorAssignModal: React.FC<SponsorAssignModalProps> = ({
             type="button"
             disabled={lead === ''}
             onClick={() => onConfirm({ lead, co })}
-            className="h-11 px-6 rounded-xl bg-[#36c0c9] hover:bg-[#2fb0b9] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold transition cursor-pointer"
+            className="h-11 px-6 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold transition cursor-pointer"
           >
             Assign sponsors
           </button>

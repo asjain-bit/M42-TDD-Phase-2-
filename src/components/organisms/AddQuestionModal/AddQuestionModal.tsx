@@ -87,7 +87,7 @@ export const AddQuestionModal: React.FC<AddQuestionModalProps> = ({ initial, onS
           <button
             type="button"
             onClick={onClose}
-            className="h-11 px-6 rounded-xl border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
+            className="h-11 px-6 rounded-lg border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
           >
             Cancel
           </button>
@@ -101,7 +101,7 @@ export const AddQuestionModal: React.FC<AddQuestionModalProps> = ({ initial, onS
                 mandatory,
               })
             }
-            className="h-11 px-6 rounded-xl bg-[#36c0c9] hover:bg-[#2fb0b9] disabled:bg-slate-400 disabled:hover:bg-slate-400 disabled:cursor-not-allowed text-white text-sm font-semibold transition cursor-pointer"
+            className="h-11 px-6 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] disabled:bg-slate-400 disabled:hover:bg-slate-400 disabled:cursor-not-allowed text-white text-sm font-semibold transition cursor-pointer"
           >
             {isEdit ? 'Save changes' : 'Save question'}
           </button>

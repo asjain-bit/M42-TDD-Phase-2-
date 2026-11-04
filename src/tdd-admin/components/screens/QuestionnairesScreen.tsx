@@ -246,6 +246,12 @@ const GENERAL_QUESTIONS: QuestionDraft[] = [
 
 const AI_QUESTION_TARGET = 10
 
+// Character limits for the Generate with AI form
+const AI_TITLE_MIN = 10
+const AI_TITLE_MAX = 100
+const AI_INSTRUCTIONS_MIN = 50
+const AI_INSTRUCTIONS_MAX = 2000
+
 // Mock AI generation: picks focus areas from the title and instructions, then drafts questions
 const generateQuestionnaire = (title: string, instructions: string) => {
   const text = ` ${title} ${instructions} `.toLowerCase()
@@ -510,9 +516,20 @@ export const QuestionnairesScreen: React.FC = () => {
     'Reviewing coverage and marking required questions',
   ]
 
+  const aiTitleLength = aiTitle.trim().length
+  const aiInstructionsLength = aiInstructions.trim().length
+  const isAiTitleTooShort = aiTitleLength > 0 && aiTitleLength < AI_TITLE_MIN
+  const isAiInstructionsTooShort =
+    aiInstructionsLength > 0 && aiInstructionsLength < AI_INSTRUCTIONS_MIN
+  const isAiFormValid =
+    aiTitleLength >= AI_TITLE_MIN &&
+    aiTitleLength <= AI_TITLE_MAX &&
+    aiInstructionsLength >= AI_INSTRUCTIONS_MIN &&
+    aiInstructionsLength <= AI_INSTRUCTIONS_MAX
+
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!aiTitle.trim() || !aiInstructions.trim()) return
+    if (!isAiFormValid) return
     clearAiTimers()
     setAiStage('thinking')
     setAiStepsDone(0)
@@ -622,7 +639,7 @@ export const QuestionnairesScreen: React.FC = () => {
 
           <button
             onClick={() => setShowAddOptions(true)}
-            className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer border-0 shrink-0"
+            className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-5 rounded-lg text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer border-0 shrink-0"
           >
             <Plus className="w-4 h-4 text-white" />
             <span>Add questionnaire</span>
@@ -653,7 +670,7 @@ export const QuestionnairesScreen: React.FC = () => {
                 setStatusFilter(chip.key as 'all' | 'Ready' | 'Draft')
                 setCurrentPage(1)
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
                 isSelected
                   ? 'bg-[#36c0c9] text-white font-bold shadow-xs border border-[#36c0c9]'
                   : 'bg-white text-[#64748b] border border-[#e2e8f0] hover:bg-[#f8fafc]'
@@ -940,8 +957,22 @@ export const QuestionnairesScreen: React.FC = () => {
                     value={aiTitle}
                     onChange={(e) => setAiTitle(e.target.value)}
                     required
+                    maxLength={AI_TITLE_MAX}
+                    error={isAiTitleTooShort}
                     className="w-full text-xs py-3"
                   />
+                  <div
+                    className={`flex items-center justify-between gap-3 text-[11px] mt-1.5 ${
+                      isAiTitleTooShort ? 'text-red-600 font-semibold' : 'text-[#64748b]'
+                    }`}
+                  >
+                    <span>
+                      Minimum {AI_TITLE_MIN} and maximum {AI_TITLE_MAX} characters.
+                    </span>
+                    <span className="shrink-0">
+                      {aiTitle.length}/{AI_TITLE_MAX}
+                    </span>
+                  </div>
                 </div>
 
                 <div>
@@ -958,25 +989,39 @@ export const QuestionnairesScreen: React.FC = () => {
                     onChange={(e) => setAiInstructions(e.target.value)}
                     rows={5}
                     required
+                    maxLength={AI_INSTRUCTIONS_MAX}
+                    error={isAiInstructionsTooShort}
                     className="w-full text-xs"
                   />
+                  <div
+                    className={`flex items-center justify-between gap-3 text-[11px] mt-1.5 ${
+                      isAiInstructionsTooShort ? 'text-red-600 font-semibold' : 'text-[#64748b]'
+                    }`}
+                  >
+                    <span>
+                      Minimum {AI_INSTRUCTIONS_MIN} and maximum {AI_INSTRUCTIONS_MAX} characters.
+                    </span>
+                    <span className="shrink-0">
+                      {aiInstructions.length}/{AI_INSTRUCTIONS_MAX}
+                    </span>
+                  </div>
                   <p className="text-[11px] text-[#64748b] mt-1.5">
                     Mention the solution, risk areas and any regulations the questions should cover.
                   </p>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-[#e2e8f0]">
+                <div className="flex justify-end gap-3 pt-4">
                   <button
                     type="button"
                     onClick={closeAiModal}
-                    className="px-5 py-2.5 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
+                    className="px-5 py-2.5 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={!aiTitle.trim() || !aiInstructions.trim()}
-                    className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-7 rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition border-0"
+                    disabled={!isAiFormValid}
+                    className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-7 rounded-lg text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition border-0"
                   >
                     <Sparkles className="w-4 h-4 text-white" />
                     <span>Generate questionnaire</span>
@@ -1031,7 +1076,7 @@ export const QuestionnairesScreen: React.FC = () => {
                     />
                   </div>
                 </div>
-                <div className="flex justify-end pt-4 border-t border-[#e2e8f0]">
+                <div className="flex justify-end pt-4">
                   <button
                     type="button"
                     onClick={() => {
@@ -1039,7 +1084,7 @@ export const QuestionnairesScreen: React.FC = () => {
                       setAiStage('form')
                       setAiStepsDone(0)
                     }}
-                    className="px-5 py-2.5 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
+                    className="px-5 py-2.5 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
                   >
                     Stop generating
                   </button>
@@ -1082,11 +1127,11 @@ export const QuestionnairesScreen: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-[#e2e8f0]">
+                <div className="flex justify-end gap-3 pt-4">
                   <button
                     type="button"
                     onClick={closeAiModal}
-                    className="px-5 py-2.5 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
+                    className="px-5 py-2.5 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
                   >
                     Close
                   </button>
@@ -1096,7 +1141,7 @@ export const QuestionnairesScreen: React.FC = () => {
                       closeAiModal()
                       openQuestionnaire(aiResult.questionnaire, true)
                     }}
-                    className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-7 rounded-xl text-xs shadow-xs cursor-pointer transition border-0"
+                    className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-7 rounded-lg text-xs shadow-xs cursor-pointer transition border-0"
                   >
                     Review questions
                   </button>
@@ -1228,18 +1273,18 @@ export const QuestionnairesScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-[#e2e8f0]">
+              <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(false)}
-                  className="px-5 py-2.5 rounded-xl border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg border border-[#e2e8f0] text-xs font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isUploading || !title.trim() || !uploadedFile}
-                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-7 rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition border-0"
+                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold py-2.5 px-7 rounded-lg text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition border-0"
                 >
                   {isUploading ? (
                     <>
@@ -1273,13 +1318,13 @@ export const QuestionnairesScreen: React.FC = () => {
             <div className="flex items-center justify-center gap-3 w-full mt-2">
               <button
                 onClick={() => setDeletingId(null)}
-                className="px-6 py-3 rounded-xl border border-[#e2e8f0] text-xs font-bold text-[#0d212c] hover:bg-slate-50 cursor-pointer flex-1 bg-transparent transition"
+                className="px-6 py-3 rounded-lg border border-[#e2e8f0] text-xs font-bold text-[#0d212c] hover:bg-slate-50 cursor-pointer flex-1 bg-transparent transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer flex-1 border-0 transition shadow-2xs"
+                className="px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer flex-1 border-0 transition shadow-2xs"
               >
                 Delete template
               </button>

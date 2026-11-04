@@ -38,7 +38,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className={`h-full min-h-9 inline-flex items-center gap-2 px-3.5 rounded-xl border bg-white text-xs font-semibold text-[#0d212c] shadow-xs transition cursor-pointer ${
+        className={`h-full min-h-9 inline-flex items-center gap-2 px-3.5 rounded-lg border bg-white text-xs font-semibold text-[#0d212c] shadow-xs transition cursor-pointer ${
           activeCount > 0 ? 'border-[#cbd5e1]' : 'border-[#e2e8f0] hover:border-[#cbd5e1]'
         }`}
       >

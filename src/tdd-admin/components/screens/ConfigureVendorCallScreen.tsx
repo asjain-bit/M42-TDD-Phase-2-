@@ -36,6 +36,8 @@ export interface VendorDispatchData {
   flag: string
   email: string
   recipients?: string[]
+  // Round labels already used by earlier assessments of this case
+  usedRoundLabels?: string[]
 }
 
 interface ConfigureVendorCallScreenProps {
@@ -293,11 +295,19 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
     }
   }
 
+  // A case cannot have two rounds with the same label
+  const isDuplicateRoundLabel =
+    roundLabel.trim() !== '' &&
+    (vendor.usedRoundLabels ?? []).some(
+      (label) => label.trim().toLowerCase() === roundLabel.trim().toLowerCase()
+    )
+
   // Step 1 Validation: Questionnaire, Round Label, at least 1 Recipient, and max 5 Recipients
   const isStep1Valid =
     selectedQuestionnaires.length > 0 &&
     includedQuestions.length > 0 &&
     roundLabel.trim() !== '' &&
+    !isDuplicateRoundLabel &&
     recipients.length > 0 &&
     recipients.length <= 5
 
@@ -499,7 +509,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                       setShowCallRoom(true)
                     }
                   }}
-                  className={`w-full font-bold text-xs py-3.5 px-6 rounded-xl transition border-0 ${
+                  className={`w-full font-bold text-xs py-3.5 px-6 rounded-lg transition border-0 ${
                     timing === 'later'
                       ? 'bg-[#0d212c]/40 text-white/70 cursor-not-allowed shadow-none'
                       : 'bg-[#0d212c] hover:bg-[#122e3d] text-white cursor-pointer shadow-xs'
@@ -594,7 +604,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                   setHideChangeRole(false)
                   setShowCallRoom(true)
                 }}
-                className="w-full bg-[#f8fafc] hover:bg-[#ddf7f9]/50 text-[#0d7280] font-bold text-xs py-2.5 px-4 rounded-xl transition cursor-pointer border border-[#36c0c9]/40 flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full bg-[#f8fafc] hover:bg-[#ddf7f9]/50 text-[#0d7280] font-bold text-xs py-2.5 px-4 rounded-lg transition cursor-pointer border border-[#36c0c9]/40 flex items-center justify-center gap-1.5 shadow-2xs"
               >
                 View vendor&apos;s call room flow
               </button>
@@ -915,8 +925,19 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                   value={roundLabel}
                   onChange={(e) => setRoundLabel(e.target.value)}
                   placeholder="e.g. Round 1"
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                  aria-invalid={isDuplicateRoundLabel}
+                  className={`w-full px-4 py-2.5 rounded-xl border text-xs text-[#0d212c] outline-none transition ${
+                    isDuplicateRoundLabel
+                      ? 'border-red-500 focus:border-red-500'
+                      : 'border-[#e2e8f0] focus:border-[#cbd5e1]'
+                  }`}
                 />
+                {isDuplicateRoundLabel && (
+                  <span className="text-xs font-medium text-red-600 animate-in fade-in duration-150">
+                    &ldquo;{roundLabel.trim()}&rdquo; has already been used for an earlier round of
+                    this case. Round names should be different.
+                  </span>
+                )}
               </div>
 
               {/* RECIPIENTS */}
@@ -1004,7 +1025,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                 <button
                   disabled={!isStep1Valid}
                   onClick={() => isStep1Valid && setCurrentStep(2)}
-                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-3 rounded-xl transition cursor-pointer flex items-center gap-2 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed border-0"
+                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-3 rounded-lg transition cursor-pointer flex items-center gap-2 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed border-0"
                 >
                   <span>Continue to configure Agent</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1336,7 +1357,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                       setCurrentStep(3)
                     }
                   }}
-                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-3 rounded-xl transition cursor-pointer flex items-center gap-2 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed border-0"
+                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-3 rounded-lg transition cursor-pointer flex items-center gap-2 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed border-0"
                 >
                   <span>Continue to review</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1409,7 +1430,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                 </button>
                 <Button
                   onClick={() => setIsDispatched(true)}
-                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-3 rounded-xl cursor-pointer"
+                  className="bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs px-6 py-3 rounded-lg cursor-pointer"
                 >
                   Launch assessment call
                 </Button>
@@ -1581,7 +1602,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                           key={`${group.title}-${q.id}`}
                           className="bg-white p-6 rounded-2xl border border-[#e2e8f0] flex flex-col gap-4"
                         >
-                          <div className="flex items-center gap-3 border-b border-[#e2e8f0]/80 pb-3">
+                          <div className="flex items-center gap-3">
                             <Checkbox
                               checked={isIncluded}
                               onChange={() => togglePreviewQuestion(group.title, q.id)}
@@ -1644,7 +1665,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
               })()}
             </div>
 
-            <div className="px-8 py-5 border-t border-[#e2e8f0] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="text-xs text-[#64748b] flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span>
                   Included in Assessment:{' '}
@@ -1661,14 +1682,14 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => setShowQuestionPreview(false)}
-                  className="px-6 py-2.5 rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+                  className="px-6 py-2.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
                 >
                   Close preview
                 </button>
                 <button
                   onClick={handleSaveQuestionPreview}
                   disabled={previewIncludedCount === 0}
-                  className="px-8 py-2.5 rounded-xl bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-8 py-2.5 rounded-lg bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save
                 </button>

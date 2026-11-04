@@ -185,7 +185,7 @@ describe('VendorWebForm', () => {
 
   it('asks for confirmation in the shared popup, captures the response and gives a case ID', async () => {
     const user = userEvent.setup()
-    const onSubmitCase = vi.fn().mockReturnValue('PR-126')
+    const onSubmitCase = vi.fn().mockReturnValue({ caseId: 'PR-126', vendorId: 'VND-013' })
     render(<VendorWebForm onSubmitCase={onSubmitCase} />)
     await user.click(screen.getByLabelText(/^Vendor Name/)) // prefill
 
@@ -213,6 +213,8 @@ describe('VendorWebForm', () => {
     expect(screen.getByRole('heading', { name: 'Request submitted' })).toBeInTheDocument()
     expect(screen.getByText('PR-126')).toBeInTheDocument()
     expect(screen.getByText('Your case ID')).toBeInTheDocument()
+    expect(screen.getByText('VND-013')).toBeInTheDocument()
+    expect(screen.getByText('Your Vendor ID')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Submit another request/i }))
     expect(screen.getByRole('heading', { name: 'Partnership request form' })).toBeInTheDocument()
@@ -233,9 +235,28 @@ describe('VendorWebForm', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('has no Sign out button', () => {
-    render(<VendorWebForm onSubmitCase={vi.fn()} onSignOut={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: /Sign out/i })).not.toBeInTheDocument()
+  it('shows a red, text-only Sign out only after the request is submitted', async () => {
+    const user = userEvent.setup()
+    const onSignOut = vi.fn()
+    render(
+      <VendorWebForm
+        onSubmitCase={vi.fn().mockReturnValue({ caseId: 'PR-126', vendorId: 'VND-013' })}
+        onSignOut={onSignOut}
+      />
+    )
+    // Not while the vendor is filling the form in
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText(/^Vendor Name/)) // prefill
+    await user.click(screen.getByRole('button', { name: /Submit request/i }))
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Submit request' })
+    )
+    const signOut = screen.getByRole('button', { name: 'Sign out' })
+    expect(signOut).toHaveClass('text-red-600')
+    expect(signOut).toHaveAccessibleDescription(/Prototype only/)
+    await user.click(signOut)
+    expect(onSignOut).toHaveBeenCalled()
   })
 
   it('stacks vendor name, job title and company name in their own rows with placeholders', () => {

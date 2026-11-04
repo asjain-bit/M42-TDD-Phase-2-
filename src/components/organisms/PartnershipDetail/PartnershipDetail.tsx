@@ -210,6 +210,8 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   onSubmitReview,
   onCaseAction,
   animateAgentRun = true,
+  viewOnly = false,
+  backLabel = 'Back to Partnership Requests',
   className = '',
 }) => {
   const isInternalTeam =
@@ -568,7 +570,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     internal: !animateAgentRun || internalSent || isSponsor || isStrategyTeam || isAdmin,
   })
 
-  // While the agent finds the reviewers, the animation owns the page and only the tabs stay
+  // While the agent finds the reviewers, the animation runs in the stage area under the stepper
   const reviewersLoading =
     isDirector &&
     activeTab === 'review' &&
@@ -642,7 +644,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   const [adminModal, setAdminModal] = useState<'proceed' | 'reject' | 'reassign' | null>(null)
   const [pendingRouting, setPendingRouting] = useState<AdminRouting | null>(null)
   const previousRouting = request.adminDecision
-  const adminCanChange = isAdmin && !hasDirectorDecided(request)
+  const adminCanChange = isAdmin && !viewOnly && !hasDirectorDecided(request)
 
   const handleAdminConfirm = (routing: AdminRouting) => {
     setAdminModal(null)
@@ -759,7 +761,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   )
   /** The Director can close the request at any stage until it has ended, the brief included */
   const canClose = isDirector && displayStatus !== 'Closed' && displayStatus !== 'Completed'
-  const closeButton = canClose && (
+  const closeButton = canClose && !viewOnly && (
     <Button
       variant="outline"
       size="sm"
@@ -1052,9 +1054,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       }
     }
   }, [isAnyModalOpen])
-
-  // The agent thinks first when a case is opened
-  if (!runDone) return <ThinkingMode onComplete={handleRunComplete} />
 
   // The vendor card tops the first step; later steps use the space for the workflow stages
   const showHeaderCard = !(isFlowView || isStrategyTeam) || activeStep === 'brief'
@@ -1560,17 +1559,15 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       } ${className}`.trim()}
     >
       {/* Top Back Link */}
-      {!reviewersLoading && (
-        <div>
-          <button
-            onClick={onBack}
-            className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-[#0d212c] hover:text-[#36c0c9] transition cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Partnership Requests</span>
-          </button>
-        </div>
-      )}
+      <div>
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-[#0d212c] hover:text-[#36c0c9] transition cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>{backLabel}</span>
+        </button>
+      </div>
 
       {/* Tabs sit directly under the back link */}
       <div className="flex items-end justify-between gap-4 border-b border-[#e2e8f0]">
@@ -1597,12 +1594,10 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           ))}
         </div>
         {/* Later stages have no header card, so Close request sits by the tabs */}
-        {!(activeTab !== 'audit' && !reviewersLoading && showHeaderCard) && !reviewersLoading && (
-          <div className="pb-2">{closeButton}</div>
-        )}
+        {!(activeTab !== 'audit' && showHeaderCard) && <div className="pb-2">{closeButton}</div>}
       </div>
 
-      {activeTab !== 'audit' && !reviewersLoading && showHeaderCard && (
+      {activeTab !== 'audit' && showHeaderCard && (
         <>
           {/* Header card: title and status, with the key facts directly below */}
           <div className="bg-white rounded-2xl border border-[#e2e8f0] px-5 py-4 shadow-xs flex items-start justify-between gap-4">
@@ -1688,6 +1683,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 View vendor response
               </button>
               {(isInternalTeam || isStrategyTeam || isSponsor || isAdmin) &&
+                !viewOnly &&
                 displayStatus !== 'Completed' &&
                 displayStatus !== 'Closed' &&
                 (myInterest ? (
@@ -1722,7 +1718,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       )}
 
       {/* The email the Director sent when closing the request, read-only */}
-      {activeTab !== 'audit' && !reviewersLoading && request.closedEmail && (
+      {activeTab !== 'audit' && request.closedEmail && (
         <section
           aria-labelledby="closure-email-heading"
           className="rounded-xl border border-border-default bg-bg-surface-1 p-5 flex flex-col gap-3"
@@ -1773,13 +1769,9 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
 
       {/* LARGE WHITE BOX ENCLOSING TABS AND ALL CONTENT */}
       <div
-        className={
-          reviewersLoading
-            ? 'flex flex-col'
-            : `bg-white rounded-2xl border border-[#e2e8f0] p-6 sm:p-8 shadow-xs flex flex-col gap-6 ${
-                fixedStage ? 'flex-1 min-h-0' : ''
-              }`
-        }
+        className={`bg-white rounded-2xl border border-[#e2e8f0] p-6 sm:p-8 shadow-xs flex flex-col gap-6 ${
+          fixedStage ? 'flex-1 min-h-0' : ''
+        }`}
       >
         {/* TAB: REVIEW — step-by-step workflow, later steps unlock one at a time */}
         {activeTab === 'review' && (
@@ -1913,11 +1905,9 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               </section>
             )}
 
-            {stepperSteps.length > 1 &&
-              (!isNonDirector || isStrategyTeam || isInternalTeam) &&
-              !reviewersLoading && (
-                <WorkflowStepper steps={stepperSteps} activeId={activeStep} onSelect={goToStep} />
-              )}
+            {stepperSteps.length > 1 && (!isNonDirector || isStrategyTeam || isInternalTeam) && (
+              <WorkflowStepper steps={stepperSteps} activeId={activeStep} onSelect={goToStep} />
+            )}
 
             <div
               key={activeStep}
@@ -1926,14 +1916,19 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               }`}
             >
               {/* STEP: Initial Assessment Brief */}
-              {activeStep === 'brief' && (
-                <AssessmentBrief
-                  request={request}
-                  hideContact={isNonDirector}
-                  showSummary={isDirectorView || isAdmin}
-                  onOpenAnalysis={() => setShowAnalysis(true)}
-                />
-              )}
+              {/* The agent thinks first when a case is opened, inside the brief area so the vendor
+                  details and the stages stay in view */}
+              {activeStep === 'brief' &&
+                (runDone ? (
+                  <AssessmentBrief
+                    request={request}
+                    hideContact={isNonDirector}
+                    showSummary={isDirectorView || isAdmin}
+                    onOpenAnalysis={() => setShowAnalysis(true)}
+                  />
+                ) : (
+                  <ThinkingMode inline onComplete={handleRunComplete} />
+                ))}
 
               {/* STEP: Internal Canvas (Director and sponsor) */}
               {(isFlowView || isStrategyTeam) &&
@@ -3306,22 +3301,26 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       )}
 
       {/* DIRECTOR: decision bar, always in view until the brief has a decision */}
-      {isDirector && !briefSubmitted && activeTab !== 'audit' && activeStep === 'brief' && (
-        <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
-          <span className="text-sm text-[#475569]">
-            Review the brief, then record your decision.
-          </span>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setBriefModal(true)}
-              className="h-10 px-5 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] text-sm font-semibold text-white shadow-xs cursor-pointer transition flex items-center gap-1.5"
-            >
-              Next
-            </button>
+      {isDirector &&
+        runDone &&
+        !briefSubmitted &&
+        activeTab !== 'audit' &&
+        activeStep === 'brief' && (
+          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
+            <span className="text-sm text-[#475569]">
+              Review the brief, then record your decision.
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setBriefModal(true)}
+                className="h-10 px-5 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] text-sm font-semibold text-white shadow-xs cursor-pointer transition flex items-center gap-1.5"
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* INTERNAL INTEREST: continue on the brief, always in view */}
       {isInternalTeam && activeTab !== 'audit' && activeStep === 'brief' && (
@@ -3412,30 +3411,35 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         )}
 
       {/* PARTNERSHIP ADMIN: decision bar, always in view so the action is obvious */}
-      {isAdmin && activeStep === 'brief' && activeTab !== 'audit' && !previousRouting && (
-        <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
-          <span className="text-sm text-[#475569]">
-            Action required: decide where this case goes.
-          </span>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setAdminModal('reject')}
-              className="h-10 px-5 rounded-lg border border-red-500 bg-white text-sm font-semibold text-red-600 hover:bg-red-50 cursor-pointer transition flex items-center gap-1.5"
-            >
-              <X className="w-4 h-4 stroke-[2.5]" aria-hidden="true" />
-              Reject
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdminModal('proceed')}
-              className="h-10 px-5 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] text-sm font-semibold text-white shadow-xs cursor-pointer transition flex items-center gap-1.5"
-            >
-              Proceed
-            </button>
+      {isAdmin &&
+        !viewOnly &&
+        runDone &&
+        activeStep === 'brief' &&
+        activeTab !== 'audit' &&
+        !previousRouting && (
+          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
+            <span className="text-sm text-[#475569]">
+              Action required: decide where this case goes.
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setAdminModal('reject')}
+                className="h-10 px-5 rounded-lg border border-red-500 bg-white text-sm font-semibold text-red-600 hover:bg-red-50 cursor-pointer transition flex items-center gap-1.5"
+              >
+                <X className="w-4 h-4 stroke-[2.5]" aria-hidden="true" />
+                Reject
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminModal('proceed')}
+                className="h-10 px-5 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] text-sm font-semibold text-white shadow-xs cursor-pointer transition flex items-center gap-1.5"
+              >
+                Proceed
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   )
 }

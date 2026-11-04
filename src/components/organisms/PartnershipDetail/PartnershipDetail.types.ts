@@ -45,5 +45,9 @@ export interface PartnershipDetailProps {
   onCaseAction?: (requestId: string, action: CaseAction) => void
   /** Play the agent run animation on first open. Turn off to start at the brief. */
   animateAgentRun?: boolean
+  /** Browse every stage without any actions (TDD Admin) */
+  viewOnly?: boolean
+  /** Text of the back link at the top */
+  backLabel?: string
   className?: string
 }

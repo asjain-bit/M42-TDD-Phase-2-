@@ -455,7 +455,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                     setStatusFilter(chip.key as 'all' | 'default' | 'Modified')
                     setCurrentPage(1)
                   }}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
+                  className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
                     isSelected
                       ? 'bg-[#36c0c9] text-white font-bold shadow-xs border border-[#36c0c9]'
                       : 'bg-white text-[#64748b] border border-[#e2e8f0] hover:bg-[#f8fafc]'
@@ -591,7 +591,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
 
             <button
               onClick={() => setViewRole(viewRole === 'admin' ? 'evaluator' : 'admin')}
-              className="px-4 py-2 rounded-xl bg-[#0d212c] hover:bg-[#153443] text-white text-xs font-bold transition cursor-pointer border-0 shadow-2xs self-start sm:self-auto"
+              className="px-4 py-2 rounded-lg bg-[#0d212c] hover:bg-[#153443] text-white text-xs font-bold transition cursor-pointer border-0 shadow-2xs self-start sm:self-auto"
             >
               {viewRole === 'admin' ? 'Switch to Evaluator View' : 'Switch to Admin View'}
             </button>
@@ -955,7 +955,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                 <div className="pt-4">
                   <button
                     onClick={handleSaveNewVersion}
-                    className="bg-[#0d212c] hover:bg-[#153443] text-white font-bold text-xs px-6 py-3 rounded-xl transition cursor-pointer shadow-2xs border-0"
+                    className="bg-[#0d212c] hover:bg-[#153443] text-white font-bold text-xs px-6 py-3 rounded-lg transition cursor-pointer shadow-2xs border-0"
                   >
                     Save as new version
                   </button>

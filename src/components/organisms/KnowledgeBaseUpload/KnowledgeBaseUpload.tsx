@@ -52,7 +52,7 @@ export const KnowledgeBaseUpload: React.FC<KnowledgeBaseUploadProps> = ({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="h-12 px-8 rounded-xl border border-[#00a8b0] bg-white text-sm font-semibold text-[#008a8a] hover:bg-[#f0fdfa] cursor-pointer transition"
+          className="h-12 px-8 rounded-lg border border-[#00a8b0] bg-white text-sm font-semibold text-[#008a8a] hover:bg-[#f0fdfa] cursor-pointer transition"
         >
           Browse files
         </button>
@@ -112,7 +112,7 @@ export const KnowledgeBaseUpload: React.FC<KnowledgeBaseUploadProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="h-12 px-8 rounded-xl border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
+            className="h-12 px-8 rounded-lg border border-[#e2e8f0] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 cursor-pointer transition"
           >
             Cancel
           </button>
@@ -120,7 +120,7 @@ export const KnowledgeBaseUpload: React.FC<KnowledgeBaseUploadProps> = ({
         <button
           type="button"
           onClick={onGenerate}
-          className="h-12 px-8 rounded-xl bg-[#00a8b0] hover:bg-[#009199] text-sm font-semibold text-white shadow-xs cursor-pointer transition"
+          className="h-12 px-8 rounded-lg bg-[#00a8b0] hover:bg-[#009199] text-sm font-semibold text-white shadow-xs cursor-pointer transition"
         >
           Generate Summary
         </button>

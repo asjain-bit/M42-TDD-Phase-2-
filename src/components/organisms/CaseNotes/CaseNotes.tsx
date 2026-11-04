@@ -24,7 +24,7 @@ import { Input } from '@/components/atoms/Input'
 import { StatusChip } from '@/components/atoms/StatusChip'
 import { HighlightEditor } from '@/components/molecules/HighlightEditor'
 import type { DisplayStatus } from '@/lib/caseStatus'
-import { NOTE_LOG_TONES, sanitiseNoteHtml } from '@/lib/summaryNote'
+import { NOTE_LOG_TONES, countNoteTones, sanitiseNoteHtml } from '@/lib/summaryNote'
 import type { CaseNotesProps } from './CaseNotes.types'
 
 const STATUS_CATEGORY: Record<DisplayStatus, 'warning' | 'info' | 'success' | 'error' | 'neutral'> =
@@ -46,6 +46,12 @@ const MAX_HEIGHT_SHARE = 0.75
  * when there is room for that expanded height.
  */
 const ALL_NOTES_HEIGHT_SHARE = 0.8
+/** Text colour of each tone's count next to All notes */
+const TONE_COUNT_TEXT: Partial<Record<string, string>> = {
+  critical: 'text-status-error-text',
+  positive: 'text-status-success-text',
+  neutral: 'text-text-secondary',
+}
 const VIEWPORT_MARGIN = 16
 const GAP = 8
 /** The notch: 16 x 9px, its base laid 1.5px over the box border so the outline runs on */
@@ -315,7 +321,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
         <path
           d={`M0 ${NOTCH_HEIGHT - BORDER / 2} L${NOTCH_WIDTH / 2} ${BORDER / 2} L${NOTCH_WIDTH} ${NOTCH_HEIGHT - BORDER / 2}`}
           fill="none"
-          stroke="var(--app-accent)"
+          stroke="var(--border-default)"
           strokeWidth={BORDER}
           strokeLinejoin="round"
         />
@@ -336,7 +342,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
               )
             : '75vh',
         }}
-        className="relative w-full flex flex-col overflow-hidden rounded-[14px] border-[1.5px] border-[var(--app-accent)] bg-bg-modal shadow-2xl outline-none"
+        className="relative w-full flex flex-col overflow-hidden rounded-[14px] border-[1.5px] border-border-default bg-bg-modal shadow-2xl outline-none"
       >
         {/* Header */}
         <div className="flex items-start gap-3 px-5 pt-4 pb-3 border-b border-border-subtle shrink-0">
@@ -413,9 +419,23 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
         {/* All notes: a one-line preview of the latest, or the whole timeline */}
         <section aria-label="All notes" className="flex-1 min-h-0 flex flex-col">
           <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-2 shrink-0">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
-              All notes · {notes.length}
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                All notes · {notes.length}
+              </h3>
+              {/* How many Risk, Positive and Neutral highlights the notes hold; none hides it */}
+              {countNoteTones(notes)
+                .filter(({ count }) => count > 0)
+                .map(({ tone, label, count }) => (
+                  <span
+                    key={tone}
+                    className={`text-[11px] font-semibold ${TONE_COUNT_TEXT[tone] ?? 'text-text-secondary'}`}
+                  >
+                    {count}{' '}
+                    {tone === 'critical' ? (count === 1 ? 'risk' : 'risks') : label.toLowerCase()}
+                  </span>
+                ))}
+            </div>
             {notes.length > 0 && (
               <button
                 type="button"

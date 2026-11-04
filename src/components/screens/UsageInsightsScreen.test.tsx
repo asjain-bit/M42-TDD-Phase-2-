@@ -109,8 +109,7 @@ describe('UsageInsightsScreen', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('lists the cases as Completed, In Progress and Closed, with their case ID', async () => {
-    const user = userEvent.setup()
+  it('lists Completed and Closed cases with their case ID, and In Progress by stage', () => {
     const base = INITIAL_PARTNERSHIP_REQUESTS[2]
     const cases = [
       { ...base, id: 'a', companyName: 'Done Co', value: { sponsoredOn: 'x' } },
@@ -130,12 +129,15 @@ describe('UsageInsightsScreen', () => {
     expect(
       within(screen.getByRole('list', { name: 'Closed' })).getByText(base.requestCode)
     ).toBeVisible()
-    expect(
-      within(screen.getByRole('list', { name: 'In Progress' })).getAllByRole('listitem')
-    ).toHaveLength(4)
-    await user.click(screen.getByRole('button', { name: /See more/ }))
-    expect(
-      within(screen.getByRole('list', { name: 'In Progress' })).getAllByRole('listitem')
-    ).toHaveLength(5)
+    // In Progress lists the six stages with how many assessments are at each, plus the total
+    const inProgress = within(screen.getByRole('list', { name: 'In Progress' }))
+    expect(inProgress.getAllByRole('listitem')).toHaveLength(6)
+    expect(inProgress.queryByText('Live 0')).not.toBeInTheDocument()
+    expect(inProgress.getByText('Discovery Call').nextSibling).toHaveTextContent('5')
+    expect(screen.getByLabelText('5 in progress')).toBeInTheDocument()
+    expect(screen.getByLabelText('1 completed')).toBeInTheDocument()
+    expect(screen.queryByText('Exited')).not.toBeInTheDocument()
+    // Nothing to expand: Completed and Closed have fewer than five each
+    expect(screen.queryByRole('button', { name: /See more/ })).not.toBeInTheDocument()
   })
 })

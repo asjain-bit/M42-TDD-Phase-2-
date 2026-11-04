@@ -263,6 +263,8 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
   const [vendorConsent, setVendorConsent] = useState(false)
   const [vendorNameInput, setVendorNameInput] = useState('')
   const [vendorEmailInput, setVendorEmailInput] = useState('')
+  // Email the vendor already sent a join request for (uninvited emails only)
+  const [joinRequestSentFor, setJoinRequestSentFor] = useState<string | null>(null)
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', ''])
   const [otpError, setOtpError] = useState('')
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -563,7 +565,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                 id="callroom-join-btn"
                 disabled={!yourName.trim() || !adminConsent}
                 onClick={() => setRoomState('waiting')}
-                className="w-full bg-[#36c0c9] hover:bg-[#2badb6] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3 rounded-xl transition cursor-pointer border-0 shadow-md"
+                className="w-full bg-[#36c0c9] hover:bg-[#2badb6] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3 rounded-lg transition cursor-pointer border-0 shadow-md"
               >
                 Open Call Room
               </button>
@@ -595,6 +597,11 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             // Emails outside the invite list trigger a join request to the admin
             const isUninvitedEmail =
               isEmailValid && !VENDOR_INVITED_EMAILS.includes(vendorEmailInput.trim().toLowerCase())
+            // Shown only once the vendor has acknowledged the AI disclosure
+            const needsJoinRequest =
+              isUninvitedEmail &&
+              vendorConsent &&
+              joinRequestSentFor !== vendorEmailInput.trim().toLowerCase()
 
             return (
               <div className="relative w-full max-w-[420px]">
@@ -655,7 +662,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                         Please enter a valid email address.
                       </p>
                     )}
-                    {isUninvitedEmail && (
+                    {isUninvitedEmail && vendorConsent && (
                       <p className="flex items-start gap-1.5 text-[11px] text-red-500 font-medium leading-snug animate-in fade-in duration-150">
                         <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
                         This recipient has not been added to the list, so we have sent a request to
@@ -704,14 +711,19 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                     id="vendor-send-otp-btn"
                     disabled={!isFormValid || !vendorConsent}
                     onClick={() => {
+                      // Uninvited emails first send a join request to the admin
+                      if (needsJoinRequest) {
+                        setJoinRequestSentFor(vendorEmailInput.trim().toLowerCase())
+                        return
+                      }
                       setOtpDigits(['', '', '', ''])
                       setOtpError('')
                       setResendTimer(60)
                       setVendorFlowStep('vendor_otp')
                     }}
-                    className="w-full bg-[#36c0c9] hover:bg-[#2badb6] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3 rounded-xl transition cursor-pointer border-0 shadow-md mt-1"
+                    className="w-full bg-[#36c0c9] hover:bg-[#2badb6] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3 rounded-lg transition cursor-pointer border-0 shadow-md mt-1"
                   >
-                    Send OTP
+                    {needsJoinRequest ? 'Send join request' : 'Send OTP'}
                   </button>
 
                   <button
@@ -819,7 +831,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                   setUserRole('vendor')
                   setRoomState('waiting')
                 }}
-                className="w-full bg-[#36c0c9] hover:bg-[#2badb6] text-white font-bold text-sm py-3 rounded-xl transition cursor-pointer border-0 shadow-md"
+                className="w-full bg-[#36c0c9] hover:bg-[#2badb6] text-white font-bold text-sm py-3 rounded-lg transition cursor-pointer border-0 shadow-md"
               >
                 Verify &amp; Enter Call Room
               </button>
@@ -893,7 +905,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                 <button
                   id="callroom-download-transcript-btn"
                   onClick={() => alert('Downloading transcript...')}
-                  className="w-full bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs py-3 rounded-xl transition cursor-pointer border-0 flex items-center justify-center gap-2"
+                  className="w-full bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs py-3 rounded-lg transition cursor-pointer border-0 flex items-center justify-center gap-2"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Download transcript
@@ -904,7 +916,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                     if (onExitToVendors) onExitToVendors()
                     else onBack()
                   }}
-                  className="w-full bg-transparent hover:bg-slate-100 text-[#64748b] hover:text-[#0d212c] font-semibold text-xs py-2.5 rounded-xl transition cursor-pointer border-0"
+                  className="w-full bg-transparent hover:bg-slate-100 text-[#64748b] hover:text-[#0d212c] font-semibold text-xs py-2.5 rounded-lg transition cursor-pointer border-0"
                 >
                   Back to vendors
                 </button>
@@ -950,7 +962,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                   setRoomState('waiting')
                 }
               }}
-              className="w-full bg-[#0d212c] hover:bg-[#122e3d] text-white border-0 font-bold text-xs py-3 rounded-xl transition cursor-pointer shadow-xs"
+              className="w-full bg-[#0d212c] hover:bg-[#122e3d] text-white border-0 font-bold text-xs py-3 rounded-lg transition cursor-pointer shadow-xs"
             >
               Rejoin call
             </button>
@@ -965,7 +977,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                     onBack()
                   }
                 }}
-                className="w-full bg-transparent hover:bg-slate-100 text-[#64748b] hover:text-[#0d212c] font-semibold text-xs py-2.5 rounded-xl transition cursor-pointer border-0"
+                className="w-full bg-transparent hover:bg-slate-100 text-[#64748b] hover:text-[#0d212c] font-semibold text-xs py-2.5 rounded-lg transition cursor-pointer border-0"
               >
                 Back to vendors
               </button>
@@ -1007,19 +1019,19 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             </div>
             <div className="flex items-center gap-3 w-full mt-2">
               <button
+                onClick={() => setShowLeaveConfirm(false)}
+                className="flex-1 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0d212c] font-bold text-xs py-3 rounded-lg transition cursor-pointer border-0"
+              >
+                Stay in call
+              </button>
+              <button
                 onClick={() => {
                   setShowLeaveConfirm(false)
                   setRoomState('left')
                 }}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-3 rounded-xl transition cursor-pointer border-0 shadow-2xs"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-3 rounded-lg transition cursor-pointer border-0 shadow-2xs"
               >
                 Leave call
-              </button>
-              <button
-                onClick={() => setShowLeaveConfirm(false)}
-                className="flex-1 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0d212c] font-bold text-xs py-3 rounded-xl transition cursor-pointer border-0"
-              >
-                Stay in call
               </button>
             </div>
           </div>
@@ -1055,19 +1067,19 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             </div>
             <div className="flex items-center gap-3 w-full mt-2">
               <button
+                onClick={() => setShowFinaliseConfirm(false)}
+                className="flex-1 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0d212c] font-bold text-xs py-3 rounded-lg transition cursor-pointer border-0"
+              >
+                Cancel
+              </button>
+              <button
                 onClick={() => {
                   setShowFinaliseConfirm(false)
                   setRoomState('finalised')
                 }}
-                className="flex-1 bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs py-3 rounded-xl transition cursor-pointer border-0 shadow-2xs"
+                className="flex-1 bg-[#0d212c] hover:bg-[#122e3d] text-white font-bold text-xs py-3 rounded-lg transition cursor-pointer border-0 shadow-2xs"
               >
                 End & Finalise
-              </button>
-              <button
-                onClick={() => setShowFinaliseConfirm(false)}
-                className="flex-1 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0d212c] font-bold text-xs py-3 rounded-xl transition cursor-pointer border-0"
-              >
-                Cancel
               </button>
             </div>
           </div>
@@ -1105,14 +1117,14 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
       {/* ── MAIN BODY ────────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex min-h-0 relative">
         {/* ── STAGE ──────────────────────────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-h-0 relative bg-[#f8fafc]">
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 relative bg-[#f8fafc]">
           {/* Background blob */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-1/3 left-1/3 w-80 h-80 rounded-full bg-[#ddf7f9]/20 blur-3xl" />
           </div>
 
           {/* ── CENTER STAGE ─────────────────────────────────────────────────────── */}
-          <div className="flex-1 flex flex-col items-center justify-center gap-5 px-8 py-4 relative z-0">
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center-safe gap-5 px-4 sm:px-8 py-4 relative z-0">
             {/* AI Assessor Avatar */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
@@ -1167,6 +1179,17 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                     </div>
                     <div className="min-w-0 flex-1 flex flex-col gap-1.5">
                       <span className="text-sm font-bold text-[#0d212c]">{q.question}</span>
+                      {q.responseCue && (
+                        <div className="relative group/cue">
+                          <p className="text-xs text-[#64748b] leading-relaxed line-clamp-2">
+                            <span className="font-semibold text-[#0d212c]">Response cue:</span>{' '}
+                            {q.responseCue}
+                          </p>
+                          <div className="pointer-events-none opacity-0 group-hover/cue:opacity-100 transition-opacity duration-200 absolute left-0 right-0 top-full mt-1 z-30 bg-[#0d212c] text-white text-xs p-3 rounded-xl shadow-xl border border-white/10 leading-relaxed font-normal">
+                            {q.responseCue}
+                          </div>
+                        </div>
+                      )}
                       {q.isCurrent &&
                         alertQuestionIndex === currentQuestionIndex &&
                         (currentQuestionIndex % 2 === 0 ? (
@@ -1201,7 +1224,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
               <button
                 id="callroom-start-assessment-btn"
                 onClick={handleStartAssessment}
-                className="bg-[#36c0c9] hover:bg-[#2badb6] text-white font-bold text-sm px-8 py-3 rounded-xl transition cursor-pointer border-0 shadow-md flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
+                className="bg-[#36c0c9] hover:bg-[#2badb6] text-white font-bold text-sm px-8 py-3 rounded-lg transition cursor-pointer border-0 shadow-md flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
               >
                 <PlayCircle className="w-4 h-4" />
                 Start Assessment
@@ -1210,9 +1233,9 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
           </div>
 
           {/* ── PARTICIPANT TILES — bottom-right, Teams style Light Theme ────────────────────── */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-row gap-2.5">
+          <div className="order-first shrink-0 self-center max-w-full overflow-x-auto relative z-10 flex flex-row gap-2.5 px-4 pt-4 pb-1">
             {/* Participant 1: Alex */}
-            <div className="w-32 h-[124px] rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
+            <div className="w-32 h-[124px] shrink-0 rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
               <div className="w-9 h-9 rounded-full bg-[#f1f5f9] border border-[#cbd5e1] flex items-center justify-center text-[#0d212c] font-bold text-sm shadow-2xs">
                 A
               </div>
@@ -1226,7 +1249,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             </div>
 
             {/* Participant 2: Sarah */}
-            <div className="w-32 h-[124px] rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
+            <div className="w-32 h-[124px] shrink-0 rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
               <div className="w-9 h-9 rounded-full bg-[#f1f5f9] border border-[#cbd5e1] flex items-center justify-center text-[#0d212c] font-bold text-sm shadow-2xs">
                 S
               </div>
@@ -1240,7 +1263,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             </div>
 
             {/* Participant 3: Michael */}
-            <div className="w-32 h-[124px] rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
+            <div className="w-32 h-[124px] shrink-0 rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
               <div className="w-9 h-9 rounded-full bg-[#36c0c9] text-white flex items-center justify-center font-bold text-sm shadow-2xs">
                 M
               </div>
@@ -1254,7 +1277,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             </div>
 
             {/* Participant 4: Emma */}
-            <div className="w-32 h-[124px] rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
+            <div className="w-32 h-[124px] shrink-0 rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
               <div className="w-9 h-9 rounded-full bg-[#36c0c9] text-white flex items-center justify-center font-bold text-sm shadow-2xs">
                 E
               </div>
@@ -1268,7 +1291,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             </div>
 
             {/* Participant 5: Vendor */}
-            <div className="w-32 h-[124px] rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
+            <div className="w-32 h-[124px] shrink-0 rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
               <div className="w-9 h-9 rounded-full bg-[#f1f5f9] border border-[#cbd5e1] flex items-center justify-center text-[#0d212c] font-bold text-sm shadow-2xs">
                 {vendorShortName ? vendorShortName[0].toUpperCase() : 'V'}
               </div>
@@ -1282,7 +1305,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             </div>
 
             {/* Participant 6: Admin */}
-            <div className="w-32 h-[124px] rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
+            <div className="w-32 h-[124px] shrink-0 rounded-2xl bg-white border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center gap-1 relative overflow-hidden p-2">
               <div className="w-9 h-9 rounded-full bg-[#36c0c9] text-white flex items-center justify-center font-bold text-sm shadow-2xs">
                 {adminInitial}
               </div>
