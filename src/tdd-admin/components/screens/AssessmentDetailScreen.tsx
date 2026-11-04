@@ -867,7 +867,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                 <h3 className="text-lg font-extrabold text-[#0d212c]">Email Vendor</h3>
                 <span className="text-xs text-[#64748b] leading-relaxed">
                   The selected questions will trigger agent to send a follow up email to vendor to
-                  provide the answers/required attachments of the same.
+                  provide the answers and required attachments of the same.
                 </span>
               </div>
               <button

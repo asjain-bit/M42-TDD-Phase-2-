@@ -83,6 +83,13 @@ export const AVAILABLE_PROFILES: UserProfile[] = [
       'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
   },
   {
+    id: 'vendor-evidence-uploader',
+    name: 'Vendor',
+    designation: 'Vendor Evidence Uploader',
+    email: 'Follow-up answers and evidence upload',
+    roleTitle: 'Vendor Evidence Uploader',
+  },
+  {
     id: 'legal-director',
     name: 'Fatima Al-Kaabi',
     designation: 'Legal Team',
@@ -282,7 +289,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                     profile.id === 'evaluator' ||
                     profile.id === 'strategy-fit' ||
                     profile.id === 'sponsor' ||
-                    profile.id === 'tdd-admin'
+                    profile.id === 'tdd-admin' ||
+                    profile.id === 'vendor-evidence-uploader'
 
                   if (isAccessible) {
                     return (

@@ -14,6 +14,7 @@ import { ExistingProjectsScreen } from '@/components/screens/ExistingProjectsScr
 import { Sidebar } from '@/components/organisms/Sidebar'
 import { BarChart3, FolderKanban, LayoutDashboard, Lightbulb } from 'lucide-react'
 import { TddAdminApp } from '@/tdd-admin/TddAdminApp'
+import { VendorEvidenceUploaderApp } from '@/tdd-admin/VendorEvidenceUploaderApp'
 import {
   INITIAL_PARTNERSHIP_REQUESTS,
   INITIAL_SERVICE_LINE_INTERESTS,
@@ -229,6 +230,10 @@ export default function HomePage() {
 
   if (userProfile.id === 'vendor') {
     return <VendorWebForm onSubmitCase={handleVendorSubmit} onSignOut={handleSignOut} />
+  }
+
+  if (userProfile.id === 'vendor-evidence-uploader') {
+    return <VendorEvidenceUploaderApp onSignOut={handleSignOut} />
   }
 
   if (userProfile.id === 'tdd-admin') {
