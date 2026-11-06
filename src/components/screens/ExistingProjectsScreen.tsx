@@ -89,9 +89,6 @@ export const ExistingProjectsScreen: React.FC<ExistingProjectsScreenProps> = ({
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">Existing Projects</h2>
-          <p className="text-sm text-text-secondary">
-            Projects M42 already runs. Check them for overlap with new requests and interests.
-          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button

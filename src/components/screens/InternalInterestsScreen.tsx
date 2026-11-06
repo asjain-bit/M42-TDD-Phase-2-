@@ -179,9 +179,6 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold">Internal Interests</h2>
-            <p className="text-sm text-text-secondary">
-              Requirements raised by service lines and approved by the Strategy Team.
-            </p>
           </div>
           <div className="w-full sm:w-72">
             <SearchBar
@@ -219,11 +216,6 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">Internal Interests</h2>
-          <p className="text-sm text-text-secondary">
-            {isStrategy
-              ? 'Requirements raised by service lines. Approve them to share them with the Partnership Admin and Director.'
-              : 'Requirements raised by service lines and approved by the Strategy Team.'}
-          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button

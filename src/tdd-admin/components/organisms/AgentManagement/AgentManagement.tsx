@@ -405,13 +405,6 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
       {!selectedAgent ? (
         /* MAIN LIST VIEW */
         <div className="flex flex-col gap-4">
-          {/* Breadcrumb Header matching Vendors page */}
-          <div className="text-xs font-semibold text-[#64748b] flex items-center gap-1.5">
-            <span>M42 admin</span>
-            <span>/</span>
-            <span className="text-[#36c0c9] font-bold">Agents</span>
-          </div>
-
           {/* Title & Search Bar Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">

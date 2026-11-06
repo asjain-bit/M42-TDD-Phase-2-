@@ -201,7 +201,11 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
           })}
         </nav>
 
-        <div className="flex-1 min-w-0 w-full flex flex-col divide-y divide-[#d3dbe4]">
+        <div
+          className={`flex-1 min-w-0 w-full flex flex-col divide-y divide-[#d3dbe4] ${
+            rec && showSummary ? '[&>section:nth-child(2)]:border-t-0' : ''
+          }`}
+        >
           {rec && showSummary && (
             <Section id="summary" title="Assessment Summary" icon={Sparkles}>
               <div className="rounded-xl border border-[#e2e8f0] p-5 flex flex-col gap-4">
