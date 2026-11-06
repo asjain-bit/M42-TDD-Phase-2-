@@ -140,7 +140,7 @@ export const TddAdminApp: React.FC<TddAdminAppProps> = ({
         }`}
       >
         {/* Top Header Bar — same size as the other profile views */}
-        <header className="w-full bg-white border-b border-[#e2e8f0] px-6 lg:px-10 py-3.5 flex items-center justify-between sticky top-0 z-40 text-[#0d212c] shadow-xs">
+        <header className="w-full bg-white border-b border-[#e2e8f0] px-6 py-3.5 flex items-center justify-between sticky top-0 z-40 text-[#0d212c] shadow-xs">
           <h1 className="font-semibold text-lg lg:text-xl tracking-tight text-[#0d212c]">
             {PAGE_TITLES[activeTab]}
           </h1>

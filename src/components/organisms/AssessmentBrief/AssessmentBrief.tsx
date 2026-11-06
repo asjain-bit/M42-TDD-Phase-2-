@@ -203,7 +203,7 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
 
         <div
           className={`flex-1 min-w-0 w-full flex flex-col divide-y divide-[#d3dbe4] ${
-            rec && showSummary ? '[&>section:nth-child(2)]:border-t-0' : ''
+            rec && showSummary ? '[&>section:nth-child(1)]:border-b-0' : ''
           }`}
         >
           {rec && showSummary && (

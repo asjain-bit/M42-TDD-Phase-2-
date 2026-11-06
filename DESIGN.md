@@ -240,3 +240,4 @@ Use Lucide icons consistently across:
 - **Dividers**: removed where spacing and headings already separate content (stage headers, section headings, footers above a single button, inner rules in the brief and alignment pack); kept between list rows, table rows and modal headers and footers.
 - **OTP boxes**: the call room OTP boxes use `rounded-md`, same as the evidence uploader.
 - **Cleanup**: no divider under the Assessment Summary card; no breadcrumb on the Agents list; no subtext under the Internal Interests and Existing Projects titles.
+- **Header alignment**: page header titles use `px-6`, so they line up with the page content (`p-6`). The divider under the Assessment Summary card is removed via its bottom border.
