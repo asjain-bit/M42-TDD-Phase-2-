@@ -21,6 +21,7 @@ import {
   Download,
   FileSearch,
   ShieldAlert,
+  Loader2,
 } from 'lucide-react'
 import { VendorDispatchData } from './ConfigureVendorCallScreen'
 import type { QuestionItem } from './QuestionnaireDetailScreen'
@@ -54,6 +55,8 @@ const QUESTION_STEP_SECONDS = 20
 const QUESTION_ALERT_DELAY_SECONDS = 3
 // Vendor emails already on the call invite list (test email for the demo)
 const VENDOR_INVITED_EMAILS = ['zaidm42@gmail.com']
+// How long the prototype waits before the admin "approves" a vendor's join request
+const JOIN_REQUEST_APPROVAL_MS = 4000
 
 // Sample questionnaire transcript
 const sampleTranscript: TranscriptEntry[] = [
@@ -264,7 +267,10 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
   const [vendorNameInput, setVendorNameInput] = useState('')
   const [vendorEmailInput, setVendorEmailInput] = useState('')
   // Email the vendor already sent a join request for (uninvited emails only)
-  const [joinRequestSentFor, setJoinRequestSentFor] = useState<string | null>(null)
+  const [joinRequest, setJoinRequest] = useState<{
+    email: string
+    status: 'pending' | 'approved'
+  } | null>(null)
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', ''])
   const [otpError, setOtpError] = useState('')
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -283,6 +289,16 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
 
     return () => clearInterval(timer)
   }, [vendorFlowStep, resendTimer])
+
+  // Prototype: the admin approves a pending join request a few seconds after it is sent
+  useEffect(() => {
+    if (joinRequest?.status !== 'pending') return
+    const t = setTimeout(
+      () => setJoinRequest((r) => (r ? { ...r, status: 'approved' } : r)),
+      JOIN_REQUEST_APPROVAL_MS
+    )
+    return () => clearTimeout(t)
+  }, [joinRequest])
 
   const handleOtpChange = (index: number, val: string) => {
     const digit = val.replace(/[^0-9]/g, '').slice(-1)
@@ -422,7 +438,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                   setYourName(userName || 'Zaid Al Ali')
                   setVendorFlowStep('admin_join')
                 }}
-                className={`w-full flex items-start gap-3 bg-white border border-[#e2e8f0] rounded-2xl px-4 py-3.5 text-left shadow-2xs transition-all group ${
+                className={`w-full flex items-start gap-3 bg-white border border-[#e2e8f0] rounded-md px-4 py-3.5 text-left shadow-2xs transition-all group ${
                   !isMeetingStarted
                     ? 'opacity-40 cursor-not-allowed grayscale-[20%]'
                     : 'hover:shadow-md hover:border-[#36c0c9]/50 cursor-pointer'
@@ -451,7 +467,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                   setVendorEmailInput('')
                   setVendorFlowStep('vendor_input')
                 }}
-                className={`w-full flex items-start gap-3 bg-white border border-[#e2e8f0] rounded-2xl px-4 py-3.5 text-left shadow-2xs transition-all group ${
+                className={`w-full flex items-start gap-3 bg-white border border-[#e2e8f0] rounded-md px-4 py-3.5 text-left shadow-2xs transition-all group ${
                   !isMeetingStarted
                     ? 'opacity-40 cursor-not-allowed grayscale-[20%]'
                     : 'hover:shadow-md hover:border-[#36c0c9]/50 cursor-pointer'
@@ -522,7 +538,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                     if (e.key === 'Enter' && yourName.trim() && adminConsent)
                       setRoomState('waiting')
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-xs text-[#0d212c] outline-none focus:border-[#36c0c9] transition"
+                  className="w-full px-3.5 py-2.5 rounded-md border border-[#e2e8f0] bg-[#f8fafc] text-xs text-[#0d212c] outline-none focus:border-[#36c0c9] transition"
                 />
               </div>
 
@@ -597,11 +613,12 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
             // Emails outside the invite list trigger a join request to the admin
             const isUninvitedEmail =
               isEmailValid && !VENDOR_INVITED_EMAILS.includes(vendorEmailInput.trim().toLowerCase())
+            const emailKey = vendorEmailInput.trim().toLowerCase()
+            const requestForEmail = joinRequest?.email === emailKey ? joinRequest.status : null
+            const isRequestPending = requestForEmail === 'pending'
+            const isRequestApproved = requestForEmail === 'approved'
             // Shown only once the vendor has acknowledged the AI disclosure
-            const needsJoinRequest =
-              isUninvitedEmail &&
-              vendorConsent &&
-              joinRequestSentFor !== vendorEmailInput.trim().toLowerCase()
+            const needsJoinRequest = isUninvitedEmail && vendorConsent && !requestForEmail
 
             return (
               <div className="relative w-full max-w-[420px]">
@@ -625,7 +642,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                       placeholder="Enter vendor name..."
                       value={vendorNameInput}
                       onChange={(e) => setVendorNameInput(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-xs text-[#0d212c] outline-none focus:border-[#36c0c9] transition"
+                      className="w-full px-3.5 py-2.5 rounded-md border border-[#e2e8f0] bg-[#f8fafc] text-xs text-[#0d212c] outline-none focus:border-[#36c0c9] transition"
                     />
                   </div>
 
@@ -651,7 +668,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                       placeholder="e.g. contact@vendor.com"
                       value={vendorEmailInput}
                       onChange={(e) => setVendorEmailInput(e.target.value)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl border bg-[#f8fafc] text-xs text-[#0d212c] outline-none transition ${
+                      className={`w-full px-3.5 py-2.5 rounded-md border bg-[#f8fafc] text-xs text-[#0d212c] outline-none transition ${
                         vendorEmailInput.trim() !== '' && !isEmailValid
                           ? 'border-red-500 focus:border-red-500'
                           : 'border-[#e2e8f0] focus:border-[#36c0c9]'
@@ -662,12 +679,30 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                         Please enter a valid email address.
                       </p>
                     )}
-                    {isUninvitedEmail && vendorConsent && (
+                    {needsJoinRequest && (
                       <p className="flex items-start gap-1.5 text-[11px] text-red-500 font-medium leading-snug animate-in fade-in duration-150">
                         <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
-                        This recipient has not been added to the list, so we have sent a request to
-                        the admin. You will be able to join the call once the admin accepts your
-                        request.
+                        This email ID is not on the invite list. Send a join request and you will be
+                        able to join the call once the admin accepts it.
+                      </p>
+                    )}
+                    {isRequestPending && (
+                      <p
+                        role="status"
+                        className="flex items-start gap-2 text-[11px] text-[#0d7280] font-medium leading-snug animate-in fade-in duration-150"
+                      >
+                        <Loader2 className="w-3.5 h-3.5 shrink-0 mt-px animate-spin" />
+                        Join request sent. Waiting for the admin to approve it. Please keep this page
+                        open.
+                      </p>
+                    )}
+                    {isRequestApproved && (
+                      <p
+                        role="status"
+                        className="flex items-start gap-2 text-[11px] text-[#15803d] font-semibold leading-snug animate-in fade-in duration-150"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-px" />
+                        The admin has approved your request. Send the OTP to continue.
                       </p>
                     )}
                   </div>
@@ -709,11 +744,11 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
 
                   <button
                     id="vendor-send-otp-btn"
-                    disabled={!isFormValid || !vendorConsent}
+                    disabled={!isFormValid || !vendorConsent || isRequestPending}
                     onClick={() => {
                       // Uninvited emails first send a join request to the admin
                       if (needsJoinRequest) {
-                        setJoinRequestSentFor(vendorEmailInput.trim().toLowerCase())
+                        setJoinRequest({ email: emailKey, status: 'pending' })
                         return
                       }
                       setOtpDigits(['', '', '', ''])
@@ -723,7 +758,16 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                     }}
                     className="w-full bg-[#36c0c9] hover:bg-[#2badb6] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3 rounded-lg transition cursor-pointer border-0 shadow-md mt-1"
                   >
-                    {needsJoinRequest ? 'Send join request' : 'Send OTP'}
+                    {isRequestPending ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Awaiting approval
+                      </span>
+                    ) : needsJoinRequest ? (
+                      'Send join request'
+                    ) : (
+                      'Send OTP'
+                    )}
                   </button>
 
                   <button
@@ -774,7 +818,7 @@ export const CallRoomScreen: React.FC<CallRoomScreenProps> = ({
                     value={otpDigits[index] || ''}
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className={`w-12 h-14 rounded-xl border text-center text-xl font-extrabold text-[#0d212c] outline-none transition ${
+                    className={`w-12 h-14 rounded-md border text-center text-xl font-extrabold text-[#0d212c] outline-none transition ${
                       otpError
                         ? 'border-red-500 bg-red-50/50 focus:border-red-600'
                         : 'border-[#e2e8f0] bg-[#f8fafc] focus:border-[#36c0c9]'

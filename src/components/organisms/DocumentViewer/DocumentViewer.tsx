@@ -71,7 +71,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         tabIndex={-1}
         className="relative w-full max-w-4xl h-full max-h-[92vh] flex flex-col rounded-xl overflow-hidden border border-border-default bg-bg-modal shadow-2xl outline-none"
       >
-        <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-border-subtle shrink-0">
+        <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-[#d3dbe4] shrink-0">
           <div className="flex flex-col min-w-0">
             <h3 id={titleId} className="text-sm font-semibold text-text-primary truncate">
               {fileName}

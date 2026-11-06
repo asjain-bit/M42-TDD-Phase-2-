@@ -57,7 +57,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full h-10 pl-10 pr-9 text-xs bg-white text-[#0d212c] border border-[#e2e8f0] hover:border-[#cbd5e1] focus:border-[#cbd5e1] rounded-xl transition-all placeholder:text-[#94a3b8] focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[#94a3b8]"
+        className="w-full h-10 pl-10 pr-9 text-xs bg-white text-[#0d212c] border border-[#e2e8f0] hover:border-[#cbd5e1] focus:border-[#cbd5e1] rounded-md transition-all placeholder:text-[#94a3b8] focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[#94a3b8]"
       />
 
       {/* Right Clear Icon (Visible when input has value) */}

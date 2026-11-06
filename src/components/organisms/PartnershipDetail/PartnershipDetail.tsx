@@ -26,6 +26,7 @@ import {
   Check,
   XCircle,
   Mail,
+  ListX,
 } from 'lucide-react'
 import { Badge } from '@/components/atoms/Badge'
 import { Button } from '@/components/atoms/Button'
@@ -494,8 +495,9 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   })
 
   const [activeStep, setActiveStep] = useState<StepId>(() => {
-    // The Strategy lead's own work is the pre-read; later stages are theirs to view only
-    if (isStrategyTeam || isAdmin) return 'brief'
+    // The Strategy lead's own work is the pre-read; later stages are theirs to view only. The
+    // Partnership Admin decides at the brief; the TDD Admin opens on the stage the case is at.
+    if (isStrategyTeam || (isAdmin && userProfile?.roleTitle !== 'TDD Admin')) return 'brief'
     const open = stepDefs.find((d) => !isStepCompleted(d.id))
     return (open ?? stepDefs[stepDefs.length - 1]).id
   })
@@ -645,6 +647,8 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   const [pendingRouting, setPendingRouting] = useState<AdminRouting | null>(null)
   const previousRouting = request.adminDecision
   const adminCanChange = isAdmin && !viewOnly && !hasDirectorDecided(request)
+  // Procure and M&A requests have no workflow stages configured yet
+  const noWorkflow = request.caseType === 'Procure' || request.caseType === 'M&A'
 
   const handleAdminConfirm = (routing: AdminRouting) => {
     setAdminModal(null)
@@ -760,7 +764,8 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             : 'director'
   )
   /** The Director can close the request at any stage until it has ended, the brief included */
-  const canClose = isDirector && displayStatus !== 'Closed' && displayStatus !== 'Completed'
+  const canClose =
+    isDirector && !noWorkflow && displayStatus !== 'Closed' && displayStatus !== 'Completed'
   const closeButton = canClose && !viewOnly && (
     <Button
       variant="outline"
@@ -1056,7 +1061,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   }, [isAnyModalOpen])
 
   // The vendor card tops the first step; later steps use the space for the workflow stages
-  const showHeaderCard = !(isFlowView || isStrategyTeam) || activeStep === 'brief'
+  const showHeaderCard = noWorkflow || !(isFlowView || isStrategyTeam) || activeStep === 'brief'
   // The NDA stage fills the page height so only its own content scrolls
   const fixedStage =
     activeTab === 'review' &&
@@ -1129,7 +1134,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] text-[11px] font-medium uppercase tracking-wider">
+              <tr className="bg-[#f8fafc] border-b border-[#d3dbe4] text-[#64748b] text-[11px] font-medium uppercase tracking-wider">
                 <th className="py-3 px-4">Name</th>
                 {internalRequestSent ? (
                   <>
@@ -1157,7 +1162,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e2e8f0]">
+            <tbody className="divide-y divide-[#d3dbe4]">
               {stakeholders.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-[#64748b]">
@@ -1387,7 +1392,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] text-[11px] font-medium uppercase tracking-wider">
+              <tr className="bg-[#f8fafc] border-b border-[#d3dbe4] text-[#64748b] text-[11px] font-medium uppercase tracking-wider">
                 <th className="py-3 px-4">Name</th>
                 {strategyRequestSent ? (
                   <>
@@ -1411,7 +1416,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e2e8f0]">
+            <tbody className="divide-y divide-[#d3dbe4]">
               {strategyMembers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-[#64748b]">
@@ -1570,7 +1575,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
       </div>
 
       {/* Tabs sit directly under the back link */}
-      <div className="flex items-end justify-between gap-4 border-b border-[#e2e8f0]">
+      <div className="flex items-end justify-between gap-4 border-b border-[#d3dbe4]">
         <div role="tablist" className="flex items-center gap-8 pb-0">
           {(
             [
@@ -1684,6 +1689,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               </button>
               {(isInternalTeam || isStrategyTeam || isSponsor || isAdmin) &&
                 !viewOnly &&
+                !noWorkflow &&
                 displayStatus !== 'Completed' &&
                 displayStatus !== 'Closed' &&
                 (myInterest ? (
@@ -1905,341 +1911,367 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               </section>
             )}
 
-            {stepperSteps.length > 1 && (!isNonDirector || isStrategyTeam || isInternalTeam) && (
-              <WorkflowStepper steps={stepperSteps} activeId={activeStep} onSelect={goToStep} />
+            {noWorkflow && (
+              <div
+                role="status"
+                className="flex flex-col items-center gap-2 text-center rounded-xl border border-dashed border-[#cbd5e1] bg-[#f8fafc] px-6 py-14"
+              >
+                <ListX className="w-8 h-8 text-[#94a3b8]" aria-hidden="true" />
+                <h3 className="text-sm font-semibold text-[#0d212c]">
+                  No workflow stages are currently configured for this request type.
+                </h3>
+                <p className="text-xs text-[#64748b] max-w-md leading-relaxed">
+                  This request is classified as {request.caseType}. There are no stages to follow or
+                  actions to take until it is reclassified as a Partnership.
+                </p>
+              </div>
             )}
+            {!noWorkflow &&
+              stepperSteps.length > 1 &&
+              (!isNonDirector || isStrategyTeam || isInternalTeam) && (
+                <WorkflowStepper steps={stepperSteps} activeId={activeStep} onSelect={goToStep} />
+              )}
 
-            <div
-              key={activeStep}
-              className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-                fixedStage ? 'flex-1 min-h-0' : ''
-              }`}
-            >
-              {/* STEP: Initial Assessment Brief */}
-              {/* The agent thinks first when a case is opened, inside the brief area so the vendor
+            {!noWorkflow && (
+              <div
+                key={activeStep}
+                className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+                  fixedStage ? 'flex-1 min-h-0' : ''
+                }`}
+              >
+                {/* STEP: Initial Assessment Brief */}
+                {/* The agent thinks first when a case is opened, inside the brief area so the vendor
                   details and the stages stay in view */}
-              {activeStep === 'brief' &&
-                (runDone ? (
-                  <AssessmentBrief
-                    request={request}
-                    hideContact={isNonDirector}
-                    showSummary={isDirectorView || isAdmin}
-                    onOpenAnalysis={() => setShowAnalysis(true)}
-                  />
-                ) : (
-                  <ThinkingMode inline onComplete={handleRunComplete} />
-                ))}
-
-              {/* STEP: Internal Canvas (Director and sponsor) */}
-              {(isFlowView || isStrategyTeam) &&
-                activeStep === 'canvas' &&
-                (!readyTeams.internal ? (
-                  <ReviewersLoading
-                    team="internal"
-                    count={stakeholders.length}
-                    onComplete={() => setReadyTeams((r) => ({ ...r, internal: true }))}
-                  />
-                ) : (
-                  <div className="flex flex-col gap-6 w-full">
-                    {stepHeader(
-                      'Internal Canvas',
-                      internalApproved
-                        ? 'The Internal Interest team has responded. The reviewers are listed below.'
-                        : internalSent
-                          ? 'Waiting for approval from the Internal Interest team. Follow each reviewer below.'
-                          : isDirector
-                            ? 'Choose the Internal Interest reviewers and the questions they will answer, then send the request.'
-                            : 'The Director has not sent this to the Internal Interest team yet.',
-                      canEditInternal ? (
-                        <button
-                          type="button"
-                          disabled={stakeholders.length === 0}
-                          onClick={() => setSendTeam('internal')}
-                          className={sendButtonClass(stakeholders.length === 0)}
-                        >
-                          <span>Send Request</span>
-                        </button>
-                      ) : isDirector && internalSent && !strategySent ? (
-                        // Prototype only: sits where the awaiting-approval chip used to be, and
-                        // stays available so every outcome can be tried on the same screen
-                        <PrototypeScenarioSelect
-                          value={request.internalOutcome?.scenario}
-                          onChange={(scenario) => {
-                            setScenarioPrompt('open')
-                            setMultipleAcknowledged(false)
-                            if (scenario === 'single') setReadyPromptOpen(true)
-                            onCaseAction?.(request.id, { type: 'internalScenario', scenario })
-                          }}
-                        />
-                      ) : isClosedAfterBrief && !internalApproved ? (
-                        <StatusChip label="Closed" status="neutral" dot={false} />
-                      ) : (
-                        stageChip(internalApproved ? 'approved' : 'awaiting')
-                      )
-                    )}
-                    {isClosedAfterBrief && request.closedReason && (
-                      <p className="text-sm text-[#475569] leading-relaxed -mt-2">
-                        This case was closed: {request.closedReason}
-                      </p>
-                    )}
-                    {request.sponsors && (
-                      <p className="text-sm text-[#0d212c] -mt-2">
-                        <span className="font-semibold">Lead sponsor:</span> {request.sponsors.lead}
-                        {request.sponsors.co.length > 0 && (
-                          <>
-                            <span className="mx-2 text-slate-300">|</span>
-                            <span className="font-semibold">Co-sponsors:</span>{' '}
-                            {request.sponsors.co.join(', ')}
-                          </>
-                        )}
-                      </p>
-                    )}
-                    {splitCases.length > 0 && (
-                      <section aria-label="Split cases" className="flex flex-col gap-3">
-                        <div className="flex flex-col gap-0.5">
-                          <h3 className="text-sm font-semibold text-[#0d212c]">Split cases</h3>
-                          <p className="text-xs text-[#64748b]">
-                            Each co-sponsor has a duplicate of this case with the same details.
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-[#e2e8f0] overflow-x-auto">
-                          <table className="w-full text-left text-xs">
-                            <thead className="bg-[#f8fafc] text-[#64748b] text-[11px] uppercase tracking-wider">
-                              <tr>
-                                <th className="py-3 px-4 font-medium">Case ID</th>
-                                <th className="py-3 px-4 font-medium">Sponsor</th>
-                                <th className="py-3 px-4 font-medium">Stage</th>
-                                <th className="py-3 px-4 font-medium">Created</th>
-                                <th className="py-3 px-4 font-medium text-right">Case</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#f1f5f9]">
-                              {splitCases.map((c) => (
-                                <tr key={c.id}>
-                                  <td className="py-3 px-4 font-medium text-[#0d212c]">
-                                    {c.requestCode}
-                                  </td>
-                                  <td className="py-3 px-4 text-[#0d212c]">{c.sponsors?.lead}</td>
-                                  <td className="py-3 px-4">
-                                    <StageChip progress={getStageProgress(c)} />
-                                  </td>
-                                  <td className="py-3 px-4 text-[#64748b]">
-                                    {c.auditLog[c.auditLog.length - 1]?.timestamp}
-                                  </td>
-                                  <td className="py-3 px-4 text-right">
-                                    {/* No redirection yet: the link only marks where it will go */}
-                                    <button
-                                      type="button"
-                                      className="text-xs font-medium text-[#008a8a] hover:text-[#006e6e] cursor-pointer"
-                                    >
-                                      View case
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </section>
-                    )}
-                    {internalSection}
-                  </div>
-                ))}
-
-              {/* STEP: Strategic Alignment (Director and sponsor) */}
-              {isFlowView &&
-                activeStep === 'alignment' &&
-                (!readyTeams.strategy ? (
-                  <ReviewersLoading
-                    team="strategy"
-                    count={strategyMembers.length}
-                    onComplete={() => setReadyTeams((r) => ({ ...r, strategy: true }))}
-                  />
-                ) : (
-                  <div className="flex flex-col gap-6 w-full">
-                    {stepHeader(
-                      'Strategic Alignment',
-                      strategySent
-                        ? strategyApproved
-                          ? 'The Strategy Team has approved this partnership.'
-                          : 'Waiting for approval from the Strategy Team. Follow the reviewer below.'
-                        : isDirector
-                          ? 'Choose the Strategy Team reviewers, then send the request.'
-                          : 'The Director has not sent this to the Strategy Team yet.',
-                      canEditStrategy ? (
-                        <button
-                          type="button"
-                          disabled={strategyMembers.length === 0}
-                          onClick={() => setSendTeam('strategy')}
-                          className={sendButtonClass(strategyMembers.length === 0)}
-                        >
-                          <span>Send Request</span>
-                        </button>
-                      ) : (
-                        stageChip(
-                          strategyApproved ? 'approved' : strategyDeclined ? 'declined' : 'awaiting'
-                        )
-                      )
-                    )}
-                    {strategyConditions && strategyApproved && (
-                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex flex-col gap-1 -mt-2">
-                        <span className="text-sm font-semibold text-emerald-800">
-                          Approval: Proceed
-                        </span>
-                        <p className="text-sm text-emerald-900 leading-relaxed">
-                          Conditions: {strategyConditions}
-                        </p>
-                      </div>
-                    )}
-                    {strategySection}
-                  </div>
-                ))}
-
-              {/* STEP: NDA */}
-              {(isFlowView || isStrategyTeam) && activeStep === 'nda' && (
-                <NdaStage
-                  request={request}
-                  role={stageRole}
-                  onAction={(action) => {
-                    if (action.type === 'uploadNda') setNdaGateError(false)
-                    onCaseAction?.(request.id, action)
-                  }}
-                  onNext={() => guardNda('discovery') && setActiveStep('discovery')}
-                  gateError={ndaGateError && !ndaSigned ? NDA_GATE_MESSAGE : undefined}
-                />
-              )}
-
-              {/* STEP: Discovery Call */}
-              {(isFlowView || isStrategyTeam) && activeStep === 'discovery' && (
-                <DiscoveryCallStage
-                  request={request}
-                  role={stageRole}
-                  onAction={(action) => onCaseAction?.(request.id, action)}
-                  onNext={() => guardNda('value') && setActiveStep('value')}
-                />
-              )}
-
-              {/* STEP: Value & Due Diligence */}
-              {(isFlowView || isStrategyTeam) && activeStep === 'value' && (
-                <ValueDueDiligenceStage
-                  request={request}
-                  role={stageRole}
-                  onAction={(action) => onCaseAction?.(request.id, action)}
-                />
-              )}
-
-              {/* STEP: Questionnaire (Internal Interest Team) */}
-              {isInternalTeam && activeStep === 'questionnaire' && (
-                <div
-                  onFocusCapture={prefillQuestionnaire}
-                  className="flex flex-col gap-6 w-full animate-in fade-in duration-150"
-                >
-                  <div className="flex flex-col gap-1">
-                    <h2 className="text-base font-semibold text-[#0d212c]">
-                      {request.sentQuestionnaire?.name ?? 'Internal Evaluation Questionnaire'}
-                    </h2>
-                    <p className="text-xs text-[#64748b]">
-                      Answer the questions below to evaluate clinical need, pilot sponsorship, and
-                      strategic feasibility.
-                    </p>
-                  </div>
-
-                  {!submittedResponse &&
-                    myResponse?.dueOn &&
-                    getOverdueDays(myResponse.dueOn, myResponse.status) > 0 && (
-                      <div
-                        role="status"
-                        className="flex items-start gap-2 px-3 py-2 rounded-lg border border-status-warning-border bg-status-warning-bg text-xs text-status-warning-text leading-relaxed"
-                      >
-                        <Clock className="w-4 h-4 shrink-0 mt-px" aria-hidden="true" />
-                        <span>
-                          This response was due on {formatDueDate(myResponse.dueOn)}. You can still
-                          submit it.
-                        </span>
-                      </div>
-                    )}
-
-                  {submittedResponse ? (
-                    <ReviewQuestionnaire
-                      questions={questionsFromAnswers(submittedResponse.answers!)}
-                      submission={{
-                        answers: submittedResponse.answers!,
-                        submittedOn: submittedResponse.responseDate,
-                      }}
-                      onEditAnswer={(questionId, answer, reason) =>
-                        onCaseAction?.(request.id, {
-                          type: 'editInternalAnswer',
-                          memberId: submittedResponse.id,
-                          questionId,
-                          answer,
-                          reason,
-                          by: userProfile?.name ?? 'Mariam Al-Zaabi',
-                        })
-                      }
+                {activeStep === 'brief' &&
+                  (runDone ? (
+                    <AssessmentBrief
+                      request={request}
+                      hideContact={isNonDirector}
+                      showSummary={isDirectorView || isAdmin}
+                      onOpenAnalysis={() => setShowAnalysis(true)}
                     />
                   ) : (
-                    <ReviewQuestionnaire
-                      questions={reviewQuestions}
-                      answers={questionAnswers}
-                      onChange={patchAnswer}
-                      hideSubmit
-                    />
-                  )}
-                </div>
-              )}
+                    <ThinkingMode inline onComplete={handleRunComplete} />
+                  ))}
 
-              {/* STEP: Pre-read summary (Strategy Team) */}
-              {isStrategyTeam && activeStep === 'preread' && (
-                <div className="flex flex-col gap-6 w-full animate-in fade-in duration-150">
-                  {preReadStage === 'upload' && (
-                    <KnowledgeBaseUpload
-                      files={kbFiles}
-                      onCancel={() => setActiveStep('brief')}
-                      onFilesChange={setKbFiles}
-                      onGenerate={() => setPreReadStage('generating')}
+                {/* STEP: Internal Canvas (Director and sponsor) */}
+                {(isFlowView || isStrategyTeam) &&
+                  activeStep === 'canvas' &&
+                  (!readyTeams.internal ? (
+                    <ReviewersLoading
+                      team="internal"
+                      count={stakeholders.length}
+                      onComplete={() => setReadyTeams((r) => ({ ...r, internal: true }))}
                     />
-                  )}
-                  {preReadStage === 'generating' && (
-                    <ThinkingMode
-                      inline
-                      eyebrow="GENERATING"
-                      description="The agent is comparing the vendor submission with the selected documents to prepare the pre-read summary."
-                      messages={PRE_READ_CHECKS}
-                      stepMs={1100}
-                      onComplete={() => setPreReadStage('ready')}
+                  ) : (
+                    <div className="flex flex-col gap-6 w-full">
+                      {stepHeader(
+                        'Internal Canvas',
+                        internalApproved
+                          ? 'The Internal Interest team has responded. The reviewers are listed below.'
+                          : internalSent
+                            ? 'Waiting for approval from the Internal Interest team. Follow each reviewer below.'
+                            : isDirector
+                              ? 'Choose the Internal Interest reviewers and the questions they will answer, then send the request.'
+                              : 'The Director has not sent this to the Internal Interest team yet.',
+                        canEditInternal ? (
+                          <button
+                            type="button"
+                            disabled={stakeholders.length === 0}
+                            onClick={() => setSendTeam('internal')}
+                            className={sendButtonClass(stakeholders.length === 0)}
+                          >
+                            <span>Send Request</span>
+                          </button>
+                        ) : isDirector && internalSent && !strategySent ? (
+                          // Prototype only: sits where the awaiting-approval chip used to be, and
+                          // stays available so every outcome can be tried on the same screen
+                          <PrototypeScenarioSelect
+                            value={request.internalOutcome?.scenario}
+                            onChange={(scenario) => {
+                              setScenarioPrompt('open')
+                              setMultipleAcknowledged(false)
+                              if (scenario === 'single') setReadyPromptOpen(true)
+                              onCaseAction?.(request.id, { type: 'internalScenario', scenario })
+                            }}
+                          />
+                        ) : isClosedAfterBrief && !internalApproved ? (
+                          <StatusChip label="Closed" status="neutral" dot={false} />
+                        ) : (
+                          stageChip(internalApproved ? 'approved' : 'awaiting')
+                        )
+                      )}
+                      {isClosedAfterBrief && request.closedReason && (
+                        <p className="text-sm text-[#475569] leading-relaxed -mt-2">
+                          This case was closed: {request.closedReason}
+                        </p>
+                      )}
+                      {request.sponsors && (
+                        <p className="text-sm text-[#0d212c] -mt-2">
+                          <span className="font-semibold">Lead sponsor:</span>{' '}
+                          {request.sponsors.lead}
+                          {request.sponsors.co.length > 0 && (
+                            <>
+                              <span className="mx-2 text-slate-300">|</span>
+                              <span className="font-semibold">Co-sponsors:</span>{' '}
+                              {request.sponsors.co.join(', ')}
+                            </>
+                          )}
+                        </p>
+                      )}
+                      {splitCases.length > 0 && (
+                        <section aria-label="Split cases" className="flex flex-col gap-3">
+                          <div className="flex flex-col gap-0.5">
+                            <h3 className="text-sm font-semibold text-[#0d212c]">Split cases</h3>
+                            <p className="text-xs text-[#64748b]">
+                              Each co-sponsor has a duplicate of this case with the same details.
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-[#e2e8f0] overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-[#f8fafc] text-[#64748b] text-[11px] uppercase tracking-wider">
+                                <tr>
+                                  <th className="py-3 px-4 font-medium">Case ID</th>
+                                  <th className="py-3 px-4 font-medium">Sponsor</th>
+                                  <th className="py-3 px-4 font-medium">Stage</th>
+                                  <th className="py-3 px-4 font-medium">Created</th>
+                                  <th className="py-3 px-4 font-medium text-right">Case</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#d3dbe4]">
+                                {splitCases.map((c) => (
+                                  <tr key={c.id}>
+                                    <td className="py-3 px-4 font-medium text-[#0d212c]">
+                                      {c.requestCode}
+                                    </td>
+                                    <td className="py-3 px-4 text-[#0d212c]">{c.sponsors?.lead}</td>
+                                    <td className="py-3 px-4">
+                                      <StageChip progress={getStageProgress(c)} />
+                                    </td>
+                                    <td className="py-3 px-4 text-[#64748b]">
+                                      {c.auditLog[c.auditLog.length - 1]?.timestamp}
+                                    </td>
+                                    <td className="py-3 px-4 text-right">
+                                      {/* No redirection yet: the link only marks where it will go */}
+                                      <button
+                                        type="button"
+                                        className="text-xs font-medium text-[#008a8a] hover:text-[#006e6e] cursor-pointer"
+                                      >
+                                        View case
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </section>
+                      )}
+                      {internalSection}
+                    </div>
+                  ))}
+
+                {/* STEP: Strategic Alignment (Director and sponsor) */}
+                {isFlowView &&
+                  activeStep === 'alignment' &&
+                  (!readyTeams.strategy ? (
+                    <ReviewersLoading
+                      team="strategy"
+                      count={strategyMembers.length}
+                      onComplete={() => setReadyTeams((r) => ({ ...r, strategy: true }))}
                     />
-                  )}
-                  {preReadStage === 'ready' && (
-                    <>
-                      <div className="flex items-start justify-between gap-4 flex-wrap">
-                        <div className="flex flex-col gap-1">
-                          <h2 className="text-xl font-semibold text-[#0d212c]">Pre-read summary</h2>
-                          <p className="text-xs text-[#64748b]">
-                            Generated by the agent from the vendor submission and the selected
-                            documents.
+                  ) : (
+                    <div className="flex flex-col gap-6 w-full">
+                      {stepHeader(
+                        'Strategic Alignment',
+                        strategySent
+                          ? strategyApproved
+                            ? 'The Strategy Team has approved this partnership.'
+                            : 'Waiting for approval from the Strategy Team. Follow the reviewer below.'
+                          : isDirector
+                            ? 'Choose the Strategy Team reviewers, then send the request.'
+                            : 'The Director has not sent this to the Strategy Team yet.',
+                        canEditStrategy ? (
+                          <button
+                            type="button"
+                            disabled={strategyMembers.length === 0}
+                            onClick={() => setSendTeam('strategy')}
+                            className={sendButtonClass(strategyMembers.length === 0)}
+                          >
+                            <span>Send Request</span>
+                          </button>
+                        ) : (
+                          stageChip(
+                            strategyApproved
+                              ? 'approved'
+                              : strategyDeclined
+                                ? 'declined'
+                                : 'awaiting'
+                          )
+                        )
+                      )}
+                      {strategyConditions && strategyApproved && (
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex flex-col gap-1 -mt-2">
+                          <span className="text-sm font-semibold text-emerald-800">
+                            Approval: Proceed
+                          </span>
+                          <p className="text-sm text-emerald-900 leading-relaxed">
+                            Conditions: {strategyConditions}
                           </p>
                         </div>
-                        <div className="flex items-center gap-4">
-                          {strategyDone && (
-                            <StatusChip
-                              label={strategyOutcome === 'Reject' ? 'Rejected' : 'Proceeded'}
-                              status={strategyOutcome === 'Reject' ? 'error' : 'success'}
-                              dot={false}
-                            />
-                          )}
+                      )}
+                      {strategySection}
+                    </div>
+                  ))}
+
+                {/* STEP: NDA */}
+                {(isFlowView || isStrategyTeam) && activeStep === 'nda' && (
+                  <NdaStage
+                    request={request}
+                    role={stageRole}
+                    onAction={(action) => {
+                      if (action.type === 'uploadNda') setNdaGateError(false)
+                      onCaseAction?.(request.id, action)
+                    }}
+                    onNext={() => guardNda('discovery') && setActiveStep('discovery')}
+                    gateError={ndaGateError && !ndaSigned ? NDA_GATE_MESSAGE : undefined}
+                  />
+                )}
+
+                {/* STEP: Discovery Call */}
+                {(isFlowView || isStrategyTeam) && activeStep === 'discovery' && (
+                  <DiscoveryCallStage
+                    request={request}
+                    role={stageRole}
+                    onAction={(action) => onCaseAction?.(request.id, action)}
+                    onNext={() => guardNda('value') && setActiveStep('value')}
+                  />
+                )}
+
+                {/* STEP: Value & Due Diligence */}
+                {(isFlowView || isStrategyTeam) && activeStep === 'value' && (
+                  <ValueDueDiligenceStage
+                    request={request}
+                    role={stageRole}
+                    onAction={(action) => onCaseAction?.(request.id, action)}
+                  />
+                )}
+
+                {/* STEP: Questionnaire (Internal Interest Team) */}
+                {isInternalTeam && activeStep === 'questionnaire' && (
+                  <div
+                    onFocusCapture={prefillQuestionnaire}
+                    className="flex flex-col gap-6 w-full animate-in fade-in duration-150"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <h2 className="text-base font-semibold text-[#0d212c]">
+                        {request.sentQuestionnaire?.name ?? 'Internal Evaluation Questionnaire'}
+                      </h2>
+                      <p className="text-xs text-[#64748b]">
+                        Answer the questions below to evaluate clinical need, pilot sponsorship, and
+                        strategic feasibility.
+                      </p>
+                    </div>
+
+                    {!submittedResponse &&
+                      myResponse?.dueOn &&
+                      getOverdueDays(myResponse.dueOn, myResponse.status) > 0 && (
+                        <div
+                          role="status"
+                          className="flex items-start gap-2 px-3 py-2 rounded-lg border border-status-warning-border bg-status-warning-bg text-xs text-status-warning-text leading-relaxed"
+                        >
+                          <Clock className="w-4 h-4 shrink-0 mt-px" aria-hidden="true" />
+                          <span>
+                            This response was due on {formatDueDate(myResponse.dueOn)}. You can
+                            still submit it.
+                          </span>
                         </div>
-                      </div>
-                      <PreReadSummary
-                        request={request}
-                        documents={(strategyMine?.documents ?? kbFiles.map((f) => f.name)).filter(
-                          Boolean
-                        )}
+                      )}
+
+                    {submittedResponse ? (
+                      <ReviewQuestionnaire
+                        questions={questionsFromAnswers(submittedResponse.answers!)}
+                        submission={{
+                          answers: submittedResponse.answers!,
+                          submittedOn: submittedResponse.responseDate,
+                        }}
+                        onEditAnswer={(questionId, answer, reason) =>
+                          onCaseAction?.(request.id, {
+                            type: 'editInternalAnswer',
+                            memberId: submittedResponse.id,
+                            questionId,
+                            answer,
+                            reason,
+                            by: userProfile?.name ?? 'Mariam Al-Zaabi',
+                          })
+                        }
                       />
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+                    ) : (
+                      <ReviewQuestionnaire
+                        questions={reviewQuestions}
+                        answers={questionAnswers}
+                        onChange={patchAnswer}
+                        hideSubmit
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* STEP: Pre-read summary (Strategy Team) */}
+                {isStrategyTeam && activeStep === 'preread' && (
+                  <div className="flex flex-col gap-6 w-full animate-in fade-in duration-150">
+                    {preReadStage === 'upload' && (
+                      <KnowledgeBaseUpload
+                        files={kbFiles}
+                        onCancel={() => setActiveStep('brief')}
+                        onFilesChange={setKbFiles}
+                        onGenerate={() => setPreReadStage('generating')}
+                      />
+                    )}
+                    {preReadStage === 'generating' && (
+                      <ThinkingMode
+                        inline
+                        eyebrow="GENERATING"
+                        description="The agent is comparing the vendor submission with the selected documents to prepare the pre-read summary."
+                        messages={PRE_READ_CHECKS}
+                        stepMs={1100}
+                        onComplete={() => setPreReadStage('ready')}
+                      />
+                    )}
+                    {preReadStage === 'ready' && (
+                      <>
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                          <div className="flex flex-col gap-1">
+                            <h2 className="text-xl font-semibold text-[#0d212c]">
+                              Pre-read summary
+                            </h2>
+                            <p className="text-xs text-[#64748b]">
+                              Generated by the agent from the vendor submission and the selected
+                              documents.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            {strategyDone && (
+                              <StatusChip
+                                label={strategyOutcome === 'Reject' ? 'Rejected' : 'Proceeded'}
+                                status={strategyOutcome === 'Reject' ? 'error' : 'success'}
+                                dot={false}
+                              />
+                            )}
+                          </div>
+                        </div>
+                        <PreReadSummary
+                          request={request}
+                          documents={(strategyMine?.documents ?? kbFiles.map((f) => f.name)).filter(
+                            Boolean
+                          )}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
         {/* TAB: AUDIT LOG */}
@@ -2439,7 +2471,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#f1f5f9]">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#d3dbe4]">
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
@@ -2841,7 +2873,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 </span>
               </div>
 
-              <ul className="border border-[#e2e8f0] rounded-xl divide-y divide-[#f1f5f9] bg-white">
+              <ul className="border border-[#e2e8f0] rounded-xl divide-y divide-[#d3dbe4] bg-white">
                 {strategyMembers.map((person) => (
                   <li key={person.id} className="flex items-center justify-between p-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -2869,7 +2901,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               </ul>
             </div>
 
-            <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#f1f5f9] flex-wrap">
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#d3dbe4] flex-wrap">
               <span className="text-xs text-[#64748b]">
                 {strategyMembers.length === 0 ? 'Add a reviewer first.' : ''}
               </span>
@@ -3032,7 +3064,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#f1f5f9]">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#d3dbe4]">
               <button
                 type="button"
                 onClick={() => setIsAddStrategyModalOpen(false)}
@@ -3143,7 +3175,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         <div className="fixed inset-0 z-50 bg-[#0d212c]/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="relative bg-white rounded-2xl max-w-4xl w-full p-6 sm:p-7 shadow-2xl border border-[#e2e8f0] flex flex-col gap-5 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f1f5f9]">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#d3dbe4]">
               <div className="flex items-center gap-3">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-xs shrink-0"
@@ -3246,7 +3278,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
             )}
 
             {/* Footer */}
-            <div className="flex items-center justify-end pt-3 border-t border-[#f1f5f9]">
+            <div className="flex items-center justify-end pt-3 border-t border-[#d3dbe4]">
               <button
                 type="button"
                 onClick={() => setViewingResponseMember(null)}
@@ -3306,7 +3338,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         !briefSubmitted &&
         activeTab !== 'audit' &&
         activeStep === 'brief' && (
-          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
+          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#d3dbe4] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
             <span className="text-sm text-[#475569]">
               Review the brief, then record your decision.
             </span>
@@ -3324,7 +3356,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
 
       {/* INTERNAL INTEREST: continue on the brief, always in view */}
       {isInternalTeam && activeTab !== 'audit' && activeStep === 'brief' && (
-        <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
+        <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#d3dbe4] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
           <span className="text-sm text-[#475569]">
             Review the brief, then continue to the questionnaire.
           </span>
@@ -3346,7 +3378,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         activeTab !== 'audit' &&
         activeStep === 'questionnaire' &&
         !questionnaireSubmitted && (
-          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
+          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#d3dbe4] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
             <span className="text-sm text-[#475569]">
               Answer every mandatory question to submit.
             </span>
@@ -3363,7 +3395,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
 
       {/* STRATEGY TEAM: Next on the brief, always in view */}
       {isStrategyTeam && activeTab !== 'audit' && activeStep === 'brief' && !strategyDone && (
-        <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
+        <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#d3dbe4] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
           <span className="text-sm text-[#475569]">
             Review the brief, then continue to prepare the pre-read summary.
           </span>
@@ -3386,7 +3418,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         activeStep === 'preread' &&
         preReadStage === 'ready' &&
         !strategyDone && (
-          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
+          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#d3dbe4] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
             <span className="text-sm text-[#475569]">
               Review the pre-read, then record your decision.
             </span>
@@ -3417,7 +3449,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         activeStep === 'brief' &&
         activeTab !== 'audit' &&
         !previousRouting && (
-          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
+          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#d3dbe4] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
             <span className="text-sm text-[#475569]">
               Action required: decide where this case goes.
             </span>

@@ -16,7 +16,7 @@ export const StatusFilterChips: React.FC<StatusFilterChipsProps> = ({
   <div
     role="group"
     aria-label="Filter by status"
-    className={`flex items-center gap-2 overflow-x-auto pb-1 ${className}`.trim()}
+    className={`flex flex-wrap items-center gap-2 ${className}`.trim()}
   >
     {chips.map((chip) => {
       const isSelected = selected === chip.key

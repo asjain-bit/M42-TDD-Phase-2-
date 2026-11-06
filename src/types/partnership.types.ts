@@ -345,6 +345,15 @@ export interface PartnershipRequest {
   value?: {
     callConfirmedOn?: string
     businessCase?: CaseFile
+    /** Optional meeting notes or transcripts uploaded with the business case */
+    transcripts?: CaseFile[]
+    /** The agent's summary, written from the business case and any notes uploaded with it */
+    summary?: {
+      fileName: string
+      generatedOn: string
+      transcriptCount: number
+      content: MeetingSummary
+    }
     decision?: { status: 'proceeded' | 'rejected'; reason?: string; date: string }
     /** When the agent filled in the TDD report */
     tddGeneratedOn?: string

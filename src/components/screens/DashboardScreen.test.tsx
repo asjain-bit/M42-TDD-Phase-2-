@@ -819,7 +819,13 @@ describe('NDA & Discovery, Value and the Sponsor profile', () => {
     await user.click(screen.getByRole('button', { name: 'Proceed' }))
     expect(screen.queryByRole('heading', { name: 'Alignment Pack' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Discovery Call' })).toBeInTheDocument()
-    // The Director adds context (or skips) and hands the case to the sponsor
+    // The Director confirms the call, adds context (or skips) and hands the case to the sponsor
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'I acknowledge that the discovery call has been completed',
+      })
+    )
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
     await user.click(screen.getByRole('button', { name: 'Skip' }))
     expect(
       screen.getByRole('heading', { level: 2, name: 'Value & Due Diligence' })
@@ -911,8 +917,9 @@ describe('NDA & Discovery, Value and the Sponsor profile', () => {
     render(<Shared profile={sponsorProfile} initial={reportReady} />)
     await user.click(screen.getByText('GenomicX MENA FZ-LLC'))
     const stepper = within(screen.getByRole('navigation', { name: 'Review progress' }))
-    // The report opens in the document viewer
-    await user.click(screen.getByRole('button', { name: /Preview/ }))
+    // The report is generated first, then opens in the document viewer
+    expect(screen.getByRole('status', { name: 'Generating the TDD report' })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /Preview/ }, { timeout: 4000 }))
     expect(screen.getByRole('list', { name: 'TDD report' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Close preview' }))
     // The sponsor's final answer completes the stage

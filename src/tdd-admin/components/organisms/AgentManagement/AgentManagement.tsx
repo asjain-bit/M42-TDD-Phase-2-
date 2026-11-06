@@ -218,6 +218,7 @@ Your delivery is warm, calm, and professional, like an experienced human intervi
 export const AgentManagement: React.FC<AgentManagementProps> = ({
   className = '',
   initialAgentId,
+  showRoleSwitch = true,
 }) => {
   const [agents, setAgents] = useState<AgentData[]>(INITIAL_AGENTS)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(initialAgentId || null)
@@ -392,7 +393,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
   }
 
   return (
-    <div className={`flex flex-col gap-5 w-full p-4 font-sans text-[#0d212c] ${className}`}>
+    <div className={`flex flex-col gap-5 w-full p-6 font-sans text-[#0d212c] ${className}`}>
       {/* Toast Notification — subtle light semantic styling */}
       {toastMessage && (
         <div className="fixed top-4 right-4 z-50 bg-[#f0fdf4] text-[#15803d] px-4 py-3 rounded-xl shadow-md border border-[#bbf7d0] flex items-center gap-3 animate-in slide-in-from-top duration-300">
@@ -427,7 +428,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                   setSearchTerm(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="w-full pl-10 pr-4 py-2 rounded-xl border border-[#e2e8f0] bg-white text-xs font-medium text-[#0d212c] outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 shadow-xs transition"
+                className="w-full pl-10 pr-4 py-2 rounded-md border border-[#e2e8f0] bg-white text-xs font-medium text-[#0d212c] outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 shadow-xs transition"
               />
             </div>
           </div>
@@ -455,7 +456,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                     setStatusFilter(chip.key as 'all' | 'default' | 'Modified')
                     setCurrentPage(1)
                   }}
-                  className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
+                  className={`px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
                     isSelected
                       ? 'bg-[#36c0c9] text-white font-bold shadow-xs border border-[#36c0c9]'
                       : 'bg-white text-[#64748b] border border-[#e2e8f0] hover:bg-[#f8fafc]'
@@ -568,34 +569,40 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
             )}
           </div>
 
-          {/* Prototype Role Switcher Bar with Tooltip (For prototype navigation purposes) */}
-          <div className="mt-4 pt-4 border-t border-[#e2e8f0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#f8fafc] p-4 rounded-2xl border border-[#cbd5e1]/60">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[#0d212c]">Prototype Mode:</span>
-              <span className="text-xs font-medium text-[#64748b]">
-                Currently viewing as{' '}
-                <span className="font-bold text-[#0d212c]">
-                  {viewRole === 'admin' ? 'Admin View (Full Access)' : 'Evaluator View (Read-Only)'}
-                </span>
-              </span>
-              {/* Tooltip Info Icon */}
-              <div className="relative group cursor-pointer">
-                <Info className="w-3.5 h-3.5 text-[#64748b] hover:text-[#0d212c] transition" />
-                <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute left-1/2 -translate-x-1/2 bottom-6 z-50 w-72 bg-[#0d212c] text-white text-[11px] p-3 rounded-xl shadow-xl border border-white/10 leading-relaxed font-normal">
-                  This switch is for displaying the Evaluator view versus the Admin view for
-                  prototype navigation purposes. In live production, role access is controlled via
-                  system authentication.
+          {showRoleSwitch && (
+            <>
+              {/* Prototype Role Switcher Bar with Tooltip (For prototype navigation purposes) */}
+              <div className="mt-4 pt-4 border-t border-[#e2e8f0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#f8fafc] p-4 rounded-2xl border border-[#cbd5e1]/60">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#0d212c]">Prototype Mode:</span>
+                  <span className="text-xs font-medium text-[#64748b]">
+                    Currently viewing as{' '}
+                    <span className="font-bold text-[#0d212c]">
+                      {viewRole === 'admin'
+                        ? 'Admin View (Full Access)'
+                        : 'Evaluator View (Read-Only)'}
+                    </span>
+                  </span>
+                  {/* Tooltip Info Icon */}
+                  <div className="relative group cursor-pointer">
+                    <Info className="w-3.5 h-3.5 text-[#64748b] hover:text-[#0d212c] transition" />
+                    <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute left-1/2 -translate-x-1/2 bottom-6 z-50 w-72 bg-[#0d212c] text-white text-[11px] p-3 rounded-xl shadow-xl border border-white/10 leading-relaxed font-normal">
+                      This switch is for displaying the Evaluator view versus the Admin view for
+                      prototype navigation purposes. In live production, role access is controlled
+                      via system authentication.
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <button
-              onClick={() => setViewRole(viewRole === 'admin' ? 'evaluator' : 'admin')}
-              className="px-4 py-2 rounded-lg bg-[#0d212c] hover:bg-[#153443] text-white text-xs font-bold transition cursor-pointer border-0 shadow-2xs self-start sm:self-auto"
-            >
-              {viewRole === 'admin' ? 'Switch to Evaluator View' : 'Switch to Admin View'}
-            </button>
-          </div>
+                <button
+                  onClick={() => setViewRole(viewRole === 'admin' ? 'evaluator' : 'admin')}
+                  className="px-4 py-2 rounded-lg bg-[#0d212c] hover:bg-[#153443] text-white text-xs font-bold transition cursor-pointer border-0 shadow-2xs self-start sm:self-auto"
+                >
+                  {viewRole === 'admin' ? 'Switch to Evaluator View' : 'Switch to Admin View'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         /* DETAIL VIEW */
@@ -664,7 +671,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         disabled={viewRole === 'evaluator'}
                         value={selectedAgent.config.defaultVoice.value}
                         onChange={(e) => handleFieldChange('defaultVoice', e.target.value)}
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       >
                         <option value="(none)">(none)</option>
                         <option value="en-US-JennyNeural">en-US-JennyNeural</option>
@@ -698,7 +705,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                             handleFieldChange('realtimeModelDeployment', e.target.value)
                           }
                           placeholder=""
-                          className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                          className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                         />
                         <p className="text-xs text-[#64748b] mt-0.5">
                           Azure deployment name for Sam&apos;s realtime model. Empty = the
@@ -722,7 +729,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         value={selectedAgent.config.modelDeployment.value}
                         onChange={(e) => handleFieldChange('modelDeployment', e.target.value)}
                         placeholder=""
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       />
                       <p className="text-xs text-[#64748b] mt-0.5">
                         Azure OpenAI chat deployment this agent runs on. Empty = the environment
@@ -745,7 +752,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         disabled={viewRole === 'evaluator'}
                         value={selectedAgent.config.speakingSpeed.value}
                         onChange={(e) => handleFieldChange('speakingSpeed', e.target.value)}
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       />
                       <p className="text-xs text-[#64748b] mt-0.5">
                         Multiplier on Sam&apos;s spoken pace (1.0 = normal).
@@ -767,7 +774,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         disabled={viewRole === 'evaluator'}
                         value={selectedAgent.config.temperature.value}
                         onChange={(e) => handleFieldChange('temperature', e.target.value)}
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       />
                       <p className="text-xs text-[#64748b] mt-0.5">
                         Sampling temperature. 0 keeps runs deterministic for identical inputs.
@@ -802,7 +809,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         disabled={viewRole === 'evaluator'}
                         value={selectedAgent.config.turnDetection.value}
                         onChange={(e) => handleFieldChange('turnDetection', e.target.value)}
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       >
                         <option value="semantic_vad">semantic_vad</option>
                         <option value="server_vad">server_vad</option>
@@ -845,7 +852,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         disabled={viewRole === 'evaluator'}
                         value={selectedAgent.config.responseEagerness.value}
                         onChange={(e) => handleFieldChange('responseEagerness', e.target.value)}
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       >
                         <option value="low">low</option>
                         <option value="auto">auto</option>
@@ -889,7 +896,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         disabled={viewRole === 'evaluator'}
                         value={selectedAgent.config.inputNoiseReduction.value}
                         onChange={(e) => handleFieldChange('inputNoiseReduction', e.target.value)}
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       >
                         <option value="far_field">far_field</option>
                         <option value="near_field">near_field</option>
@@ -919,7 +926,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         onChange={(e) =>
                           handleFieldChange('uploadWaitBeforeReminder', e.target.value)
                         }
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       />
                       <p className="text-xs text-[#64748b] mt-0.5">
                         How long Sam waits after asking for a document before a single gentle
@@ -943,7 +950,7 @@ export const AgentManagement: React.FC<AgentManagementProps> = ({
                         value={noteInput}
                         onChange={(e) => setNoteInput(e.target.value)}
                         placeholder="What changed and why"
-                        className="w-full rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] placeholder:text-[#94a3b8] focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
+                        className="w-full rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2.5 text-xs text-[#0d212c] placeholder:text-[#94a3b8] focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition"
                       />
                     </div>
                   )}

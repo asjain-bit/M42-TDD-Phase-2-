@@ -33,14 +33,23 @@ describe('DiscoveryCallStage', () => {
     renderStage(base, 'director', { onAction })
     expect(screen.getByRole('heading', { name: 'Discovery Call' })).toBeInTheDocument()
     expect(
-      screen.getByText(/Hold the call on Teams or elsewhere, then upload the transcripts/)
+      screen.getByText(/Hold the call on Teams or elsewhere, then confirm it has been completed/)
     ).toBeInTheDocument()
     // No in-app call any more
     expect(screen.queryByRole('radiogroup', { name: 'Call format' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Start call/ })).not.toBeInTheDocument()
 
-    const generate = screen.getByRole('button', { name: /Generate summary/ })
-    expect(generate).toBeDisabled()
+    // Nothing can be uploaded until the Director acknowledges the call took place
+    expect(screen.queryByLabelText('Upload transcripts')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'I acknowledge that the discovery call has been completed',
+      })
+    )
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    // Generate summary is available from the start
+    expect(screen.getByRole('button', { name: /Generate summary/ })).toBeEnabled()
     expect(screen.getByText('0 transcripts ready.')).toBeInTheDocument()
     await user.upload(screen.getByLabelText('Upload transcripts'), [
       file('call.vtt'),
@@ -70,6 +79,12 @@ describe('DiscoveryCallStage', () => {
     const onAction = vi.fn()
     const onNext = vi.fn()
     renderStage(base, 'director', { onAction, onNext })
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'I acknowledge that the discovery call has been completed',
+      })
+    )
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
     await user.click(screen.getByRole('button', { name: 'Skip' }))
     expect(onAction).toHaveBeenCalledWith({ type: 'proceedToValue' })
     expect(onNext).toHaveBeenCalledTimes(1)

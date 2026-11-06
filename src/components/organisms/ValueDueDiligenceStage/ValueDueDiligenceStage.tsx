@@ -9,20 +9,21 @@
  * Used in: PartnershipDetail
  */
 
-import React, { useState } from 'react'
-import { AlertCircle, CheckCircle2, FileClock, FileText, X } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, CheckCircle2, FileClock, FileText, Sparkles, X } from 'lucide-react'
 import { Checkbox } from '@/components/atoms/Checkbox'
+import { Skeleton } from '@/components/atoms/Skeleton'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { FilePicker } from '@/components/molecules/FilePicker'
 import { TddReport } from '@/components/organisms/TddReport'
 import { DocumentFileCard } from '@/components/molecules/DocumentFileCard'
 import { DocumentViewer } from '@/components/organisms/DocumentViewer'
 import {
-  CallFormatChoice,
-  PlatformCallRoom,
-  defaultCallAttendees,
-  type CallFormat,
-} from '@/components/organisms/PlatformCallRoom'
+  FileRow,
+  SummaryDocument,
+  formatSize,
+  summaryText,
+} from '@/components/organisms/DiscoveryCallStage'
 import { StageFooter } from '@/components/molecules/StageFooter'
 import { StrategyDecisionModal } from '@/components/organisms/StrategyDecisionModal'
 import type { ValueDueDiligenceStageProps } from './ValueDueDiligenceStage.types'
@@ -45,6 +46,12 @@ const Section: React.FC<{
     {children}
   </section>
 )
+
+/** How long the agent takes to write the summary */
+const SUMMARY_MS = 2000
+
+/** Cases whose TDD report has already been shown being generated, so it plays once each */
+const reportsShown = new Set<string>()
 
 const Chip: React.FC<{ tone: 'good' | 'bad'; children: React.ReactNode }> = ({
   tone,
@@ -75,10 +82,67 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
   const [confirmFinal, setConfirmFinal] = useState<'yes' | 'no' | null>(null)
   // The TDD report open in the document viewer
   const [viewingReport, setViewingReport] = useState(false)
-  const held = value.platformCall
-  const [format, setFormat] = useState<CallFormat>(held ? 'platform' : 'outside')
 
   const needsDecision = Boolean(value.businessCase) && !decision
+
+  // The business case and any notes picked but not saved yet; the summary step saves them
+  const [picked, setPicked] = useState<File[]>([])
+  const [writing, setWriting] = useState(false)
+  const [previewingSummary, setPreviewingSummary] = useState(false)
+  const addFiles = (files: File[]) =>
+    setPicked((prev) => [
+      ...prev,
+      ...files.filter((f) => !prev.some((p) => p.name === f.name && p.size === f.size)),
+    ])
+  // The first file is the business case; any others are meeting notes or transcripts
+  const [pickedCase, ...pickedNotes] = picked
+  useEffect(() => {
+    if (!writing || !pickedCase) return
+    const t = setTimeout(() => {
+      onAction({
+        type: 'businessCase',
+        name: pickedCase.name,
+        files: pickedNotes.map((f) => ({ name: f.name, size: formatSize(f.size) })),
+      })
+      setPicked([])
+      setWriting(false)
+    }, SUMMARY_MS)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [writing])
+
+  // The TDD report is written once when it is first opened, with the same subtle animation
+  const [generatingReport, setGeneratingReport] = useState(
+    () => Boolean(value.tddGeneratedOn) && !reportsShown.has(request.requestCode)
+  )
+  const reportReady = Boolean(value.tddGeneratedOn) && !generatingReport
+  useEffect(() => {
+    if (!value.tddGeneratedOn || reportsShown.has(request.requestCode)) return
+    setGeneratingReport(true)
+    const t = setTimeout(() => {
+      reportsShown.add(request.requestCode)
+      setGeneratingReport(false)
+    }, SUMMARY_MS)
+    return () => clearTimeout(t)
+  }, [value.tddGeneratedOn, request.requestCode])
+
+  const summary = value.summary
+  const summaryMeta = summary
+    ? `Value assessment summary · from the business case${
+        summary.transcriptCount > 0
+          ? ` and ${summary.transcriptCount} ${summary.transcriptCount === 1 ? 'note' : 'notes'}`
+          : ''
+      } · generated ${summary.generatedOn}`
+    : ''
+  const downloadHref = useMemo(
+    () =>
+      summary
+        ? `data:text/plain;charset=utf-8,${encodeURIComponent(
+            summaryText(`Value assessment summary · ${request.companyName}`, summary.content)
+          )}`
+        : '',
+    [summary, request.companyName]
+  )
 
   return (
     <div className={`flex flex-col gap-10 w-full ${className}`.trim()}>
@@ -92,44 +156,20 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
 
       <Section
         title="Value assessment call"
-        subtitle={
-          held
-            ? 'The call was held on the platform; the listening agent wrote the summary below.'
-            : format === 'platform'
-              ? 'Hold the call here. The agent listens and writes a summary; it does not speak.'
-              : 'The call happens outside the portal. Confirm it took place.'
-        }
         badge={
-          value.callConfirmedOn ? (
+          value.callConfirmedOn && (
             <Chip tone="good">
               <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
               Value assessment call completed on {value.callConfirmedOn}
             </Chip>
-          ) : (
-            isSponsor && (
-              <CallFormatChoice name="value-call-format" value={format} onChange={setFormat} />
-            )
           )
         }
       >
-        {held || (format === 'platform' && !value.callConfirmedOn) ? (
-          <PlatformCallRoom
-            callType="value"
-            caseCode={request.requestCode}
-            request={request}
-            hostName="Rashid Al-Nuaimi"
-            canHost={isSponsor && !value.callConfirmedOn}
-            defaultAttendees={defaultCallAttendees(request, 'Rashid Al-Nuaimi')}
-            saved={held}
-            onComplete={(attendees, questions) =>
-              onAction({ type: 'platformCall', callType: 'value', attendees, questions })
-            }
-          />
-        ) : value.callConfirmedOn ? null : isSponsor ? (
+        {value.callConfirmedOn ? null : isSponsor ? (
           <Checkbox
             checked={false}
             onChange={() => onAction({ type: 'confirmValueCall' })}
-            label="I confirm the value assessment call has been completed"
+            label="I acknowledge that the value assessment call has been completed"
           />
         ) : (
           <span className="text-xs text-[#64748b]">Waiting for the lead sponsor.</span>
@@ -139,24 +179,99 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
       {value.callConfirmedOn && (
         <Section title="Business case">
           {value.businessCase ? (
-            <div className="flex items-center gap-3 rounded-xl border border-[#e2e8f0] bg-white px-4 py-3">
-              <FileText className="w-5 h-5 text-[#2563eb] shrink-0" aria-hidden="true" />
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium text-[#0d212c] truncate">
-                  {value.businessCase.name}
-                </span>
-                <span className="text-xs text-[#64748b]">
-                  {value.businessCase.uploadedBy} · {value.businessCase.uploadedOn}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3 rounded-xl border border-[#e2e8f0] bg-white px-4 py-3">
+                <FileText className="w-5 h-5 text-[#2563eb] shrink-0" aria-hidden="true" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-[#0d212c] truncate">
+                    {value.businessCase.name}
+                  </span>
+                  <span className="text-xs text-[#64748b]">
+                    {value.businessCase.uploadedBy} · {value.businessCase.uploadedOn}
+                  </span>
+                </div>
+              </div>
+              {(value.transcripts ?? []).length > 0 && (
+                <ul
+                  aria-label="Meeting notes and transcripts"
+                  className="rounded-xl border border-border-default divide-y divide-[#d3dbe4] bg-bg-default"
+                >
+                  {(value.transcripts ?? []).map((f) => (
+                    <FileRow
+                      key={f.name}
+                      name={f.name}
+                      meta={[f.size, `${f.uploadedBy} · ${f.uploadedOn}`]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    />
+                  ))}
+                </ul>
+              )}
+              {summary && (
+                <DocumentFileCard
+                  fileName={summary.fileName}
+                  meta={summaryMeta}
+                  onPreview={() => setPreviewingSummary(true)}
+                />
+              )}
+            </div>
+          ) : writing ? (
+            <section
+              role="status"
+              aria-label="Writing the value assessment summary"
+              className="rounded-xl border border-border-default bg-bg-default px-4 py-4 flex flex-col gap-3"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles
+                  className="w-4 h-4 text-[var(--app-accent)]"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
+                <span className="text-sm font-semibold text-text-primary">
+                  Writing the value assessment summary…
                 </span>
               </div>
-            </div>
+              <p className="text-xs text-text-tertiary">
+                Reading the business case · Pulling out key points · Listing next steps
+              </p>
+              <div className="flex items-center gap-4">
+                <Skeleton className="w-10 h-[52px] rounded-[3px] shrink-0" />
+                <div className="flex-1 flex flex-col gap-2">
+                  <Skeleton className="h-3.5 w-1/2" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              </div>
+            </section>
           ) : isSponsor ? (
-            <FilePicker
-              label="Upload business case"
-              hint="PDF, Word, PowerPoint or Excel"
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
-              onPick={(names) => onAction({ type: 'businessCase', name: names[0] })}
-            />
+            <div className="flex flex-col gap-4">
+              {picked.length > 0 && (
+                <ul
+                  aria-label="Files to upload"
+                  className="rounded-xl border border-border-default divide-y divide-[#d3dbe4] bg-bg-default"
+                >
+                  {picked.map((f, i) => (
+                    <FileRow
+                      key={`${f.name}-${f.size}`}
+                      name={f.name}
+                      meta={`${i === 0 ? 'Business case' : 'Meeting notes or transcript'} · ${formatSize(f.size)}`}
+                      onRemove={() => setPicked((prev) => prev.filter((p) => p !== f))}
+                    />
+                  ))}
+                </ul>
+              )}
+              <FilePicker
+                label={
+                  picked.length > 0
+                    ? 'Add more files'
+                    : 'Upload business case, meeting notes or transcript'
+                }
+                hint="The first file is the business case. PDF, Word, PowerPoint, Excel, VTT or TXT · up to 20 MB each"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.vtt,.txt"
+                maxSizeMb={20}
+                multiple
+                onPickFiles={addFiles}
+              />
+            </div>
           ) : (
             <span className="text-xs text-[#64748b]">Waiting for the lead sponsor.</span>
           )}
@@ -192,7 +307,7 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
         <Section
           title="Technical due diligence"
           badge={
-            value.tddGeneratedOn && (
+            reportReady && (
               <Chip tone="good">
                 <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                 TDD report generated on {value.tddGeneratedOn}
@@ -200,7 +315,34 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
             )
           }
         >
-          {value.tddGeneratedOn ? (
+          {generatingReport ? (
+            <section
+              role="status"
+              aria-label="Generating the TDD report"
+              className="rounded-xl border border-border-default bg-bg-default px-4 py-4 flex flex-col gap-3"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles
+                  className="w-4 h-4 text-[var(--app-accent)]"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
+                <span className="text-sm font-semibold text-text-primary">
+                  Generating the TDD report…
+                </span>
+              </div>
+              <p className="text-xs text-text-tertiary">
+                Reading the assessment rounds · Pulling out findings · Writing the report
+              </p>
+              <div className="flex items-center gap-4">
+                <Skeleton className="w-10 h-[52px] rounded-[3px] shrink-0" />
+                <div className="flex-1 flex flex-col gap-2">
+                  <Skeleton className="h-3.5 w-1/2" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              </div>
+            </section>
+          ) : value.tddGeneratedOn ? (
             // The report as a file; View opens it in the document viewer, like the NDA
             <DocumentFileCard
               fileName={`TDD_Report_${request.requestCode}.pdf`}
@@ -220,13 +362,13 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
               </span>
             </div>
           )}
-          {viewingReport && value.tddGeneratedOn && (
+          {viewingReport && reportReady && (
             <DocumentViewer
               fileName={`TDD_Report_${request.requestCode}.pdf`}
               contentLabel="Technical due diligence report"
               onClose={() => setViewingReport(false)}
             >
-              <header className="flex flex-col gap-1 pb-5 mb-6 border-b border-[#e2e8f0]">
+              <header className="flex flex-col gap-1 pb-1 mb-6">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-[#64748b]">
                   Technical due diligence report
                 </span>
@@ -241,7 +383,7 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
         </Section>
       )}
 
-      {value.tddGeneratedOn && (
+      {reportReady && (
         <Section
           title="Sponsorship"
           badge={
@@ -260,6 +402,41 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
             </span>
           )}
         </Section>
+      )}
+
+      {isSponsor && value.callConfirmedOn && !value.businessCase && !writing && (
+        <StageFooter>
+          <span className="text-sm text-[#475569]">
+            {pickedCase
+              ? 'Ready to generate the value assessment summary.'
+              : 'Upload the business case to generate the summary.'}
+          </span>
+          <button
+            type="button"
+            disabled={!pickedCase}
+            onClick={() => setWriting(true)}
+            className="h-10 px-5 rounded-lg bg-[#36c0c9] hover:bg-[#2fb0b9] disabled:bg-slate-300 disabled:cursor-not-allowed text-sm font-semibold text-white shadow-xs cursor-pointer transition inline-flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+            Generate summary
+          </button>
+        </StageFooter>
+      )}
+
+      {previewingSummary && summary && (
+        <DocumentViewer
+          fileName={summary.fileName}
+          downloadHref={downloadHref}
+          downloadName={summary.fileName.replace(/\.pdf$/, '.txt')}
+          contentLabel="Value assessment summary"
+          onClose={() => setPreviewingSummary(false)}
+        >
+          <SummaryDocument
+            title={`Value assessment summary · ${request.companyName}`}
+            meta={`${request.requestCode} · ${summaryMeta}`}
+            content={summary.content}
+          />
+        </DocumentViewer>
       )}
 
       {isSponsor && needsDecision && (
@@ -287,7 +464,7 @@ export const ValueDueDiligenceStage: React.FC<ValueDueDiligenceStageProps> = ({
         </StageFooter>
       )}
 
-      {isSponsor && value.tddGeneratedOn && !final && (
+      {isSponsor && reportReady && !final && (
         <StageFooter>
           <span className="text-sm text-[#475569]">Do you want to sponsor this partnership?</span>
           <div className="flex items-center gap-3">

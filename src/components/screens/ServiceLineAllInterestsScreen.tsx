@@ -7,10 +7,18 @@
  * Used in: ServiceLineInterestScreen (Internal Interest Team)
  */
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { SearchBar } from '@/components/molecules/SearchBar'
+import { StatusFilterChips } from '@/components/molecules/StatusFilterChips'
 import { InterestDrawer } from '@/components/organisms/InterestDrawer'
 import { InterestTable } from '@/components/organisms/InterestTable'
-import type { PartnershipRequest, ServiceLineInterest } from '@/types/partnership.types'
+import type {
+  InterestStatus,
+  PartnershipRequest,
+  ServiceLineInterest,
+} from '@/types/partnership.types'
+
+const STATUSES: InterestStatus[] = ['Pending review', 'Approved', 'Declined']
 
 export interface ServiceLineAllInterestsScreenProps {
   interests: ServiceLineInterest[]
@@ -29,6 +37,30 @@ export const ServiceLineAllInterestsScreen: React.FC<ServiceLineAllInterestsScre
     if (focusCode) setOpenCode(focusCode)
   }, [focusCode])
   const open = interests.find((i) => i.code === openCode) ?? null
+  const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
+
+  const chips = [
+    { key: 'all', label: 'All interests', count: interests.length },
+    ...STATUSES.map((s) => ({
+      key: s,
+      label: s,
+      count: interests.filter((i) => i.status === s).length,
+    })),
+  ]
+  const term = search.trim().toLowerCase()
+  const rows = useMemo(
+    () =>
+      interests.filter(
+        (i) =>
+          (filter === 'all' || i.status === filter) &&
+          (!term ||
+            [i.code, i.title, i.serviceLine, ...i.focusAreas].some((v) =>
+              v.toLowerCase().includes(term)
+            ))
+      ),
+    [interests, filter, term]
+  )
 
   return (
     <div className="flex flex-col gap-6 w-full text-text-primary">
@@ -38,12 +70,27 @@ export const ServiceLineAllInterestsScreen: React.FC<ServiceLineAllInterestsScre
           may meet it.
         </p>
       </div>
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <StatusFilterChips chips={chips} selected={filter} onSelect={setFilter} />
+        <div className="w-full sm:w-72 shrink-0">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search interests..."
+            showButton={false}
+          />
+        </div>
+      </div>
       <InterestTable
-        interests={interests}
+        interests={rows}
         onOpen={setOpenCode}
         selectedCode={openCode}
         detailed
-        emptyText="No interests have been raised yet."
+        emptyText={
+          interests.length === 0
+            ? 'No interests have been raised yet.'
+            : 'No interests match your search or filter.'
+        }
       />
       {open && (
         <InterestDrawer

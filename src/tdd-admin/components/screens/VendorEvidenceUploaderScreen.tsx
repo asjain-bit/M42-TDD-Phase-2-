@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { AlertTriangle, CheckCircle2, Upload, X } from 'lucide-react'
+import { VendorAccessGate } from './VendorAccessGate'
 
 interface VendorEvidenceUploaderScreenProps {
   onExit: () => void
@@ -75,6 +76,8 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
   })
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  // The follow-up form opens only after the vendor's email is verified with an OTP
+  const [isVerified, setIsVerified] = useState(false)
 
   const handleFileUpload = (questionId: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -89,6 +92,19 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
     setHasChanges(true)
     e.target.value = ''
   }
+
+  if (!isVerified) {
+    return (
+      <VendorAccessGate
+        vendorName="Presight AI | See the Future Today"
+        caseId="PR-126"
+        onVerified={() => setIsVerified(true)}
+      />
+    )
+  }
+
+  const answeredCount = FOLLOW_UP_QUESTIONS.filter((q) => (answers[q.id] || '').trim()).length
+  const evidenceCount = FOLLOW_UP_QUESTIONS.filter((q) => files[q.id]).length
 
   return (
     <div className="min-h-screen w-full bg-[#f8fafc] text-[#0d212c] font-sans antialiased flex flex-col">
@@ -121,102 +137,127 @@ export const VendorEvidenceUploaderScreen: React.FC<VendorEvidenceUploaderScreen
         </main>
       ) : (
         <>
-          <main className="flex-1 w-full max-w-4xl mx-auto px-8 py-8 flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-extrabold text-[#0d212c]">Follow-up questions</h1>
-              <p className="text-xs text-[#64748b]">
-                Review your answers, update them where needed and upload the required evidence
-                before submitting.
-              </p>
+          <main className="flex-1 w-full max-w-6xl mx-auto px-6 sm:px-10 py-8 flex flex-col gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <h1 className="text-xl font-extrabold text-[#0d212c]">Follow-up questions</h1>
+                <p className="text-xs text-[#64748b] max-w-xl leading-relaxed">
+                  Review your answers, update them where needed and upload the required evidence
+                  before submitting.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-[#475569] shrink-0">
+                <span className="px-2.5 py-1 rounded-full bg-white border border-[#e2e8f0] whitespace-nowrap">
+                  {answeredCount} of {FOLLOW_UP_QUESTIONS.length} answered
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-white border border-[#e2e8f0] whitespace-nowrap">
+                  {evidenceCount} evidence uploaded
+                </span>
+              </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-[#e2e8f0] shadow-xs divide-y divide-[#e2e8f0]/80">
-              {FOLLOW_UP_QUESTIONS.map((q) => {
+            <div className="flex flex-col gap-5">
+              {FOLLOW_UP_QUESTIONS.map((q, index) => {
                 const evidenceFile = files[q.id]
                 return (
-                  <div key={q.id} className="py-6 first:pt-0 last:pb-0 flex flex-col gap-3">
-                    <h4 className="font-bold text-[#0d212c] text-sm">
-                      {q.id}. [{q.category}] {q.question}
-                    </h4>
-
-                    <div className="flex flex-col gap-1.5">
-                      <label
-                        htmlFor={`vendor-answer-${q.id}`}
-                        className="text-xs font-bold text-[#0d212c]"
-                      >
-                        Answer
-                      </label>
-                      <textarea
-                        id={`vendor-answer-${q.id}`}
-                        rows={3}
-                        value={answers[q.id] || ''}
-                        onChange={(e) => {
-                          setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                          setHasChanges(true)
-                        }}
-                        placeholder="Type your answer..."
-                        className="w-full px-4 py-3 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none"
-                      />
-                    </div>
-
-                    {/* Evidence — the admin's reason (when given), a divider, then the one file */}
-                    <div className="p-4 sm:p-5 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] flex flex-col gap-4">
-                      {q.reason && (
-                        <>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs font-bold text-[#0d212c]">Reason</span>
-                            <p className="text-xs font-medium text-[#475569] leading-relaxed">
-                              {q.reason}
-                            </p>
-                          </div>
-                          <div className="h-px bg-[#e2e8f0]" />
-                        </>
-                      )}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex flex-col gap-2.5 min-w-0 flex-1">
-                          {!evidenceFile ? (
-                            <span className="text-xs font-bold text-[#0d212c]">
-                              No evidence uploaded as of now
-                            </span>
-                          ) : (
-                            <div className="p-3 rounded-xl border border-[#e2e8f0] bg-white inline-flex items-center gap-2.5 text-xs w-full sm:w-auto sm:self-start min-w-0 sm:min-w-[280px] sm:max-w-[360px] shadow-2xs">
-                              <div className="px-2.5 py-1 rounded-lg bg-[#eff6ff] text-[#2563eb] font-bold text-[10px] shrink-0">
-                                {evidenceFile.type}
-                              </div>
-                              <div className="min-w-0">
-                                <h5
-                                  className="font-bold text-xs text-[#0d212c] truncate"
-                                  title={evidenceFile.name}
-                                >
-                                  {evidenceFile.name}
-                                </h5>
-                                <span className="text-[10px] text-[#64748b] block">
-                                  {evidenceFile.size} • {evidenceFile.date}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <label className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-[#0d7280] text-[#0d7280] hover:bg-[#f0fdfa] font-bold text-xs cursor-pointer transition shadow-2xs shrink-0 self-start sm:self-center">
-                          <Upload className="w-3.5 h-3.5 text-[#0d7280]" />
-                          <span>{evidenceFile ? 'Re-upload evidence' : 'Upload evidence'}</span>
-                          <input
-                            type="file"
-                            className="hidden"
-                            onChange={(e) => handleFileUpload(q.id, e)}
-                          />
-                        </label>
+                  <section
+                    key={q.id}
+                    className="bg-white rounded-xl border border-[#e2e8f0] shadow-xs overflow-hidden"
+                  >
+                    <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-start gap-3">
+                      <span className="w-6 h-6 rounded-full bg-[#ddf7f9] text-[#0d7280] text-[11px] font-bold flex items-center justify-center shrink-0 mt-px">
+                        {index + 1}
+                      </span>
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">
+                          {q.category}
+                        </span>
+                        <h4 className="font-bold text-[#0d212c] text-sm leading-snug">
+                          {q.question}
+                        </h4>
                       </div>
                     </div>
-                  </div>
+
+                    <div className="p-6 flex flex-col gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label
+                          htmlFor={`vendor-answer-${q.id}`}
+                          className="text-xs font-bold text-[#0d212c]"
+                        >
+                          Your answer
+                        </label>
+                        <textarea
+                          id={`vendor-answer-${q.id}`}
+                          rows={3}
+                          value={answers[q.id] || ''}
+                          onChange={(e) => {
+                            setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                            setHasChanges(true)
+                          }}
+                          placeholder="Type your answer..."
+                          className="w-full px-3.5 py-2.5 rounded-md border border-[#e2e8f0] hover:border-[#cbd5e1] focus:border-[#94a3b8] text-xs font-medium text-[#0d212c] leading-relaxed outline-none bg-white resize-none transition-colors placeholder:text-[#94a3b8]"
+                        />
+                      </div>
+
+                      {/* Evidence — the admin's reason (when given), a divider, then the one file */}
+                      <div className="p-4 sm:p-5 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] flex flex-col gap-4">
+                        {q.reason && (
+                          <>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs font-bold text-[#0d212c]">Reason</span>
+                              <p className="text-xs font-medium text-[#475569] leading-relaxed">
+                                {q.reason}
+                              </p>
+                            </div>
+                            <div className="h-px bg-[#d3dbe4]" />
+                          </>
+                        )}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex flex-col gap-2.5 min-w-0 flex-1">
+                            {!evidenceFile ? (
+                              <span className="text-xs font-bold text-[#0d212c]">
+                                No evidence uploaded as of now
+                              </span>
+                            ) : (
+                              <div className="p-3 rounded-lg border border-[#e2e8f0] bg-white inline-flex items-center gap-2.5 text-xs w-full sm:w-auto sm:self-start min-w-0 sm:min-w-[280px] sm:max-w-[360px] shadow-2xs">
+                                <div className="px-2.5 py-1 rounded-md bg-[#eff6ff] text-[#2563eb] font-bold text-[10px] shrink-0">
+                                  {evidenceFile.type}
+                                </div>
+                                <div className="min-w-0">
+                                  <h5
+                                    className="font-bold text-xs text-[#0d212c] truncate"
+                                    title={evidenceFile.name}
+                                  >
+                                    {evidenceFile.name}
+                                  </h5>
+                                  <span className="text-[10px] text-[#64748b] block">
+                                    {evidenceFile.size} • {evidenceFile.date}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <label className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-[#0d7280] text-[#0d7280] hover:bg-[#f0fdfa] font-bold text-xs cursor-pointer transition shadow-2xs shrink-0 self-start sm:self-center">
+                            <Upload className="w-3.5 h-3.5 text-[#0d7280]" />
+                            <span>{evidenceFile ? 'Re-upload evidence' : 'Upload evidence'}</span>
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => handleFileUpload(q.id, e)}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
                 )
               })}
             </div>
           </main>
 
           <footer className="sticky bottom-0 bg-white border-t border-[#e2e8f0]">
-            <div className="max-w-4xl mx-auto px-8 py-4 flex items-center justify-end gap-3">
+            <div className="max-w-6xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-end gap-3">
               <button
                 onClick={() => setShowCancelConfirm(true)}
                 className="px-5 py-2.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"

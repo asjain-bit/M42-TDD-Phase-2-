@@ -1146,17 +1146,59 @@ export const confirmValueCall = (r: PartnershipRequest): PartnershipRequest =>
     }
   )
 
-export const uploadBusinessCase = (r: PartnershipRequest, name: string): PartnershipRequest =>
-  appendAudit(
+export const uploadBusinessCase = (
+  r: PartnershipRequest,
+  name: string,
+  files: { name: string; size: string }[] = []
+): PartnershipRequest => {
+  const on = todayLabel()
+  const transcripts = files.map((f) => ({
+    name: f.name,
+    size: f.size,
+    uploadedOn: on,
+    uploadedBy: SPONSOR_NAME,
+  }))
+  const withCase = appendAudit(
     {
       ...r,
       value: {
         ...r.value,
-        businessCase: { name, uploadedOn: todayLabel(), uploadedBy: SPONSOR_NAME },
+        businessCase: { name, uploadedOn: on, uploadedBy: SPONSOR_NAME },
+        ...(transcripts.length ? { transcripts } : {}),
       },
     },
-    { title: 'Business case uploaded', description: name, actor: SPONSOR_ACTOR, kind: 'user' }
+    {
+      title: 'Business case uploaded',
+      description: [name, ...files.map((f) => f.name)].join(', '),
+      actor: SPONSOR_ACTOR,
+      kind: 'user',
+    }
   )
+  return appendAudit(
+    {
+      ...withCase,
+      value: {
+        ...withCase.value,
+        summary: {
+          fileName: 'Value-assessment-summary.pdf',
+          generatedOn: on,
+          transcriptCount: transcripts.length,
+          content: buildCallSummary(r, 'value', []),
+        },
+      },
+    },
+    {
+      title: 'Value assessment summary generated',
+      description: transcripts.length
+        ? `From the business case and ${transcripts.length} ${
+            transcripts.length === 1 ? 'note' : 'notes'
+          }.`
+        : 'From the business case.',
+      actor: AGENT_ACTOR,
+      kind: 'agent',
+    }
+  )
+}
 
 /** The sponsor's call on the business case. Proceed moves to due diligence, reject closes the case. */
 export const decideValue = (
@@ -1414,7 +1456,7 @@ export type CaseAction =
     }
   | { type: 'proceedToValue' }
   | { type: 'confirmValueCall' }
-  | { type: 'businessCase'; name: string }
+  | { type: 'businessCase'; name: string; files?: { name: string; size: string }[] }
   | { type: 'valueDecision'; status: 'proceeded' | 'rejected'; reason: string }
   | { type: 'generateTdd' }
   | { type: 'finalSponsor'; sponsor: boolean }
@@ -1459,7 +1501,7 @@ export const applyCaseAction = (r: PartnershipRequest, action: CaseAction): Part
     case 'confirmValueCall':
       return confirmValueCall(r)
     case 'businessCase':
-      return uploadBusinessCase(r, action.name)
+      return uploadBusinessCase(r, action.name, action.files)
     case 'valueDecision':
       return decideValue(r, action.status, action.reason)
     case 'generateTdd':

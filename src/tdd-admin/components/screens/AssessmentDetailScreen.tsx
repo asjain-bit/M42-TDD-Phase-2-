@@ -935,7 +935,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                     onChange={(e) => setEmailQuestionSearch(e.target.value)}
                     placeholder="Search questions..."
                     aria-label="Search questions"
-                    className="w-full pl-10 pr-4 py-1.5 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
+                    className="w-full pl-10 pr-4 py-1.5 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
                   />
                 </div>
               </div>
@@ -1046,7 +1046,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                               }))
                             }
                             placeholder="Add a reason for the vendor..."
-                            className="w-full px-3 py-2 rounded-xl border border-[#cbd5e1] text-[11px] font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none cursor-text"
+                            className="w-full px-3 py-2 rounded-md border border-[#e2e8f0] text-[11px] font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none cursor-text"
                           />
                         </div>
                       </div>
@@ -1107,7 +1107,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                 onChange={(e) => setCancelReason(e.target.value)}
                 rows={4}
                 placeholder="Describe the reason for cancelling this meeting..."
-                className="w-full px-4 py-3 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none"
+                className="w-full px-4 py-3 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1156,7 +1156,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                 value={rescheduleDate}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setRescheduleDate(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
+                className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
               />
             </div>
 
@@ -1170,7 +1170,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                   type="time"
                   value={rescheduleStart}
                   onChange={(e) => setRescheduleStart(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
+                  className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -1182,7 +1182,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                   type="time"
                   value={rescheduleEnd}
                   onChange={(e) => setRescheduleEnd(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
+                  className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
                 />
               </div>
             </div>
@@ -1212,7 +1212,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                   }
                 }}
                 placeholder="Enter email and press Enter..."
-                className="w-full px-4 py-2.5 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
               />
               <div className="flex items-center justify-between text-[11px] text-[#64748b]">
                 <span>Maximum {MAX_MEETING_RECIPIENTS} recipients can be added</span>
@@ -1256,7 +1256,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                 value={rescheduleReason}
                 onChange={(e) => setRescheduleReason(e.target.value)}
                 placeholder="e.g. Schedule conflict requested by facility (optional)"
-                className="w-full px-4 py-2.5 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
+                className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white"
               />
             </div>
 
@@ -1752,7 +1752,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                       <select
                         value={playbackSpeed}
                         onChange={(e) => setPlaybackSpeed(e.target.value)}
-                        className="px-2.5 py-1.5 rounded-xl border border-[#cbd5e1] bg-white text-xs font-bold text-[#0d212c] outline-none cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-md border border-[#cbd5e1] bg-white text-xs font-bold text-[#0d212c] outline-none cursor-pointer"
                         title="Playback speed"
                       >
                         <option value="0.75">0.75x</option>
@@ -1926,7 +1926,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                               aria-checked={isSelected}
                                               disabled={isCurrent}
                                               onClick={() => setNewConfidence(level)}
-                                              className={`w-full text-left flex items-start gap-3 p-3.5 rounded-xl border transition ${
+                                              className={`w-full text-left flex items-start gap-3 p-3.5 rounded-md border transition ${
                                                 isCurrent
                                                   ? 'bg-[#f1f5f9] border-[#f1f5f9] cursor-not-allowed'
                                                   : isSelected
@@ -1979,7 +1979,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                             maxLength={CONFIDENCE_REASON_MAX}
                                             rows={3}
                                             placeholder="Enter the reason for changing the confidence"
-                                            className="w-full px-3.5 pt-3 pb-6 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none"
+                                            className="w-full px-3.5 pt-3 pb-6 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none focus:border-[#94a3b8] bg-white resize-none"
                                           />
                                           <span className="absolute right-3 bottom-2.5 text-[10px] text-[#64748b]">
                                             {confidenceReason.length}/{CONFIDENCE_REASON_MAX}
@@ -2138,7 +2138,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
 
                             {/* Upload Evidence button when attachments already exist */}
                             {attachmentsForQuestion.length > 0 && canUpload && (
-                              <label className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#0d7280] text-[#0d7280] hover:bg-[#f0fdfa] font-bold text-xs cursor-pointer transition shadow-2xs shrink-0 self-start lg:self-center">
+                              <label className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-[#0d7280] text-[#0d7280] hover:bg-[#f0fdfa] font-bold text-xs cursor-pointer transition shadow-2xs shrink-0 self-start lg:self-center">
                                 <Upload className="w-3.5 h-3.5 text-[#0d7280]" />
                                 <span>Upload evidence</span>
                                 <input
@@ -2166,7 +2166,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                 </div>
 
                                 {canUpload && (
-                                  <label className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#0d7280] text-[#0d7280] hover:bg-[#f0fdfa] font-bold text-xs cursor-pointer transition shadow-2xs shrink-0 self-start sm:self-center">
+                                  <label className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-[#0d7280] text-[#0d7280] hover:bg-[#f0fdfa] font-bold text-xs cursor-pointer transition shadow-2xs shrink-0 self-start sm:self-center">
                                     <Upload className="w-3.5 h-3.5 text-[#0d7280]" />
                                     <span>Upload evidence</span>
                                     <input
@@ -2259,7 +2259,7 @@ export const AssessmentDetailScreen: React.FC<AssessmentDetailScreenProps> = ({
                                           maxLength={500}
                                           placeholder="Write your review comment here..."
                                           rows={2}
-                                          className={`w-full p-2.5 pb-6 rounded-xl border text-xs text-[#0d212c] outline-none resize-none transition ${
+                                          className={`w-full p-2.5 pb-6 rounded-md border text-xs text-[#0d212c] outline-none resize-none transition ${
                                             isCommentLimitReached
                                               ? 'border-red-400 bg-red-50/20 focus:border-red-500'
                                               : 'border-[#e2e8f0] bg-[#f8fafc] focus:border-[#cbd5e1]'

@@ -489,7 +489,7 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
                   value={newQuestionText}
                   onChange={(e) => setNewQuestionText(e.target.value)}
                   required
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none bg-white"
+                  className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none bg-white"
                 />
               </div>
 
@@ -503,7 +503,7 @@ export const QuestionnaireDetailScreen: React.FC<QuestionnaireDetailScreenProps>
                   onChange={(e) => setNewResponseCue(e.target.value)}
                   required
                   rows={3}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#cbd5e1] text-xs font-medium text-[#0d212c] outline-none bg-white resize-y"
+                  className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs font-medium text-[#0d212c] outline-none bg-white resize-y"
                 />
               </div>
 

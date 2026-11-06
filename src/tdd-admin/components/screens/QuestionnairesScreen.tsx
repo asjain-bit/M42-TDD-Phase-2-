@@ -600,7 +600,7 @@ export const QuestionnairesScreen: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full p-4 text-[#0d212c]">
+    <div className="flex flex-col gap-6 w-full p-6 text-[#0d212c]">
       {/* Toast Notification — subtle light semantic styling */}
       {toastMessage && (
         <div className="fixed top-4 right-4 z-50 bg-[#f0fdf4] text-[#15803d] px-4 py-3 rounded-xl shadow-md border border-[#bbf7d0] flex items-center gap-3 animate-in slide-in-from-top duration-300">
@@ -633,7 +633,7 @@ export const QuestionnairesScreen: React.FC = () => {
                 setSearchTerm(e.target.value)
                 setCurrentPage(1)
               }}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-[#e2e8f0] bg-white text-xs font-medium text-[#0d212c] outline-none focus:border-[#cbd5e1] shadow-xs"
+              className="w-full pl-10 pr-4 py-2 rounded-md border border-[#e2e8f0] bg-white text-xs font-medium text-[#0d212c] outline-none focus:border-[#cbd5e1] shadow-xs"
             />
           </div>
 

@@ -6,7 +6,7 @@ export interface PageSkeletonLoaderProps {
 
 export const PageSkeletonLoader: React.FC<PageSkeletonLoaderProps> = ({ className = '' }) => {
   return (
-    <div className={`flex flex-col gap-6 w-full p-4 ${className}`}>
+    <div className={`flex flex-col gap-6 w-full p-6 ${className}`}>
       {/* Breadcrumb Skeleton */}
       <div className="flex items-center gap-2">
         <div className="w-20 h-3 bg-slate-200 rounded-md animate-pulse" />

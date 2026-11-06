@@ -201,7 +201,7 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
           })}
         </nav>
 
-        <div className="flex-1 min-w-0 w-full flex flex-col divide-y divide-[#f1f5f9]">
+        <div className="flex-1 min-w-0 w-full flex flex-col divide-y divide-[#d3dbe4]">
           {rec && showSummary && (
             <Section id="summary" title="Assessment Summary" icon={Sparkles}>
               <div className="rounded-xl border border-[#e2e8f0] p-5 flex flex-col gap-4">
@@ -224,7 +224,7 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
                     rejects the request at this stage and emails the partner.
                   </p>
                 )}
-                <div className="flex flex-col gap-2 pt-3 border-t border-[#e2e8f0]">
+                <div className="flex flex-col gap-2 pt-3">
                   <span className="text-xs font-semibold text-[#0d212c]">
                     What would change this assessment
                   </span>

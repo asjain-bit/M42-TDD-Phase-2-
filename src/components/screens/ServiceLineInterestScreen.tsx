@@ -5,7 +5,7 @@
  * Internal interests for the Internal Interest Team, in two tabs: New interest (raise a
  * requirement, see similar earlier requests once typing pauses, and after submitting the vendors
  * M42 already knows) and All interests (every requirement, with the signed-in person's tagged).
- * Used in: HomePage (Internal Interest Team)
+ * Used in: HomePage (Internal Interest Team, Sponsor and Strategy Team)
  */
 
 import React, { useEffect, useMemo, useState } from 'react'
@@ -41,6 +41,10 @@ export interface ServiceLineInterestScreenProps {
   onSubmit: (draft: ServiceLineDraft) => string
   /** The signed-in person, who owns what they submit (the page records it) */
   userName: string
+  /** Replaces the All interests tab, e.g. the Strategy Team's table with decisions */
+  allTab?: React.ReactNode
+  /** The submitter's interest is approved straight away instead of going to Strategy */
+  selfApproved?: boolean
 }
 
 /** How long typing has to pause before similar requests are looked up */
@@ -80,6 +84,8 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
   interests,
   requests,
   onSubmit,
+  allTab,
+  selfApproved,
 }) => {
   const [mode, setMode] = useState<Mode>('new')
   // After a submit: All interests, with the new interest's drawer open, and a short toast
@@ -147,6 +153,7 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
           requests={requests}
           onSubmit={onSubmit}
           onSubmitted={submitted}
+          selfApproved={selfApproved}
         />
       </div>
       <div
@@ -155,11 +162,13 @@ export const ServiceLineInterestScreen: React.FC<ServiceLineInterestScreenProps>
         aria-labelledby="interests-tab-all"
         hidden={mode !== 'all'}
       >
-        <ServiceLineAllInterestsScreen
-          interests={interests}
-          requests={requests}
-          focusCode={focusCode}
-        />
+        {allTab ?? (
+          <ServiceLineAllInterestsScreen
+            interests={interests}
+            requests={requests}
+            focusCode={focusCode}
+          />
+        )}
       </div>
     </div>
   )
@@ -169,8 +178,9 @@ const NewRequest: React.FC<
   Omit<ServiceLineInterestScreenProps, 'userName'> & {
     /** The interest has been saved with this code; the form is already cleared */
     onSubmitted: (code: string) => void
+    selfApproved?: boolean
   }
-> = ({ interests, requests, onSubmit, onSubmitted }) => {
+> = ({ interests, requests, onSubmit, onSubmitted, selfApproved }) => {
   const [draft, setDraft] = useState<ServiceLineDraft>(EMPTY)
   const [showErrors, setShowErrors] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -457,7 +467,9 @@ const NewRequest: React.FC<
           title="Submit your interest?"
           description={
             <>
-              It will be sent to Strategy for review
+              {selfApproved
+                ? 'It will be approved straight away and shared with the Partnership Admin and Director'
+                : 'It will be sent to Strategy for review'}
               {suggested.length > 0 &&
                 `, with ${suggested.length} suggested ${
                   suggested.length === 1 ? 'vendor' : 'vendors'

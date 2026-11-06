@@ -3,4 +3,10 @@ export interface RowActionsMenuProps {
   label: string
   onEdit: () => void
   onDelete: () => void
+  /** Menu item text, "Edit" by default */
+  editLabel?: string
+  /** Menu item text, "Delete" by default */
+  deleteLabel?: string
+  /** Bolder, darker items, as in the other pages' row menus */
+  strong?: boolean
 }

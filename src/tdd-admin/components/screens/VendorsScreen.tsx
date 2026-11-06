@@ -659,7 +659,7 @@ export const VendorsScreen: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-5 w-full p-4 text-[#0d212c]">
+    <div className="flex flex-col gap-5 w-full p-6 text-[#0d212c]">
       {/* Toast Notification — subtle light semantic styling */}
       {toastMessage && (
         <div className="fixed top-4 right-4 z-50 bg-[#f0fdf4] text-[#15803d] px-4 py-3 rounded-xl shadow-md border border-[#bbf7d0] flex items-center gap-3 animate-in slide-in-from-top duration-300">
@@ -702,7 +702,7 @@ export const VendorsScreen: React.FC = () => {
                 setSearchTerm(e.target.value)
                 setCurrentPage(1)
               }}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-[#e2e8f0] bg-white text-xs font-medium text-[#0d212c] outline-none focus:border-[#cbd5e1] shadow-xs"
+              className="w-full pl-10 pr-4 py-2 rounded-md border border-[#e2e8f0] bg-white text-xs font-medium text-[#0d212c] outline-none focus:border-[#cbd5e1] shadow-xs"
             />
           </div>
 
@@ -1116,7 +1116,7 @@ export const VendorsScreen: React.FC = () => {
                   value={editingVendor.name}
                   onChange={(e) => setEditingVendor({ ...editingVendor, name: e.target.value })}
                   required
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                  className="w-full px-3.5 py-2 rounded-md border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                 />
               </div>
 
@@ -1126,7 +1126,7 @@ export const VendorsScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditCountryOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-[#e2e8f0] bg-white text-left outline-none hover:border-[#cbd5e1] focus:border-[#cbd5e1] cursor-pointer transition"
+                  className="w-full flex items-center justify-between gap-2 px-3.5 py-2 rounded-md border border-[#e2e8f0] bg-white text-left outline-none hover:border-[#cbd5e1] focus:border-[#cbd5e1] cursor-pointer transition"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <CountryFlag country={editingVendor.country} />
@@ -1195,7 +1195,7 @@ export const VendorsScreen: React.FC = () => {
                   placeholder="https://example.com"
                   value={editingVendor.website || ''}
                   onChange={(e) => setEditingVendor({ ...editingVendor, website: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                  className="w-full px-3.5 py-2 rounded-md border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                 />
               </div>
 
@@ -1238,7 +1238,7 @@ export const VendorsScreen: React.FC = () => {
                       setEditRecipientError(null)
                     }
                   }}
-                  className={`w-full px-3.5 py-2 rounded-xl border text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1] disabled:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  className={`w-full px-3.5 py-2 rounded-md border text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1] disabled:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${
                     editRecipientError ? 'border-red-500' : 'border-[#e2e8f0]'
                   }`}
                 />
@@ -1250,7 +1250,7 @@ export const VendorsScreen: React.FC = () => {
                     {(editingVendor.recipients || []).map((rec) => (
                       <span
                         key={rec}
-                        className="inline-flex items-center gap-1.5 bg-[#f1f5f9] text-[#0d212c] text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#cbd5e1]"
+                        className="inline-flex items-center gap-1.5 bg-[#f1f5f9] text-[#0d212c] text-xs font-semibold px-3 py-1.5 rounded-full border border-[#cbd5e1]"
                       >
                         {rec}
                         <button
@@ -1426,7 +1426,7 @@ export const VendorsScreen: React.FC = () => {
                           }
                         }}
                         onKeyDown={handleFindVendorSearchKeyDown}
-                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                        className="w-full pl-3.5 pr-10 py-2.5 rounded-md border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                       />
                       {isSearchingVendor && (
                         <Loader2 className="animate-spin w-4 h-4 text-[#36c0c9] absolute right-3 pointer-events-none" />
@@ -1528,7 +1528,7 @@ export const VendorsScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsFindCountryOpen((prev) => !prev)}
-                      className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] bg-white text-left outline-none hover:border-[#cbd5e1] focus:border-[#cbd5e1] cursor-pointer transition"
+                      className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-md border border-[#e2e8f0] bg-white text-left outline-none hover:border-[#cbd5e1] focus:border-[#cbd5e1] cursor-pointer transition"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <CountryFlag country={findCountry} />
@@ -1595,7 +1595,7 @@ export const VendorsScreen: React.FC = () => {
                       value={findWebsite}
                       readOnly
                       tabIndex={-1}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-xs text-[#64748b] cursor-not-allowed outline-none select-none"
+                      className="w-full px-3.5 py-2.5 rounded-md border border-[#e2e8f0] bg-[#f8fafc] text-xs text-[#64748b] cursor-not-allowed outline-none select-none"
                     />
                   </div>
 
@@ -1618,7 +1618,7 @@ export const VendorsScreen: React.FC = () => {
                         if (findRecipientError) setFindRecipientError(null)
                       }}
                       onKeyDown={handleKeyDownFindRecipient}
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs text-[#0d212c] outline-none transition disabled:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${
+                      className={`w-full px-3.5 py-2.5 rounded-md border text-xs text-[#0d212c] outline-none transition disabled:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${
                         findRecipientError
                           ? 'border-red-500'
                           : 'border-[#e2e8f0] focus:border-[#cbd5e1]'
@@ -1645,7 +1645,7 @@ export const VendorsScreen: React.FC = () => {
                         {findRecipients.map((rec) => (
                           <span
                             key={rec}
-                            className="inline-flex items-center gap-1.5 bg-[#f1f5f9] text-[#0d212c] text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#cbd5e1]"
+                            className="inline-flex items-center gap-1.5 bg-[#f1f5f9] text-[#0d212c] text-xs font-semibold px-3 py-1.5 rounded-full border border-[#cbd5e1]"
                           >
                             {rec}
                             <button
@@ -1720,7 +1720,7 @@ export const VendorsScreen: React.FC = () => {
                       value={manualDisplayName}
                       onChange={(e) => setManualDisplayName(e.target.value)}
                       required
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                      className="w-full px-3.5 py-2.5 rounded-md border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                     />
                   </div>
 
@@ -1734,7 +1734,7 @@ export const VendorsScreen: React.FC = () => {
                       placeholder="Defaults to display name"
                       value={manualLegalName}
                       onChange={(e) => setManualLegalName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                      className="w-full px-3.5 py-2.5 rounded-md border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                     />
                   </div>
 
@@ -1747,7 +1747,7 @@ export const VendorsScreen: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsManualCountryOpen((prev) => !prev)}
-                        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] bg-white text-left outline-none hover:border-[#cbd5e1] focus:border-[#cbd5e1] cursor-pointer transition"
+                        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-md border border-[#e2e8f0] bg-white text-left outline-none hover:border-[#cbd5e1] focus:border-[#cbd5e1] cursor-pointer transition"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <CountryFlag country={manualCountry} />
@@ -1812,7 +1812,7 @@ export const VendorsScreen: React.FC = () => {
                         placeholder="https://"
                         value={manualWebsite}
                         onChange={(e) => setManualWebsite(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                        className="w-full px-3.5 py-2.5 rounded-md border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                       />
                     </div>
                   </div>
@@ -1836,7 +1836,7 @@ export const VendorsScreen: React.FC = () => {
                         if (manualRecipientError) setManualRecipientError(null)
                       }}
                       onKeyDown={handleKeyDownManualRecipient}
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs text-[#0d212c] outline-none transition disabled:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${
+                      className={`w-full px-3.5 py-2.5 rounded-md border text-xs text-[#0d212c] outline-none transition disabled:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${
                         manualRecipientError
                           ? 'border-red-500'
                           : 'border-[#e2e8f0] focus:border-[#cbd5e1]'
@@ -1865,7 +1865,7 @@ export const VendorsScreen: React.FC = () => {
                         {manualRecipients.map((rec) => (
                           <span
                             key={rec}
-                            className="inline-flex items-center gap-1.5 bg-[#f1f5f9] text-[#0d212c] text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#cbd5e1]"
+                            className="inline-flex items-center gap-1.5 bg-[#f1f5f9] text-[#0d212c] text-xs font-semibold px-3 py-1.5 rounded-full border border-[#cbd5e1]"
                           >
                             {rec}
                             <button

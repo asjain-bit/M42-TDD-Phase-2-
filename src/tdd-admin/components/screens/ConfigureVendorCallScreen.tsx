@@ -483,7 +483,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                   type="text"
                   readOnly
                   value={callJoinLink}
-                  className="w-full pl-4 pr-11 py-3 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] font-mono text-xs text-[#0d212c] outline-none select-all"
+                  className="w-full pl-4 pr-11 py-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] font-mono text-xs text-[#0d212c] outline-none select-all"
                 />
                 <button
                   onClick={handleCopyLink}
@@ -687,7 +687,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
             <button
               disabled={!isStep1Valid}
               onClick={() => isStep1Valid && setCurrentStep(2)}
-              className={`p-3.5 rounded-xl border transition flex items-center gap-3 text-left w-full ${
+              className={`p-3.5 rounded-md border transition flex items-center gap-3 text-left w-full ${
                 currentStep === 2
                   ? 'border-[#36c0c9] bg-[#ddf7f9]/20'
                   : currentStep > 2 || hasCompletedStep2
@@ -718,7 +718,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
             <button
               disabled={!isStep3Unlocked}
               onClick={() => isStep3Unlocked && setCurrentStep(3)}
-              className={`p-3.5 rounded-xl border transition flex items-center gap-3 text-left w-full ${
+              className={`p-3.5 rounded-md border transition flex items-center gap-3 text-left w-full ${
                 currentStep === 3
                   ? 'border-[#36c0c9] bg-[#ddf7f9]/20'
                   : isStep3Unlocked
@@ -818,7 +818,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                     onClick={() => setShowQuestionnaireMenu((open) => !open)}
                     aria-haspopup="listbox"
                     aria-expanded={showQuestionnaireMenu}
-                    className="w-full pl-4 pr-10 py-3 rounded-xl border border-[#e2e8f0] bg-white text-xs font-semibold text-left flex items-center gap-2.5 cursor-pointer outline-none"
+                    className="w-full pl-4 pr-10 py-3 rounded-md border border-[#e2e8f0] bg-white text-xs font-semibold text-left flex items-center gap-2.5 cursor-pointer outline-none"
                   >
                     <FileText className="w-4 h-4 text-[#64748b] shrink-0" />
                     <span
@@ -855,11 +855,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                               role="option"
                               aria-selected={isSelected}
                               onClick={() => toggleQuestionnaire(opt)}
-                              className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border text-left transition cursor-pointer ${
-                                isSelected
-                                  ? 'bg-[#f0fbfc] border-[#bdeaee]'
-                                  : 'bg-white border-transparent hover:bg-[#f8fafc]'
-                              }`}
+                              className="w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-lg border border-transparent bg-white hover:bg-[#f8fafc] text-left transition cursor-pointer"
                             >
                               <span className="flex items-center gap-3 min-w-0">
                                 <span
@@ -904,7 +900,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                     type="text"
                     readOnly
                     value={estimatedDuration}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#e2e8f0] bg-slate-50 text-xs font-semibold text-[#0d212c] outline-none cursor-not-allowed select-none"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-md border border-[#e2e8f0] bg-slate-50 text-xs font-semibold text-[#0d212c] outline-none cursor-not-allowed select-none"
                   />
                   <Clock className="w-4 h-4 text-[#36c0c9] absolute left-3.5 pointer-events-none" />
                 </div>
@@ -926,7 +922,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                   onChange={(e) => setRoundLabel(e.target.value)}
                   placeholder="e.g. Round 1"
                   aria-invalid={isDuplicateRoundLabel}
-                  className={`w-full px-4 py-2.5 rounded-xl border text-xs text-[#0d212c] outline-none transition ${
+                  className={`w-full px-4 py-2.5 rounded-md border text-xs text-[#0d212c] outline-none transition ${
                     isDuplicateRoundLabel
                       ? 'border-red-500 focus:border-red-500'
                       : 'border-[#e2e8f0] focus:border-[#cbd5e1]'
@@ -960,7 +956,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                       ? 'Maximum 5 recipients reached'
                       : 'Enter email address and press Enter...'
                   }
-                  className={`w-full px-4 py-2.5 rounded-xl border text-xs text-[#0d212c] outline-none transition disabled:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  className={`w-full px-4 py-2.5 rounded-md border text-xs text-[#0d212c] outline-none transition disabled:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${
                     recipientError
                       ? 'border-red-500 focus:border-red-500'
                       : 'border-[#e2e8f0] focus:border-[#cbd5e1]'
@@ -997,7 +993,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                     {recipients.map((rec) => (
                       <span
                         key={rec}
-                        className="inline-flex items-center gap-1.5 bg-[#f1f5f9] text-[#0d212c] text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#cbd5e1]"
+                        className="inline-flex items-center gap-1.5 bg-[#f1f5f9] text-[#0d212c] text-xs font-semibold px-3 py-1.5 rounded-full border border-[#cbd5e1]"
                       >
                         <span>{rec}</span>
                         <button
@@ -1193,7 +1189,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                           value={scheduleDate}
                           min={new Date().toISOString().split('T')[0]}
                           onChange={(e) => setScheduleDate(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-[#e2e8f0] bg-white text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                          className="w-full px-3 py-2 rounded-md border border-[#e2e8f0] bg-white text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                         />
                       </div>
 
@@ -1204,7 +1200,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                         <select
                           value={startTime}
                           onChange={(e) => handleStartTimeChange(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-[#e2e8f0] bg-white text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1] cursor-pointer font-medium"
+                          className="w-full px-3 py-2 rounded-md border border-[#e2e8f0] bg-white text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1] cursor-pointer font-medium"
                         >
                           <option value="">Select start time</option>
                           {timeSlots.map((t) => (
@@ -1223,7 +1219,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                           disabled={!startTime}
                           value={endTime}
                           onChange={(e) => setEndTime(e.target.value)}
-                          className={`w-full px-3 py-2 rounded-xl border bg-white text-xs outline-none focus:border-[#cbd5e1] transition ${
+                          className={`w-full px-3 py-2 rounded-md border bg-white text-xs outline-none focus:border-[#cbd5e1] transition ${
                             !startTime
                               ? 'opacity-40 cursor-not-allowed bg-slate-50 border-[#e2e8f0] text-[#94a3b8]'
                               : isTimeInvalid
@@ -1254,7 +1250,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                     </div>
 
                     {durationText && (
-                      <div className="flex items-center gap-1.5 text-xs text-[#0d7280] font-bold bg-[#ddf7f9] px-3 py-1.5 rounded-xl self-start border border-[#b2ecf2]">
+                      <div className="flex items-center gap-1.5 text-xs text-[#0d7280] font-bold bg-[#ddf7f9] px-3 py-1.5 rounded-full self-start border border-[#b2ecf2]">
                         <Clock className="w-3.5 h-3.5" />
                         <span>Calculated duration: {durationText}</span>
                       </div>
@@ -1286,7 +1282,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                   <select
                     value={timezone}
                     onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-[#e2e8f0] bg-white text-xs text-[#0d212c] appearance-none outline-none focus:border-[#cbd5e1]"
+                    className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] bg-white text-xs text-[#0d212c] appearance-none outline-none focus:border-[#cbd5e1]"
                   >
                     <option value="GST - Gulf Standard Time (UTC+4)">
                       GST - Gulf Standard Time (UTC+4)
@@ -1332,7 +1328,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                       type="number"
                       value={nudgeWaitSeconds}
                       onChange={(e) => setNudgeWaitSeconds(e.target.value)}
-                      className="w-full px-4 py-2 rounded-xl border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                      className="w-full px-4 py-2 rounded-md border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                     />
                     <p className="text-[11px] text-[#64748b] mt-0.5">
                       How long Agent waits after asking for a document before nudging the room.
@@ -1552,7 +1548,7 @@ export const ConfigureVendorCallScreen: React.FC<ConfigureVendorCallScreenProps>
                     value={previewSearch}
                     onChange={(e) => setPreviewSearch(e.target.value)}
                     placeholder="Search questions..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#cbd5e1]"
                   />
                 </div>
               </div>

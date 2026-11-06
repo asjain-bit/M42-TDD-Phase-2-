@@ -75,6 +75,11 @@
   --font-serif: var(--font-serif, Georgia, serif);
 }
 
+html {
+  /* Light only: form controls and scrollbars never follow the system's dark mode */
+  color-scheme: light;
+}
+
 body {
   font-family: var(--font-sans, system-ui, sans-serif);
   background-color: var(--bg-default);

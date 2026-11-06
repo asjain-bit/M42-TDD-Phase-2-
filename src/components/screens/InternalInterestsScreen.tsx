@@ -260,7 +260,7 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
         />
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <StatusFilterChips chips={chips} selected={filter} onSelect={setFilter} />
         <div className="w-full sm:w-72">
           <SearchBar

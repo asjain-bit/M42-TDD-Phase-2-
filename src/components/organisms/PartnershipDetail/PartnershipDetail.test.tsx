@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import { PartnershipDetail } from './PartnershipDetail'
@@ -1382,6 +1382,12 @@ describe('PartnershipDetail', () => {
       renderDetail({ request: INITIAL_PARTNERSHIP_REQUESTS[2] })
       // The signed NDA and pack are behind it: the case opens on the discovery call
       expect(screen.getByRole('heading', { name: 'Discovery Call' })).toBeInTheDocument()
+      await user.click(
+        screen.getByRole('checkbox', {
+          name: 'I acknowledge that the discovery call has been completed',
+        })
+      )
+      await user.click(screen.getByRole('button', { name: 'Continue' }))
       await user.upload(screen.getByLabelText('Upload transcripts'), new File(['x'], 'call.vtt'))
       expect(screen.getByRole('list', { name: 'Transcripts to upload' })).toHaveTextContent(
         'call.vtt'
@@ -1422,11 +1428,20 @@ describe('PartnershipDetail', () => {
         userProfile: sponsorProfile,
         request: { ...AT_VALUE, value: { callConfirmedOn: '19 Oct 2026' } },
       })
-      await user.upload(screen.getByLabelText('Upload business case'), new File(['x'], 'case.pdf'))
-      expect(onCaseAction).toHaveBeenCalledWith(AT_VALUE.id, {
-        type: 'businessCase',
-        name: 'case.pdf',
-      })
+      await user.upload(
+        screen.getByLabelText('Upload business case, meeting notes or transcript'),
+        new File(['x'], 'case.pdf')
+      )
+      await user.click(screen.getByRole('button', { name: /Generate summary/ }))
+      await waitFor(
+        () =>
+          expect(onCaseAction).toHaveBeenCalledWith(AT_VALUE.id, {
+            type: 'businessCase',
+            name: 'case.pdf',
+            files: [],
+          }),
+        { timeout: 4000 }
+      )
     })
 
     it('shows the Director the same stages, with the NDA actions but not the sponsor ones', async () => {

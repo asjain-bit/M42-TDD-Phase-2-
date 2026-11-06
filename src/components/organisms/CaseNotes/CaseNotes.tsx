@@ -345,7 +345,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
         className="relative w-full flex flex-col overflow-hidden rounded-[14px] border-[1.5px] border-border-default bg-bg-modal shadow-2xl outline-none"
       >
         {/* Header */}
-        <div className="flex items-start gap-3 px-5 pt-4 pb-3 border-b border-border-subtle shrink-0">
+        <div className="flex items-start gap-3 px-5 pt-4 pb-3 border-b border-[#d3dbe4] shrink-0">
           <div className="flex-1 min-w-0 flex flex-col gap-0.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
               Notes
@@ -377,7 +377,7 @@ export const CaseNotes: React.FC<CaseNotesProps> = ({
             2-4 line box) once the field is focused or has text. */}
         {canAddNotes && (
           <div
-            className={`px-5 border-b border-border-subtle shrink-0 ${oneLine ? 'py-3' : 'py-4'}`}
+            className={`px-5 border-b border-[#d3dbe4] shrink-0 ${oneLine ? 'py-3' : 'py-4'}`}
             onFocus={() => setComposerFocused(true)}
             onBlur={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {

@@ -13,8 +13,10 @@ import {
   X,
   Bell,
   MoreVertical,
+  CheckCircle2,
 } from 'lucide-react'
 import { StatusChip } from '@/tdd-admin/components/atoms/StatusChip'
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { SearchBar } from '@/tdd-admin/components/molecules/SearchBar'
 import { FilterMenu } from '@/tdd-admin/components/molecules/FilterMenu'
 import {
@@ -545,7 +547,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full p-4 text-[#0d212c]">
+    <div className="flex flex-col gap-6 w-full p-6 text-[#0d212c]">
       {/* Breadcrumb Menu */}
       <div className="text-xs font-semibold text-[#64748b] flex items-center gap-1.5">
         <span>M42 admin</span>
@@ -835,7 +837,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </div>
 
       {/* Filter Chips (below Title & Search Bar row) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex flex-wrap items-center gap-2">
         {filterOptions.map((chip) => {
           const isSelected = selectedStatusFilter === chip.key
           return (
@@ -979,7 +981,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                                 <div
                                   role="menu"
                                   style={{ top: menu?.top, right: menu?.right }}
-                                  className="fixed z-50 w-48 bg-white border border-[#e2e8f0] rounded-xl shadow-xl p-1 animate-in fade-in duration-100"
+                                  className="fixed z-50 w-60 bg-white border border-[#e2e8f0] rounded-xl shadow-xl p-1 animate-in fade-in duration-100"
                                 >
                                   {(() => {
                                     const linkedCase = partnershipCases.find(
@@ -994,7 +996,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                                       linkedCase?.awaitingTddAdmin && onCompleteAssessments
                                     )
                                     const itemClass =
-                                      'w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-[#0d212c] hover:bg-[#f1f5f9] disabled:text-[#94a3b8] disabled:hover:bg-transparent disabled:cursor-not-allowed transition cursor-pointer border-0 bg-transparent'
+                                      'w-full whitespace-nowrap text-left px-3 py-2 rounded-lg text-xs font-semibold text-[#0d212c] hover:bg-[#f1f5f9] disabled:text-[#94a3b8] disabled:hover:bg-transparent disabled:cursor-not-allowed transition cursor-pointer border-0 bg-transparent'
                                     return (
                                       <>
                                         <button
@@ -1173,60 +1175,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       {/* Confirm that every TDD assessment round is done for the case */}
       {completingRow && (
-        <div className="fixed inset-0 z-50 bg-[#0d212c]/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="complete-assessment-title"
-            className="relative bg-white rounded-3xl max-w-md w-full p-7 shadow-2xl border border-[#e2e8f0] flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-150"
-          >
-            <button
-              onClick={() => setCompletingRowId(null)}
-              className="absolute top-5 right-5 p-1 rounded-lg text-slate-400 hover:text-[#0d212c] transition cursor-pointer bg-transparent border-0"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="flex flex-col gap-2 pr-6">
-              <h3 id="complete-assessment-title" className="text-lg font-bold text-[#0d212c]">
-                Mark assessment as completed?
-              </h3>
-              <p className="text-xs text-[#64748b] leading-relaxed">
-                You are confirming that every technical due diligence assessment round for{' '}
-                <span className="font-semibold text-[#0d212c]">{completingRow.vendor}</span> (
-                {completingRow.caseId}) is complete. The agent will generate the TDD report from
-                these rounds, and the request moves on to the sponsor&apos;s final decision.
-              </p>
-              {completingRow.status !== 'finalised' && (
-                <p className="text-xs text-[#64748b] leading-relaxed">
-                  The assessment status will change to Finalised.
-                </p>
-              )}
-            </div>
-            <div className="flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setCompletingRowId(null)}
-                className="px-5 py-2.5 rounded-lg border border-[#e2e8f0] bg-white text-xs font-bold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (completingRow.status !== 'finalised') {
-                    handleUpdateStatus(completingRow.id, 'finalised')
-                  }
-                  onCompleteAssessments?.(completingRow.caseId)
-                  setCompletingRowId(null)
-                }}
-                className="px-5 py-2.5 rounded-lg bg-[#36c0c9] hover:bg-[#2badb6] text-white text-xs font-bold transition cursor-pointer border-0"
-              >
-                Mark as completed
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Mark assessment complete?"
+          description="Confirm that all assessment rounds for this request are complete. The TDD report will be generated and the request moves to the sponsor's decision."
+          icon={CheckCircle2}
+          cancelLabel="Go back"
+          confirmLabel="Yes, mark complete"
+          onCancel={() => setCompletingRowId(null)}
+          onConfirm={() => {
+            if (completingRow.status !== 'finalised') {
+              handleUpdateStatus(completingRow.id, 'finalised')
+            }
+            onCompleteAssessments?.(completingRow.caseId)
+            setCompletingRowId(null)
+          }}
+        />
       )}
     </div>
   )

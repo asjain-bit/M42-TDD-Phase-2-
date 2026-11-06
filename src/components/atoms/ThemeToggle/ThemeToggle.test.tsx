@@ -11,7 +11,7 @@ describe('ThemeToggle', () => {
     document.documentElement.removeAttribute('data-theme')
   })
 
-  it('renders and cycles theme when clicked', async () => {
+  it('renders and stays light when clicked', async () => {
     const user = userEvent.setup()
 
     render(
@@ -22,19 +22,11 @@ describe('ThemeToggle', () => {
 
     const button = screen.getByRole('button', { name: /toggle theme/i })
     expect(button).toBeInTheDocument()
-    expect(button).toHaveAttribute('aria-label', expect.stringContaining('system'))
-
-    // system -> dark
-    await user.click(button)
-    expect(button).toHaveAttribute('aria-label', expect.stringContaining('dark'))
-
-    // dark -> light
+    // The app is light only, so clicking never leaves the light theme
+    expect(button).toHaveAttribute('aria-label', expect.stringContaining('light'))
     await user.click(button)
     expect(button).toHaveAttribute('aria-label', expect.stringContaining('light'))
-
-    // light -> system
-    await user.click(button)
-    expect(button).toHaveAttribute('aria-label', expect.stringContaining('system'))
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
   })
 
   it('applies size classes', () => {

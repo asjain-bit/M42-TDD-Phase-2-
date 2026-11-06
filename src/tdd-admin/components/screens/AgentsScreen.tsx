@@ -11,12 +11,13 @@ import { AgentManagement } from '@/tdd-admin/components/organisms/AgentManagemen
 
 export interface AgentsScreenProps {
   className?: string
+  showRoleSwitch?: boolean
 }
 
-export const AgentsScreen: React.FC<AgentsScreenProps> = ({ className = '' }) => {
+export const AgentsScreen: React.FC<AgentsScreenProps> = ({ className = '', showRoleSwitch }) => {
   return (
     <div className={`w-full ${className}`}>
-      <AgentManagement />
+      <AgentManagement showRoleSwitch={showRoleSwitch} />
     </div>
   )
 }

@@ -144,7 +144,7 @@ export const AlignmentPack: React.FC<AlignmentPackProps> = ({
       </div>
 
       <div className="w-full">
-        <div className="flex flex-col divide-y divide-[#f1f5f9]">
+        <div className="flex flex-col divide-y divide-[#d3dbe4]">
           <Section id="summary" title="Executive Summary" icon={Sparkles}>
             <div className="rounded-xl border border-[#e2e8f0] p-5 flex flex-col gap-4">
               <div className="flex items-center gap-2 flex-wrap">
@@ -162,7 +162,7 @@ export const AlignmentPack: React.FC<AlignmentPackProps> = ({
               <Body>
                 {request.headline ?? request.solution}. {rec?.rationale}
               </Body>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4 pt-2 border-t border-[#e2e8f0]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4 pt-2">
                 <Field label="Case ID">{request.requestCode}</Field>
                 <Field label="Request type">{request.caseType ?? 'Partnership'}</Field>
                 <Field label="Submitted on">{request.submittedOn}</Field>
@@ -220,7 +220,7 @@ export const AlignmentPack: React.FC<AlignmentPackProps> = ({
           </Section>
 
           <Section id="checks" title="Agent Checks" icon={ShieldCheck}>
-            <ul className="flex flex-col divide-y divide-[#f1f5f9] rounded-xl border border-[#e2e8f0] bg-white">
+            <ul className="flex flex-col divide-y divide-[#d3dbe4] rounded-xl border border-[#e2e8f0] bg-white">
               {actions.map((action) => (
                 <li key={action.id} className="flex items-start gap-3 px-4 py-3">
                   {action.status === 'attention' ? (
@@ -278,7 +278,7 @@ export const AlignmentPack: React.FC<AlignmentPackProps> = ({
                     <th className="py-2.5 px-4">Response date</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#f1f5f9] text-sm text-[#0d212c]">
+                <tbody className="divide-y divide-[#d3dbe4] text-sm text-[#0d212c]">
                   {reviewers.map((r) => (
                     <tr key={r.id}>
                       <td className="py-2.5 px-4 font-medium">
@@ -330,7 +330,7 @@ export const AlignmentPack: React.FC<AlignmentPackProps> = ({
                 <p className="text-[#475569] leading-relaxed">{strategy.finalDecisionNote}</p>
               </div>
             )}
-            <ul className="flex flex-col divide-y divide-[#f1f5f9] rounded-xl border border-[#e2e8f0] bg-white">
+            <ul className="flex flex-col divide-y divide-[#d3dbe4] rounded-xl border border-[#e2e8f0] bg-white">
               {sections.map((s) => (
                 <li key={s.id} className="flex items-start justify-between gap-4 px-4 py-3">
                   <div className="flex flex-col gap-0.5 min-w-0">
@@ -373,7 +373,7 @@ export const AlignmentPack: React.FC<AlignmentPackProps> = ({
           </Section>
 
           <Section id="timeline" title="Key Dates" icon={Clock}>
-            <ol className="flex flex-col divide-y divide-[#f1f5f9] rounded-xl border border-[#e2e8f0] bg-white">
+            <ol className="flex flex-col divide-y divide-[#d3dbe4] rounded-xl border border-[#e2e8f0] bg-white">
               {[...(request.auditLog ?? [])].slice(-8).map((e) => (
                 <li key={e.id} className="flex items-start justify-between gap-4 px-4 py-2.5">
                   <div className="flex flex-col min-w-0">

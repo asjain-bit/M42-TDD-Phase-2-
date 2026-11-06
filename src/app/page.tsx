@@ -12,7 +12,11 @@ import {
 import { InternalInterestsScreen } from '@/components/screens/InternalInterestsScreen'
 import { ExistingProjectsScreen } from '@/components/screens/ExistingProjectsScreen'
 import { Sidebar } from '@/components/organisms/Sidebar'
-import { BarChart3, FolderKanban, LayoutDashboard, Lightbulb } from 'lucide-react'
+import { BarChart3, Bot, FolderKanban, LayoutDashboard, Lightbulb, Users } from 'lucide-react'
+import { UsersScreen } from '@/components/screens/UsersScreen'
+import { INITIAL_PLATFORM_USERS, type PlatformUser } from '@/types/platformUsers'
+import type { UserDraft } from '@/components/organisms/UserFormModal'
+import { AgentsScreen } from '@/tdd-admin/components/screens/AgentsScreen'
 import { TddAdminApp } from '@/tdd-admin/TddAdminApp'
 import { VendorEvidenceUploaderApp } from '@/tdd-admin/VendorEvidenceUploaderApp'
 import {
@@ -35,11 +39,20 @@ import { DEFAULT_ASSUMPTIONS, type UsageAssumptions } from '@/lib/usageInsights'
 import type { CustomKpi } from '@/lib/customKpi'
 import type { VendorFormValues } from '@/types/vendorForm'
 
-type MainTab = 'dashboard' | 'usage' | 'internal-interests' | 'existing-projects' | 'my-interests'
+type MainTab =
+  | 'dashboard'
+  | 'usage'
+  | 'internal-interests'
+  | 'existing-projects'
+  | 'my-interests'
+  | 'agents'
+  | 'users'
 
 const TAB_TITLES: Record<MainTab, string> = {
   dashboard: 'Dashboard',
   usage: 'Value and ROI Insights',
+  agents: 'Agents',
+  users: 'Users',
   'internal-interests': 'Internal Interests',
   'existing-projects': 'Existing Projects',
   'my-interests': 'Internal interests',
@@ -67,6 +80,8 @@ export default function HomePage() {
   const [usageAssumptions, setUsageAssumptions] = useState<UsageAssumptions>(DEFAULT_ASSUMPTIONS)
   // KPIs the Partnership Admin built, shown to every profile for the session
   const [customKpis, setCustomKpis] = useState<CustomKpi[]>([])
+  // Platform users the Partnership Admin manages
+  const [platformUsers, setPlatformUsers] = useState<PlatformUser[]>(INITIAL_PLATFORM_USERS)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
 
   const handleLogin = (profile: UserProfile) => {
@@ -165,9 +180,10 @@ export default function HomePage() {
   // Strategy Team: an interest from their own scouting, approved straight away and checked
   // for overlaps like a service line's
   const addStrategyInterest = (draft: InterestEdit) => {
+    const code = nextInterestCode(serviceLineInterests)
     const interest: ServiceLineInterest = {
       ...draft,
-      code: nextInterestCode(serviceLineInterests),
+      code,
       submittedBy: userProfile.name,
       on: todayLabel(),
       status: 'Approved',
@@ -177,6 +193,7 @@ export default function HomePage() {
     }
     interest.overlaps = findOverlaps(interest, serviceLineInterests, projects, requests)
     setServiceLineInterests((prev) => [interest, ...prev])
+    return code
   }
 
   const deleteInterest = (code: string) => {
@@ -189,8 +206,10 @@ export default function HomePage() {
     ...new Set([...requests.map((r) => r.companyName), ...projects.flatMap((p) => p.vendors)]),
   ].sort((a, b) => a.localeCompare(b))
 
-  /** The Internal Interest Team also raises internal interests */
-  const isInternalTeam = userProfile.id === 'evaluator'
+  /** The Internal Interest Team and the Sponsor raise internal interests */
+  const isInternalTeam = userProfile.id === 'evaluator' || userProfile.id === 'sponsor'
+  /** Value & ROI is for the Partnership Admin (the TDD Admin has its own view) */
+  const canSeeUsage = userProfile.id === 'partnership-admin'
   /** Strategy Team, Partnership Admin and Director see Internal Interests and Existing Projects */
   const portfolioRole: StatusRole | null =
     userProfile.id === 'strategy-fit'
@@ -211,9 +230,30 @@ export default function HomePage() {
           { id: 'existing-projects', label: 'Existing Projects', icon: FolderKanban },
         ]
       : []),
+    ...(userProfile.id === 'partnership-admin'
+      ? [
+          { id: 'agents', label: 'Agents', icon: Bot },
+          { id: 'users', label: 'Users', icon: Users },
+        ]
+      : []),
     // Value & ROI always sits last in the left nav
-    { id: 'usage', label: 'Value & ROI', icon: BarChart3 },
+    ...(canSeeUsage ? [{ id: 'usage', label: 'Value & ROI', icon: BarChart3 }] : []),
   ]
+
+  const addUser = (draft: UserDraft) =>
+    setPlatformUsers((prev) => [
+      {
+        ...draft,
+        id: `usr-${Date.now()}`,
+        assignedRequests: 0,
+        status: 'Active',
+        lastActive: 'Never',
+      },
+      ...prev,
+    ])
+  const editUser = (id: string, draft: UserDraft) =>
+    setPlatformUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...draft } : u)))
+  const deleteUser = (id: string) => setPlatformUsers((prev) => prev.filter((u) => u.id !== id))
 
   const handleSignOut = () => {
     setIsAuthenticated(false)
@@ -290,6 +330,27 @@ export default function HomePage() {
               onSubmit={handleInterestSubmit}
               userName={userProfile.name}
             />
+          ) : activeTab === 'internal-interests' && portfolioRole === 'strategy' ? (
+            // The Strategy Team raises interests too: New interest, then every interest to decide on
+            <ServiceLineInterestScreen
+              interests={serviceLineInterests}
+              requests={requests}
+              onSubmit={(draft) => addStrategyInterest({ ...draft, status: 'Approved' })}
+              userName={userProfile.name}
+              selfApproved
+              allTab={
+                <InternalInterestsScreen
+                  interests={serviceLineInterests}
+                  requests={requests}
+                  role={portfolioRole}
+                  onDecide={decideInterest}
+                  onRunOverlaps={runInterestOverlaps}
+                  onAdd={addStrategyInterest}
+                  onEdit={editInterest}
+                  onDelete={deleteInterest}
+                />
+              }
+            />
           ) : activeTab === 'internal-interests' && portfolioRole ? (
             <InternalInterestsScreen
               interests={serviceLineInterests}
@@ -313,7 +374,18 @@ export default function HomePage() {
               onEditProject={editProject}
               onDeleteProject={deleteProject}
             />
-          ) : activeTab === 'usage' ? (
+          ) : activeTab === 'users' && userProfile.id === 'partnership-admin' ? (
+            <UsersScreen
+              users={platformUsers}
+              onAdd={addUser}
+              onEdit={editUser}
+              onDelete={deleteUser}
+            />
+          ) : activeTab === 'agents' && userProfile.id === 'partnership-admin' ? (
+            <div className="tdd-admin -m-6">
+              <AgentsScreen showRoleSwitch={false} />
+            </div>
+          ) : activeTab === 'usage' && canSeeUsage ? (
             <UsageInsightsScreen
               requests={requests}
               canRecalculate={userProfile.id === 'partnership-admin'}

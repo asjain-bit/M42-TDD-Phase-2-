@@ -1,5 +1,5 @@
 import React from 'react'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { ValueDueDiligenceStage } from './ValueDueDiligenceStage'
@@ -16,10 +16,13 @@ describe('ValueDueDiligenceStage', () => {
     expect(screen.queryByRole('heading', { name: 'Business case' })).not.toBeInTheDocument()
     await user.click(
       screen.getByRole('checkbox', {
-        name: 'I confirm the value assessment call has been completed',
+        name: 'I acknowledge that the value assessment call has been completed',
       })
     )
     expect(onAction).toHaveBeenCalledWith({ type: 'confirmValueCall' })
+    // Only the acknowledgement is offered: no held-outside / on-the-platform choice
+    expect(screen.queryByText('Held outside')).not.toBeInTheDocument()
+    expect(screen.queryByText('On the platform')).not.toBeInTheDocument()
   })
 
   it('has the Director wait for the sponsor', () => {
@@ -33,8 +36,25 @@ describe('ValueDueDiligenceStage', () => {
     const onAction = vi.fn()
     const request = { ...base, value: { callConfirmedOn: '19 Oct 2026' } }
     render(<ValueDueDiligenceStage request={request} role="sponsor" onAction={onAction} />)
-    await user.upload(screen.getByLabelText('Upload business case'), file('case.pdf'))
-    expect(onAction).toHaveBeenCalledWith({ type: 'businessCase', name: 'case.pdf' })
+    // The summary needs the business case; meeting notes are optional
+    expect(screen.getByRole('button', { name: /Generate summary/ })).toBeDisabled()
+    await user.upload(screen.getByLabelText('Upload business case, meeting notes or transcript'), [
+      file('case.pdf'),
+      file('notes.txt'),
+    ])
+    await user.click(screen.getByRole('button', { name: /Generate summary/ }))
+    expect(
+      screen.getByRole('status', { name: 'Writing the value assessment summary' })
+    ).toBeInTheDocument()
+    await waitFor(
+      () =>
+        expect(onAction).toHaveBeenCalledWith({
+          type: 'businessCase',
+          name: 'case.pdf',
+          files: [{ name: 'notes.txt', size: '1 KB' }],
+        }),
+      { timeout: 4000 }
+    )
   })
 
   const withCase: PartnershipRequest = {
@@ -122,7 +142,11 @@ describe('ValueDueDiligenceStage', () => {
       <ValueDueDiligenceStage request={request} role="sponsor" onAction={onAction} />
     )
     // The report is a file; View opens it in the document viewer, like the NDA
-    expect(screen.getByText(/TDD_Report_PR-\d+\.pdf/)).toBeInTheDocument()
+    // It is generated with a subtle animation the first time it is opened
+    expect(screen.getByRole('status', { name: 'Generating the TDD report' })).toBeInTheDocument()
+    expect(
+      await screen.findByText(/TDD_Report_PR-\d+\.pdf/, {}, { timeout: 4000 })
+    ).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'TDD report' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Preview|View/ }))
     expect(screen.getByRole('list', { name: 'TDD report' })).toBeInTheDocument()

@@ -14,7 +14,7 @@ import type { VendorFormResponseProps } from './VendorFormResponse.types'
 const POPULATION_OPTIONS = ['Adult patients', 'Pediatric patients', "Women's health"]
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <h3 className="text-sm font-semibold text-[#0d212c] pb-2 border-b border-[#f1f5f9]">
+  <h3 className="text-sm font-semibold text-[#0d212c]">
     {children}
   </h3>
 )
@@ -83,7 +83,7 @@ export const VendorFormResponse: React.FC<VendorFormResponseProps> = ({
         className="relative bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] shadow-2xl border border-[#e2e8f0] flex flex-col animate-in fade-in zoom-in-95"
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 sm:px-8 py-5 border-b border-[#f1f5f9] shrink-0">
+        <div className="flex items-start justify-between gap-4 px-6 sm:px-8 py-5 border-b border-[#d3dbe4] shrink-0">
           <div className="flex flex-col gap-1">
             <h2 id="vendor-form-title" className="text-lg font-semibold text-[#0d212c]">
               Vendor Submission
@@ -296,7 +296,7 @@ export const VendorFormResponse: React.FC<VendorFormResponseProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end px-6 sm:px-8 py-4 border-t border-[#f1f5f9] shrink-0">
+        <div className="flex items-center justify-end px-6 sm:px-8 py-4 border-t border-[#d3dbe4] shrink-0">
           <button
             type="button"
             onClick={onClose}

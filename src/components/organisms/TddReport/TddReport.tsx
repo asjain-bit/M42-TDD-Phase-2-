@@ -14,7 +14,7 @@ import type { TddReportProps } from './TddReport.types'
 export const TddReport: React.FC<TddReportProps> = ({ request, className = '' }) => (
   <ol
     aria-label="TDD report"
-    className={`flex flex-col divide-y divide-[#e2e8f0] ${className}`.trim()}
+    className={`flex flex-col divide-y divide-[#d3dbe4] ${className}`.trim()}
   >
     {buildTddReport(request).map((section, i) => (
       <li key={section.id} className="py-6 first:pt-0 last:pb-0 flex flex-col gap-3">

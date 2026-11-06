@@ -801,7 +801,7 @@ export const UsageInsightsScreen: React.FC = () => {
   }, [assessmentsByStatus])
 
   return (
-    <div className="w-full p-4 space-y-6">
+    <div className="w-full p-6 space-y-6">
       {/* 1. Overview Section Header & Weekly Filter */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

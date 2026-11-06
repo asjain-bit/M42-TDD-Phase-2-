@@ -11,9 +11,16 @@ import React, { useEffect, useRef, useState } from 'react'
 import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import type { RowActionsMenuProps } from './RowActionsMenu.types'
 
-const MENU_WIDTH = 144
+const MENU_WIDTH = 160
 
-export const RowActionsMenu: React.FC<RowActionsMenuProps> = ({ label, onEdit, onDelete }) => {
+export const RowActionsMenu: React.FC<RowActionsMenuProps> = ({
+  label,
+  onEdit,
+  onDelete,
+  editLabel = 'Edit',
+  deleteLabel = 'Delete',
+  strong = false,
+}) => {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [at, setAt] = useState<{ top: number; left: number } | null>(null)
@@ -59,8 +66,15 @@ export const RowActionsMenu: React.FC<RowActionsMenuProps> = ({ label, onEdit, o
     action()
   }
 
-  const ITEM =
-    'w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-md cursor-pointer transition focus:outline-none'
+  const ITEM = `w-full flex items-center gap-2 px-3 py-2 ${
+    strong ? 'text-xs font-semibold' : 'text-sm'
+  } text-left rounded-md cursor-pointer transition focus:outline-none`
+  const EDIT_TONE = strong
+    ? 'text-[#0d212c] hover:bg-[#f1f5f9] focus:bg-[#f1f5f9]'
+    : 'text-text-primary hover:bg-bg-hover focus:bg-bg-hover'
+  const DELETE_TONE = strong
+    ? 'text-red-600 hover:bg-red-50 focus:bg-red-50'
+    : 'text-status-error-text hover:bg-status-error-bg focus:bg-status-error-bg'
 
   return (
     <>
@@ -91,19 +105,19 @@ export const RowActionsMenu: React.FC<RowActionsMenuProps> = ({ label, onEdit, o
             type="button"
             role="menuitem"
             onClick={pick(onEdit)}
-            className={`${ITEM} text-text-primary hover:bg-bg-hover focus:bg-bg-hover`}
+            className={`${ITEM} ${EDIT_TONE}`}
           >
             <Pencil className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
-            Edit
+            {editLabel}
           </button>
           <button
             type="button"
             role="menuitem"
             onClick={pick(onDelete)}
-            className={`${ITEM} text-status-error-text hover:bg-status-error-bg focus:bg-status-error-bg`}
+            className={`${ITEM} ${DELETE_TONE}`}
           >
             <Trash2 className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
-            Delete
+            {deleteLabel}
           </button>
         </div>
       )}

@@ -27,7 +27,7 @@ export const PreReadSummary: React.FC<PreReadSummaryProps> = ({
 
   return (
     <div className={`flex flex-col ${className}`.trim()}>
-      <ol aria-label="Pre-read summary" className="flex flex-col divide-y divide-[#e2e8f0]">
+      <ol aria-label="Pre-read summary" className="flex flex-col divide-y divide-[#d3dbe4]">
         {sections.map((section, i) => (
           <li key={section.id} className="py-6 first:pt-0 last:pb-0 flex flex-col gap-3">
             <div className="flex items-start gap-3 flex-wrap">

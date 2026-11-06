@@ -79,7 +79,7 @@ export const RecommendedVendors: React.FC<RecommendedVendorsProps> = ({
       {matches.length === 0 ? (
         emptyText && <p className="text-xs text-text-tertiary">{emptyText}</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-border-subtle rounded-xl border border-border-default bg-bg-default">
+        <ul className="flex flex-col divide-y divide-[#d3dbe4] rounded-xl border border-border-default bg-bg-default">
           {matches.map((m) => {
             const r = m.request
             const chip = chipFor(m)

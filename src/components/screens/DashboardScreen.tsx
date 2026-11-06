@@ -502,8 +502,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </div>
 
       {/* Filter Status Chips on the left & Search Bar on the right without search button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
           {filterOptions.map((chip) => {
             const isSelected = selectedStatusFilter === chip.key
             return (
@@ -532,7 +532,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           })}
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+        <div className="flex items-center gap-3 w-full xl:w-auto shrink-0">
           {statusRole === 'director' && (
             <Button
               variant="outline"

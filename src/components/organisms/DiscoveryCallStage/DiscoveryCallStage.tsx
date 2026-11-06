@@ -11,6 +11,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { FileText, Film, Mic, Sparkles, X } from 'lucide-react'
+import { Checkbox } from '@/components/atoms/Checkbox'
 import { Skeleton } from '@/components/atoms/Skeleton'
 import { DocumentFileCard } from '@/components/molecules/DocumentFileCard'
 import { FilePicker } from '@/components/molecules/FilePicker'
@@ -25,7 +26,7 @@ const MAX_MB = 20
 const SUMMARY_MS = 2000
 
 /** 340 KB, 1.2 MB */
-const formatSize = (bytes: number) =>
+export const formatSize = (bytes: number) =>
   bytes >= 1024 * 1024
     ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     : `${Math.max(1, Math.round(bytes / 1024))} KB`
@@ -42,7 +43,7 @@ const TypeTile: React.FC<{ name: string }> = ({ name }) => (
   </span>
 )
 
-const FileRow: React.FC<{ name: string; meta: string; onRemove?: () => void }> = ({
+export const FileRow: React.FC<{ name: string; meta: string; onRemove?: () => void }> = ({
   name,
   meta,
   onRemove,
@@ -75,7 +76,7 @@ const FileList: React.FC<{ label: string; files: CaseFile[]; icon: React.ReactNo
   files.length === 0 ? null : (
     <ul
       aria-label={label}
-      className="rounded-xl border border-border-default divide-y divide-border-subtle bg-bg-default"
+      className="rounded-xl border border-border-default divide-y divide-[#d3dbe4] bg-bg-default"
     >
       {files.map((f) => (
         <li key={f.name} className="flex items-center gap-3 px-4 py-3">
@@ -102,13 +103,13 @@ const SECTIONS: [SectionKey, string][] = [
 ]
 
 /** The summary as it reads in the document viewer */
-const SummaryDocument: React.FC<{ title: string; meta: string; content: MeetingSummary }> = ({
-  title,
-  meta,
-  content,
-}) => (
+export const SummaryDocument: React.FC<{
+  title: string
+  meta: string
+  content: MeetingSummary
+}> = ({ title, meta, content }) => (
   <article className="flex flex-col gap-6 text-text-primary">
-    <header className="flex flex-col gap-1 border-b border-border-default pb-4">
+    <header className="flex flex-col gap-1 pb-4">
       <h1 className="text-xl font-semibold">{title}</h1>
       <p className="text-xs text-text-tertiary">{meta}</p>
     </header>
@@ -130,7 +131,7 @@ const SummaryDocument: React.FC<{ title: string; meta: string; content: MeetingS
 )
 
 /** A plain-text copy of the summary, for Download (the prototype has no real PDF) */
-const summaryText = (title: string, content: MeetingSummary) =>
+export const summaryText = (title: string, content: MeetingSummary) =>
   [
     title,
     '',
@@ -183,7 +184,12 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
 
   // Transcripts picked but not saved yet; the summary step saves them with the summary
   const [picked, setPicked] = useState<File[]>([])
+  // The Director confirms the call took place before anything can be uploaded
+  const [callConfirmed, setCallConfirmed] = useState(false)
+  const [acknowledged, setAcknowledged] = useState(false)
   const [writing, setWriting] = useState(false)
+  const needsAcknowledgement =
+    canAdd && !acknowledged && !summary && transcripts.length === 0 && !writing
   const [previewing, setPreviewing] = useState(false)
 
   const addFiles = (files: File[]) =>
@@ -235,7 +241,9 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
         <h2 className="text-xl font-semibold text-text-primary">Discovery Call</h2>
         <p className="text-sm text-text-secondary">
           {canAdd
-            ? 'Hold the call on Teams or elsewhere, then upload the transcripts. The agent writes a summary.'
+            ? needsAcknowledgement
+              ? 'Hold the call on Teams or elsewhere, then confirm it has been completed to upload the transcripts.'
+              : 'Upload the transcripts from the call. The agent writes a summary.'
             : proceeded
               ? 'The Director has handed this case to the sponsor.'
               : 'Waiting for the Director to hold the discovery call and hand this case on.'}
@@ -282,7 +290,7 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
         )}
 
         {/* Picking the transcripts, before the summary is written */}
-        {canAdd && !summary && !writing && (
+        {canAdd && !needsAcknowledgement && !summary && !writing && (
           <section aria-labelledby="transcripts-heading" className="flex flex-col gap-3">
             <h3 id="transcripts-heading" className="text-sm font-semibold text-text-primary">
               Transcripts · {n}
@@ -290,7 +298,7 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
             {n > 0 && (
               <ul
                 aria-label="Transcripts to upload"
-                className="rounded-xl border border-border-default divide-y divide-border-subtle bg-bg-default"
+                className="rounded-xl border border-border-default divide-y divide-[#d3dbe4] bg-bg-default"
               >
                 {picked.map((f) => (
                   <FileRow
@@ -321,7 +329,7 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
             </h3>
             <ul
               aria-label="Transcripts"
-              className="rounded-xl border border-border-default divide-y divide-border-subtle bg-bg-default"
+              className="rounded-xl border border-border-default divide-y divide-[#d3dbe4] bg-bg-default"
             >
               {transcripts.map((f) => (
                 <FileRow
@@ -334,16 +342,20 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
           </section>
         )}
 
-        <FileList
-          label="Meeting notes"
-          files={discovery.notes}
-          icon={<FileText className="w-5 h-5 text-text-secondary" aria-hidden="true" />}
-        />
-        <FileList
-          label="Recordings"
-          files={discovery.recordings}
-          icon={<Film className="w-5 h-5 text-text-secondary" aria-hidden="true" />}
-        />
+        {!needsAcknowledgement && (
+          <>
+            <FileList
+              label="Meeting notes"
+              files={discovery.notes}
+              icon={<FileText className="w-5 h-5 text-text-secondary" aria-hidden="true" />}
+            />
+            <FileList
+              label="Recordings"
+              files={discovery.recordings}
+              icon={<Film className="w-5 h-5 text-text-secondary" aria-hidden="true" />}
+            />
+          </>
+        )}
         {!canAdd && !summary && transcripts.length === 0 && (
           <p className="text-sm text-text-tertiary flex items-center gap-2">
             <Mic className="w-4 h-4" aria-hidden="true" />
@@ -353,14 +365,27 @@ export const DiscoveryCallStage: React.FC<DiscoveryCallStageProps> = ({
       </div>
 
       <StageFooter compact>
-        {canAdd && !summary ? (
+        {needsAcknowledgement ? (
+          <>
+            <div className="flex flex-col gap-2 min-w-0">
+              <Checkbox
+                checked={callConfirmed}
+                onChange={setCallConfirmed}
+                label="I acknowledge that the discovery call has been completed"
+              />
+            </div>
+            <PrimaryButton disabled={!callConfirmed} onClick={() => setAcknowledged(true)}>
+              Continue
+            </PrimaryButton>
+          </>
+        ) : canAdd && !summary ? (
           <>
             <span className="text-sm text-text-secondary">
               {n} {plural(n)} ready.
             </span>
             <div className="flex items-center gap-3">
               <SecondaryButton onClick={proceed}>Skip</SecondaryButton>
-              <PrimaryButton onClick={() => setWriting(true)} disabled={n === 0 || writing}>
+              <PrimaryButton onClick={() => setWriting(true)} disabled={writing}>
                 <Sparkles className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
                 Generate summary
               </PrimaryButton>

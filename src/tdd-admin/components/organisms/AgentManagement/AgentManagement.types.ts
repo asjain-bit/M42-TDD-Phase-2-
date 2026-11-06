@@ -41,4 +41,6 @@ export interface AgentData {
 export interface AgentManagementProps {
   className?: string
   initialAgentId?: string
+  /** The prototype switch between the Admin and Evaluator views; off for the Partnership Admin */
+  showRoleSwitch?: boolean
 }

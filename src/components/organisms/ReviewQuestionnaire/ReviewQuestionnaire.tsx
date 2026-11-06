@@ -126,7 +126,7 @@ export const ReviewQuestionnaire: React.FC<ReviewQuestionnaireProps> = ({
       className={`bg-white rounded-2xl border border-[#e2e8f0] p-6 sm:p-8 shadow-xs flex flex-col ${className}`.trim()}
     >
       {editable && (
-        <div className="flex items-center justify-between gap-3 pb-6 mb-2 border-b border-[#f1f5f9]">
+        <div className="flex items-center justify-between gap-3 pb-4 mb-2">
           <span className="text-xs text-[#64748b]">Questions marked * are mandatory.</span>
           <span className="text-xs font-medium text-[#475569]">
             {done} of {mandatory.length} mandatory answered
@@ -147,7 +147,7 @@ export const ReviewQuestionnaire: React.FC<ReviewQuestionnaireProps> = ({
         </div>
       )}
 
-      <ol className="flex flex-col divide-y divide-[#f1f5f9]">
+      <ol className="flex flex-col divide-y divide-[#d3dbe4]">
         {questions.map((q, i) => {
           const value = answers[q.id] ?? { answer: '' }
           const record = submittedById.get(q.id)
@@ -234,7 +234,7 @@ export const ReviewQuestionnaire: React.FC<ReviewQuestionnaireProps> = ({
       </ol>
 
       {editable && !hideSubmit && (
-        <div className="flex items-center justify-end pt-6 border-t border-[#f1f5f9]">
+        <div className="flex items-center justify-end pt-6">
           <button
             type="button"
             disabled={!canSubmit}

@@ -223,7 +223,7 @@ export const DispatchCallWizard: React.FC<DispatchCallWizardProps> = ({
                     <select
                       value={selectedQuestionnaire}
                       onChange={(e) => setSelectedQuestionnaire(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-[#e2e8f0] bg-white text-xs font-semibold text-[#0d212c] appearance-none outline-none focus:border-[#36c0c9]"
+                      className="w-full px-4 py-3 rounded-md border border-[#e2e8f0] bg-white text-xs font-semibold text-[#0d212c] appearance-none outline-none focus:border-[#36c0c9]"
                     >
                       {questionnaireOptions.map((opt) => (
                         <option key={opt} value={opt}>
@@ -255,7 +255,7 @@ export const DispatchCallWizard: React.FC<DispatchCallWizardProps> = ({
                     value={roundLabel}
                     onChange={(e) => setRoundLabel(e.target.value)}
                     placeholder="e.g. Round 1"
-                    className="w-full px-4 py-2.5 rounded-xl border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#36c0c9]"
+                    className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] text-xs text-[#0d212c] outline-none focus:border-[#36c0c9]"
                   />
                 </div>
 
@@ -397,7 +397,7 @@ export const DispatchCallWizard: React.FC<DispatchCallWizardProps> = ({
                     <select
                       value={timezone}
                       onChange={(e) => setTimezone(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-[#e2e8f0] bg-white text-xs text-[#0d212c] appearance-none outline-none focus:border-[#36c0c9]"
+                      className="w-full px-4 py-2.5 rounded-md border border-[#e2e8f0] bg-white text-xs text-[#0d212c] appearance-none outline-none focus:border-[#36c0c9]"
                     >
                       <option value="Asia/Calcutta - GMT+5:30">Asia/Calcutta - GMT+5:30</option>
                       <option value="Asia/Dubai - GMT+4:00">Asia/Dubai - GMT+4:00</option>
