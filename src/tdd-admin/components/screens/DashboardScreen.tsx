@@ -548,13 +548,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   return (
     <div className="flex flex-col gap-6 w-full p-6 text-[#0d212c]">
-      {/* Breadcrumb Menu */}
-      <div className="text-xs font-semibold text-[#64748b] flex items-center gap-1.5">
-        <span>M42 admin</span>
-        <span>/</span>
-        <span className="text-[#36c0c9] font-bold">Dashboard</span>
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* KPI Card 1: Total Vendors */}

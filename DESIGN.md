@@ -241,3 +241,4 @@ Use Lucide icons consistently across:
 - **OTP boxes**: the call room OTP boxes use `rounded-md`, same as the evidence uploader.
 - **Cleanup**: no divider under the Assessment Summary card; no breadcrumb on the Agents list; no subtext under the Internal Interests and Existing Projects titles.
 - **Header alignment**: page header titles use `px-6`, so they line up with the page content (`p-6`). The divider under the Assessment Summary card is removed via its bottom border.
+- **TDD Admin**: no breadcrumb on the Dashboard, Vendors and Questionnaires pages; detail pages keep theirs.

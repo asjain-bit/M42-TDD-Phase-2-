@@ -609,13 +609,6 @@ export const QuestionnairesScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Breadcrumb Header */}
-      <div className="text-xs font-semibold text-[#64748b] flex items-center gap-1.5">
-        <span>M42 admin</span>
-        <span>/</span>
-        <span className="text-[#36c0c9] font-bold">Questionnaires</span>
-      </div>
-
       {/* Header Bar with Search Bar placed on the LEFT side of Add questionnaire CTA */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-0.5">
