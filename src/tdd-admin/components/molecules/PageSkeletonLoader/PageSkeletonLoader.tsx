@@ -25,9 +25,9 @@ export const PageSkeletonLoader: React.FC<PageSkeletonLoaderProps> = ({ classNam
 
       {/* Sorting Chips Skeleton */}
       <div className="flex items-center gap-2">
-        <div className="w-32 h-8 bg-slate-200 rounded-xl animate-pulse" />
-        <div className="w-24 h-8 bg-slate-200 rounded-xl animate-pulse" />
-        <div className="w-24 h-8 bg-slate-200 rounded-xl animate-pulse" />
+        <div className="w-32 h-8 bg-slate-200 rounded-full animate-pulse" />
+        <div className="w-24 h-8 bg-slate-200 rounded-full animate-pulse" />
+        <div className="w-24 h-8 bg-slate-200 rounded-full animate-pulse" />
       </div>
 
       {/* Content Card Skeleton */}

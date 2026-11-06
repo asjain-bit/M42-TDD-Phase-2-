@@ -663,7 +663,7 @@ export const QuestionnairesScreen: React.FC = () => {
                 setStatusFilter(chip.key as 'all' | 'Ready' | 'Draft')
                 setCurrentPage(1)
               }}
-              className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
                 isSelected
                   ? 'bg-[#36c0c9] text-white font-bold shadow-xs border border-[#36c0c9]'
                   : 'bg-white text-[#64748b] border border-[#e2e8f0] hover:bg-[#f8fafc]'

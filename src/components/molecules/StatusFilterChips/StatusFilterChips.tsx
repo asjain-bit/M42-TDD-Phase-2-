@@ -26,7 +26,7 @@ export const StatusFilterChips: React.FC<StatusFilterChipsProps> = ({
           type="button"
           aria-pressed={isSelected}
           onClick={() => onSelect(chip.key)}
-          className={`px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
+          className={`px-3.5 py-2 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer flex items-center gap-2 ${
             isSelected
               ? 'bg-[var(--app-accent)] text-text-inverse font-semibold shadow-xs'
               : 'bg-bg-default text-text-secondary border border-border-default hover:bg-bg-hover'
