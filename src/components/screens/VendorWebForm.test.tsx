@@ -15,6 +15,9 @@ const fillThin = async (user: ReturnType<typeof userEvent.setup>) => {
   fill(/^Company Name \*/, 'PulseAI Health')
   fill(/^Email Address/, 'omar@pulseai.health')
   fill(/^Year Company/, '2021')
+  fill(/^Website URL/, 'https://www.pulseai.health')
+  await user.click(screen.getByLabelText(/^Country/))
+  await user.click(screen.getByRole('option', { name: 'United Arab Emirates' }))
   fill(
     /stage of maturity and experience/i,
     'We are a young company with some experience in healthcare AI.'
@@ -50,6 +53,8 @@ describe('VendorWebForm', () => {
       /^Phone Number/,
       /^Email Address/,
       /^Year Company/,
+      /^Website URL/,
+      /^Country/,
     ].forEach((label) => expect(screen.getByLabelText(label)).toBeInTheDocument())
     ;[
       /stage of maturity and experience/i,

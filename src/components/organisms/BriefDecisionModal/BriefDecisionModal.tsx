@@ -102,7 +102,7 @@ export const BriefDecisionModal: React.FC<BriefDecisionModalProps> = ({
                       {o.label}
                       {agentRecommendation === o.recommends && (
                         <span className="px-2 py-0.5 rounded-full bg-[#e0f2fe] text-[#0369a1] text-[11px] font-medium">
-                          Suggested by assessment
+                          Recommended
                         </span>
                       )}
                     </span>

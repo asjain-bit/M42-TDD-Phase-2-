@@ -48,6 +48,8 @@ const form: VendorFormValues = {
   phone: '',
   email: 'omar@pulseai.health',
   yearFounded: '2021',
+  website: 'https://www.pulseai.health',
+  country: 'United Arab Emirates',
   stageAndExperience: 'Launched in 2022.',
   proposal: 'Deploy our triage model in M42 emergency departments. We would start in Abu Dhabi.',
   focusAreas: ['AI & Diagnostics', 'Medical Imaging'],

@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Inbox, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ChevronDown, Inbox, Plus, SlidersHorizontal, Trash2, UserCheck, UserX } from 'lucide-react'
 import { Avatar } from '@/components/atoms/Avatar'
 import { Badge, type BadgeProps } from '@/components/atoms/Badge'
 import { Button } from '@/components/atoms/Button'
@@ -26,6 +26,8 @@ export interface UsersScreenProps {
   onAdd: (draft: UserDraft) => void
   onEdit: (id: string, draft: UserDraft) => void
   onDelete: (id: string) => void
+  /** Deactivate or reactivate a user */
+  onSetStatus: (id: string, status: PlatformUser['status']) => void
 }
 
 const PAGE_SIZE = 10
@@ -89,7 +91,13 @@ const initialsOf = (name: string) =>
     .map((w) => w[0]?.toUpperCase())
     .join('')
 
-export const UsersScreen: React.FC<UsersScreenProps> = ({ users, onAdd, onEdit, onDelete }) => {
+export const UsersScreen: React.FC<UsersScreenProps> = ({
+  users,
+  onAdd,
+  onEdit,
+  onDelete,
+  onSetStatus,
+}) => {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -98,6 +106,7 @@ export const UsersScreen: React.FC<UsersScreenProps> = ({ users, onAdd, onEdit, 
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<PlatformUser | null>(null)
   const [deleting, setDeleting] = useState<PlatformUser | null>(null)
+  const [switching, setSwitching] = useState<PlatformUser | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -234,9 +243,7 @@ export const UsersScreen: React.FC<UsersScreenProps> = ({ users, onAdd, onEdit, 
                 <th className="py-4 px-4">Assigned requests</th>
                 <th className="py-4 px-4">Status</th>
                 <th className="py-4 px-4">Last active</th>
-                <th className="py-4 px-4 w-16">
-                  <span className="sr-only">Actions</span>
-                </th>
+                <th className="py-4 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
@@ -291,6 +298,19 @@ export const UsersScreen: React.FC<UsersScreenProps> = ({ users, onAdd, onEdit, 
                         strong
                         editLabel="Edit user"
                         deleteLabel="Delete user"
+                        extraItems={[
+                          u.status === 'Active'
+                            ? {
+                                label: 'Deactivate user',
+                                icon: UserX,
+                                onClick: () => setSwitching(u),
+                              }
+                            : {
+                                label: 'Reactivate user',
+                                icon: UserCheck,
+                                onClick: () => setSwitching(u),
+                              },
+                        ]}
                         onEdit={() => setEditing(u)}
                         onDelete={() => setDeleting(u)}
                       />
@@ -345,6 +365,26 @@ export const UsersScreen: React.FC<UsersScreenProps> = ({ users, onAdd, onEdit, 
             onDelete(deleting.id)
             setDeleting(null)
             setToast('User deleted.')
+          }}
+        />
+      )}
+      {switching && (
+        <ConfirmDialog
+          title={switching.status === 'Active' ? 'Deactivate this user?' : 'Reactivate this user?'}
+          description={
+            switching.status === 'Active'
+              ? `${switching.name} will not be able to sign in until you reactivate them. Their requests stay assigned to them.`
+              : `${switching.name} will be able to sign in again.`
+          }
+          icon={switching.status === 'Active' ? UserX : UserCheck}
+          confirmLabel={switching.status === 'Active' ? 'Deactivate user' : 'Reactivate user'}
+          danger={switching.status === 'Active'}
+          onCancel={() => setSwitching(null)}
+          onConfirm={() => {
+            const next = switching.status === 'Active' ? 'Inactive' : 'Active'
+            onSetStatus(switching.id, next)
+            setSwitching(null)
+            setToast(next === 'Inactive' ? 'User deactivated.' : 'User reactivated.')
           }}
         />
       )}

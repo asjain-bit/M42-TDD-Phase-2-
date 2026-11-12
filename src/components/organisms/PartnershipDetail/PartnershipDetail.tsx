@@ -45,7 +45,6 @@ import {
 import { AdminActionModal } from '@/components/organisms/AdminActionModal'
 import { AuditLog } from '@/components/organisms/AuditLog'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
-import { SendInternalModal } from '@/components/organisms/SendInternalModal'
 import { ThinkingMode } from '@/components/organisms/ThinkingMode'
 import { NdaStage } from '@/components/organisms/NdaStage'
 import { DiscoveryCallStage } from '@/components/organisms/DiscoveryCallStage'
@@ -65,7 +64,8 @@ import {
   type AdminRouting,
 } from '@/lib/caseActions'
 import { getDisplayStatus, type DisplayStatus } from '@/lib/caseStatus'
-import { AssessmentBrief } from '@/components/organisms/AssessmentBrief'
+import { SendInternalModal } from '@/components/organisms/SendInternalModal'
+import { AssessmentBrief, AssessmentBriefShimmer } from '@/components/organisms/AssessmentBrief'
 import { BriefDecisionModal } from '@/components/organisms/BriefDecisionModal'
 import { ReviewersLoading } from '@/components/molecules/ReviewersLoading'
 import { WorkflowStepper, type WorkflowStep } from '@/components/molecules/WorkflowStepper'
@@ -192,6 +192,9 @@ const PRE_READ_CHECKS = [
 ]
 
 const MAX_STRATEGY_MEMBERS = 5
+
+/** The agent's thinking animation before the initial assessment brief. Set to true to bring it back. */
+const SHOW_BRIEF_THINKING = false
 
 type StepId =
   'brief' | 'canvas' | 'alignment' | 'nda' | 'discovery' | 'value' | 'questionnaire' | 'preread'
@@ -873,11 +876,15 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     setDeleteNote('')
   }
 
-  // Strategy Team state: the Director picks the reviewers (up to 5); nobody is preselected
+  // Strategy Team state: the Director can change the reviewers (up to 5); two are suggested upfront
   const [strategyMembers, setStrategyMembers] = useState<InternalInterestStakeholder[]>(
     request.strategyTeamMembers && request.strategyTeamMembers.length > 0
       ? request.strategyTeamMembers
-      : DEFAULT_STRATEGY_MEMBERS.slice(0, 1)
+      : STRATEGY_CANDIDATE_DIRECTORY.slice(0, 2).map((candidate) => ({
+          ...candidate,
+          whySuggested: `Selected based on ${candidate.expertise.toLowerCase()} experience.`,
+          source: 'ai' as const,
+        }))
   )
   React.useEffect(() => {
     if (request.sent?.strategy && request.strategyTeamMembers?.length) {
@@ -1687,7 +1694,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 <Eye className="w-4 h-4" aria-hidden="true" />
                 View vendor response
               </button>
-              {(isInternalTeam || isStrategyTeam || isSponsor || isAdmin) &&
+              {(isInternalTeam || isStrategyTeam || isSponsor) &&
                 !viewOnly &&
                 !noWorkflow &&
                 displayStatus !== 'Completed' &&
@@ -1950,8 +1957,12 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                       showSummary={isDirectorView || isAdmin}
                       onOpenAnalysis={() => setShowAnalysis(true)}
                     />
-                  ) : (
+                  ) : // With the thinking animation off, a shimmer stands in for the brief while
+                  // it is generated
+                  SHOW_BRIEF_THINKING ? (
                     <ThinkingMode inline onComplete={handleRunComplete} />
+                  ) : (
+                    <AssessmentBriefShimmer onComplete={handleRunComplete} />
                   ))}
 
                 {/* STEP: Internal Canvas (Director and sponsor) */}
@@ -1972,7 +1983,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                           : internalSent
                             ? 'Waiting for approval from the Internal Interest team. Follow each reviewer below.'
                             : isDirector
-                              ? 'Choose the Internal Interest reviewers and the questions they will answer, then send the request.'
+                              ? 'Send the request to the Internal Interest team listed below.'
                               : 'The Director has not sent this to the Internal Interest team yet.',
                         canEditInternal ? (
                           <button
@@ -2817,15 +2828,13 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         </div>
       </AppDialog>
 
-      {/* SEND TO INTERNAL INTEREST: reviewers and questions */}
+      {/* SEND TO INTERNAL INTEREST: the questionnaire, then Send Request */}
       {sendTeam === 'internal' && (
         <SendInternalModal
           members={stakeholders}
           onClose={() => setSendTeam(null)}
-          onSend={({ memberIds, questionnaire }) => {
-            const members = stakeholders.filter((m) => memberIds.includes(m.id))
-            setStakeholders(members)
-            onSendReview?.(request.id, 'internal', { members, questionnaire })
+          onSend={({ questionnaire }) => {
+            onSendReview?.(request.id, 'internal', { members: stakeholders, questionnaire })
             setLocalSent((prev) => ({ ...prev, internal: true }))
             setSendTeam(null)
           }}

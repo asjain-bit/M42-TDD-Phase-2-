@@ -6,7 +6,7 @@ import { UsersScreen } from './UsersScreen'
 import { INITIAL_PLATFORM_USERS } from '@/types/platformUsers'
 
 const setup = () => {
-  const handlers = { onAdd: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn() }
+  const handlers = { onAdd: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn(), onSetStatus: vi.fn() }
   render(<UsersScreen users={INITIAL_PLATFORM_USERS} {...handlers} />)
   return { user: userEvent.setup(), ...handlers }
 }
@@ -75,5 +75,30 @@ describe('UsersScreen', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Delete user' }))
     await user.click(screen.getByRole('button', { name: 'Delete user' }))
     expect(onDelete).toHaveBeenCalledWith('usr-02')
+  })
+
+  it('names the actions column', () => {
+    setup()
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument()
+  })
+
+  it('deactivates and reactivates a user after a confirmation', async () => {
+    const { user, onSetStatus } = setup()
+    await user.click(screen.getByRole('button', { name: 'Actions for Tariq Mansoor' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Deactivate user' }))
+    // Nothing happens until the user confirms
+    expect(onSetStatus).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onSetStatus).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Tariq Mansoor' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Deactivate user' }))
+    await user.click(screen.getByRole('button', { name: 'Deactivate user' }))
+    expect(onSetStatus).toHaveBeenCalledWith('usr-03', 'Inactive')
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Marcus Vance' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Reactivate user' }))
+    await user.click(screen.getByRole('button', { name: 'Reactivate user' }))
+    expect(onSetStatus).toHaveBeenCalledWith('usr-08', 'Active')
   })
 })

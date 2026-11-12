@@ -218,13 +218,16 @@ describe('DashboardScreen', () => {
     expect(screen.queryByText('MedTech Innovations')).not.toBeInTheDocument()
   })
 
-  it('opens the case on the thinking animation, then the brief, and navigates back', async () => {
+  it('opens the case on a shimmer, then the brief, and navigates back', async () => {
     const user = setup()
     render(<DashboardScreen />)
 
     await user.click(screen.getByText('MedTech Innovations'))
-    expect(screen.getByText('ANALYZING')).toBeInTheDocument()
-    // The animation runs in the brief area: the tabs and vendor details stay in view
+    expect(screen.queryByText('ANALYZING')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('status', { name: 'Generating the initial assessment brief' })
+    ).toBeInTheDocument()
+    // The shimmer runs in the brief area: the tabs and vendor details stay in view
     expect(screen.getByRole('tab', { name: 'Review' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'MedTech Innovations' })).toBeInTheDocument()
 
@@ -280,7 +283,7 @@ describe('DashboardScreen', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Internal Canvas' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Send Request' }))
     const send = screen.getByRole('dialog', { name: 'Select questionnaire' })
-    await user.click(within(send).getByRole('button', { name: 'Next' }))
+    expect(within(send).queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
     await user.click(within(send).getByRole('button', { name: 'Send Request' }))
     // No extra confirmation: the popup closes and the tracking table is shown
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -815,9 +818,13 @@ describe('NDA & Discovery, Value and the Sponsor profile', () => {
     // The signed copy is version 2, with the template kept as version 1
     expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
     expect(screen.getByLabelText('NDA version')).toHaveValue('2')
-    // Proceed goes straight to the Discovery Call; there is no alignment pack screen
+    // The alignment pack is generated first: Proceed waits for it
+    expect(screen.getByText('GENERATING')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Proceed' })).toBeDisabled()
+    finishThinking()
+    expect(screen.getByText('Alignment-Pack.pdf')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Proceed' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'Proceed' }))
-    expect(screen.queryByRole('heading', { name: 'Alignment Pack' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Discovery Call' })).toBeInTheDocument()
     // The Director confirms the call, adds context (or skips) and hands the case to the sponsor
     await user.click(

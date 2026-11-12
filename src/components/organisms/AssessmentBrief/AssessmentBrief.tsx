@@ -209,16 +209,27 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
           {rec && showSummary && (
             <Section id="summary" title="Assessment Summary" icon={Sparkles}>
               <div className="rounded-xl border border-[#e2e8f0] p-5 flex flex-col gap-4">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${
-                      isReject
-                        ? 'bg-red-50 text-red-700 border-red-200'
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    }`}
-                  >
-                    {isReject ? 'Points to reject' : 'Points to proceed'}
-                  </span>
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex flex-col gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#64748b]">
+                      <Sparkles className="w-3.5 h-3.5 text-[#36c0c9]" aria-hidden="true" />
+                      AI agent recommendation
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${
+                          isReject
+                            ? 'bg-red-50 text-red-700 border-red-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}
+                      >
+                        {isReject ? 'Points to reject' : 'Points to proceed'}
+                      </span>
+                      <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold border bg-[#f3e8ff] text-[#7e22ce] border-[#e9d5ff]">
+                        Request type: {request.caseType ?? 'Partnership'}
+                      </span>
+                    </div>
+                  </div>
                   <ConfidenceBadge level={confidenceLevel(rec.confidence)} />
                 </div>
                 <Body>{rec.rationale}</Body>
@@ -260,6 +271,8 @@ export const AssessmentBrief: React.FC<AssessmentBriefProps> = ({
                 </>
               )}
               <Field label="Year Company Was Founded">{info.yearFounded}</Field>
+              {info.website && <Field label="Website URL">{info.website}</Field>}
+              {info.country && <Field label="Country">{info.country}</Field>}
               {info.location && <Field label="Location">{info.location}</Field>}
               {!hideContact && <Field label="Referred By">{request.referredBy || '—'}</Field>}
             </div>

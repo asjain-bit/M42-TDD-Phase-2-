@@ -10,6 +10,8 @@ const strong: VendorFormValues = {
   phone: '',
   email: 's@acme.com',
   yearFounded: '2018',
+  website: 'https://www.acme.com',
+  country: 'United Arab Emirates',
   stageAndExperience:
     'Founded in 2018, we launched our platform in 2022 and expanded to the UAE in 2023 through a partnership with two hospital groups, serving over 30 clinicians.',
   proposal:

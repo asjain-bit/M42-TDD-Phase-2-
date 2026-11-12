@@ -2,14 +2,14 @@
 
 /**
  * SendInternalModal — Organism
- * Two-step popup for the Internal Interest request. Step 1 picks the questionnaire and
- * edits its questions; step 2 picks the reviewers and sends. The body scrolls inside the
- * popup, and Send Request sends it straight away.
+ * Popup for the Internal Interest request: pick the questionnaire and edit its questions, then
+ * Send Request sends it to everyone listed in the Internal Canvas. The body scrolls inside the
+ * popup.
  * Used in: PartnershipDetail
  */
 
 import React, { useEffect, useId, useState } from 'react'
-import { ArrowLeft, Calendar, Check, Send, X } from 'lucide-react'
+import { Calendar, Send, X } from 'lucide-react'
 import { QuestionnaireEditor } from '@/components/organisms/QuestionnaireEditor'
 import type { QuestionnaireVersion } from '@/components/organisms/QuestionnaireEditor/QuestionnaireEditor.types'
 import type { QuestionnaireQuestion } from '@/types/partnership.types'
@@ -22,7 +22,6 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
   onSend,
   onClose,
 }) => {
-  const [selected, setSelected] = useState<string[]>(members.map((m) => m.id))
   const [questionnaireId, setQuestionnaireId] = useState(DEFAULT_QUESTIONNAIRE_ID)
   // Every change to the questions is saved as a new version; the last one is current
   const [versions, setVersions] = useState<QuestionnaireVersion[]>(() => [
@@ -39,7 +38,6 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
     setVersions((prev) => [...prev, { version, label, questions: next }])
     setCurrentVersion(version)
   }
-  const [step, setStep] = useState<'questions' | 'reviewers'>('questions')
   const titleId = useId()
 
   useEffect(() => {
@@ -50,22 +48,15 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const toggle = (id: string) =>
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-
   const questionsValid =
     questions.length > 0 && questions.every((q) => q.text.trim() && q.cue.trim())
-  const canSend = selected.length > 0 && questionsValid
+  const canSend = members.length > 0 && questionsValid
 
   const hint =
-    step === 'questions'
-      ? questions.length === 0
-        ? 'Add at least one question.'
-        : !questionsValid
-          ? 'Every question needs text and a response cue.'
-          : ''
-      : selected.length === 0
-        ? 'Select at least one reviewer.'
+    questions.length === 0
+      ? 'Add at least one question.'
+      : !questionsValid
+        ? 'Every question needs text and a response cue.'
         : ''
 
   return (
@@ -83,12 +74,10 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
             </div>
             <div>
               <h3 id={titleId} className="text-lg font-semibold text-[#0d212c]">
-                {step === 'questions' ? 'Select questionnaire' : 'Select reviewers'}
+                Select questionnaire
               </h3>
               <p className="text-xs text-[#64748b] mt-0.5">
-                {step === 'questions'
-                  ? 'Step 1 of 2: choose the questionnaire and edit its questions for the Internal Interest team.'
-                  : 'Step 2 of 2: choose who answers, then send.'}
+                Choose the questionnaire and edit its questions for the Internal Interest team.
               </p>
             </div>
           </div>
@@ -103,85 +92,25 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 flex flex-col gap-6">
-          {step === 'questions' ? (
-            <QuestionnaireEditor
-              questionnaireId={questionnaireId}
-              onQuestionnaireChange={(id) => {
-                setQuestionnaireId(id)
-                setVersions([
-                  {
-                    version: 1,
-                    label: 'Original',
-                    questions: cloneQuestions(getQuestionnaire(id).questions),
-                  },
-                ])
-                setCurrentVersion(1)
-              }}
-              questions={questions}
-              onQuestionsChange={saveVersion}
-              versions={versions}
-              currentVersion={currentVersion}
-              onSelectVersion={setCurrentVersion}
-            />
-          ) : (
-            <>
-              <section className="flex flex-col gap-3" aria-labelledby="send-reviewers-heading">
-                <h4 id="send-reviewers-heading" className="text-sm font-semibold text-[#0d212c]">
-                  Reviewers{' '}
-                  <span className="font-normal text-[#64748b]">({selected.length} selected)</span>
-                </h4>
-                <div className="border border-[#e2e8f0] rounded-xl divide-y divide-[#f1f5f9] bg-white">
-                  {members.map((person) => {
-                    const checked = selected.includes(person.id)
-                    return (
-                      <div
-                        key={person.id}
-                        onClick={() => toggle(person.id)}
-                        className="flex items-center justify-between p-3 hover:bg-slate-50 transition cursor-pointer select-none"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            role="checkbox"
-                            aria-checked={checked}
-                            aria-label={person.name}
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === ' ' || e.key === 'Enter') {
-                                e.preventDefault()
-                                toggle(person.id)
-                              }
-                            }}
-                            className={`w-5 h-5 rounded-md border flex items-center justify-center transition shrink-0 ${
-                              checked
-                                ? 'bg-[#36c0c9] border-[#36c0c9] text-white'
-                                : 'border-slate-300 bg-white'
-                            }`}
-                          >
-                            {checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                          </div>
-                          <div
-                            className="w-7 h-7 rounded-full flex items-center justify-center font-semibold text-[11px] shrink-0"
-                            style={{
-                              backgroundColor: person.avatarColorBg,
-                              color: person.avatarColorText,
-                            }}
-                          >
-                            {person.initials}
-                          </div>
-                          <span className="text-sm font-medium text-[#0d212c] truncate">
-                            {person.name}
-                          </span>
-                        </div>
-                        <span className="text-xs text-[#64748b] shrink-0 pl-2">
-                          {person.expertise}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-            </>
-          )}
+          <QuestionnaireEditor
+            questionnaireId={questionnaireId}
+            onQuestionnaireChange={(id) => {
+              setQuestionnaireId(id)
+              setVersions([
+                {
+                  version: 1,
+                  label: 'Original',
+                  questions: cloneQuestions(getQuestionnaire(id).questions),
+                },
+              ])
+              setCurrentVersion(1)
+            }}
+            questions={questions}
+            onQuestionsChange={saveVersion}
+            versions={versions}
+            currentVersion={currentVersion}
+            onSelectVersion={setCurrentVersion}
+          />
         </div>
 
         <div className="flex items-center justify-between gap-3 px-6 sm:px-8 py-4 border-t border-[#f1f5f9] flex-wrap shrink-0">
@@ -193,52 +122,30 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
             {hint && <span className="text-xs text-amber-700">{hint}</span>}
           </div>
           <div className="flex items-center gap-3">
-            {step === 'reviewers' ? (
-              <button
-                type="button"
-                onClick={() => setStep('questions')}
-                className="h-10 px-4 rounded-lg border border-[#cbd5e1] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                Back
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onClose}
-                className="h-10 px-4 rounded-lg border border-[#cbd5e1] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-            )}
-            {step === 'questions' ? (
-              <button
-                type="button"
-                disabled={!questionsValid}
-                onClick={() => setStep('reviewers')}
-                className="h-10 px-5 rounded-lg font-semibold text-sm transition bg-[#36c0c9] hover:bg-[#2fb0b9] text-white cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed flex items-center gap-1.5"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={!canSend}
-                onClick={() =>
-                  onSend({
-                    memberIds: selected,
-                    questionnaire: {
-                      name: getQuestionnaire(questionnaireId).name,
-                      version: currentVersion,
-                      questions,
-                    },
-                  })
-                }
-                className="h-10 px-5 rounded-lg font-semibold text-sm transition bg-[#36c0c9] hover:bg-[#2fb0b9] text-white cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
-              >
-                Send Request
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 px-4 rounded-lg border border-[#cbd5e1] bg-white text-sm font-semibold text-[#0d212c] hover:bg-slate-50 transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!canSend}
+              onClick={() =>
+                onSend({
+                  memberIds: members.map((m) => m.id),
+                  questionnaire: {
+                    name: getQuestionnaire(questionnaireId).name,
+                    version: currentVersion,
+                    questions,
+                  },
+                })
+              }
+              className="h-10 px-5 rounded-lg font-semibold text-sm transition bg-[#36c0c9] hover:bg-[#2fb0b9] text-white cursor-pointer disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            >
+              Send Request
+            </button>
           </div>
         </div>
       </div>

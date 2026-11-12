@@ -178,27 +178,25 @@ describe('PartnershipDetail', () => {
   })
 
   describe('thinking animation', () => {
-    it('plays when a case is opened, then shows the brief and logs the analysis', () => {
+    it('shimmers for a couple of seconds, then shows the brief and logs the analysis', () => {
       vi.useFakeTimers()
       renderDetail({
         animateAgentRun: true,
         request: { ...mockRequest, auditLog: [] },
       })
-      expect(screen.getByText('ANALYZING')).toBeInTheDocument()
-      // Simple: one line of progress, no checklist
-      expect(screen.getByRole('status')).toHaveTextContent('Reading vendor form details…')
-      // The agent thinks in the brief area: the back link and tabs stay in view
-      expect(screen.getByRole('tablist')).toBeInTheDocument()
+      expect(screen.queryByText('ANALYZING')).not.toBeInTheDocument()
       expect(
-        screen.getByRole('button', { name: 'Back to Partnership Requests' })
+        screen.getByRole('status', { name: 'Generating the initial assessment brief' })
       ).toBeInTheDocument()
+      // The back link and tabs stay in view while it generates
+      expect(screen.getByRole('tablist')).toBeInTheDocument()
       expect(
         screen.queryByRole('heading', { name: 'Initial Assessment Brief' })
       ).not.toBeInTheDocument()
       expect(onLog).not.toHaveBeenCalled()
 
-      runTimers(1500, 8)
-      expect(screen.getByRole('tablist')).toBeInTheDocument()
+      runTimers(1500, 2)
+      expect(screen.getByRole('heading', { name: 'Initial Assessment Brief' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Agent Actions' })).toBeInTheDocument()
       expect(onLog).toHaveBeenCalledTimes(1)
       expect(onLog).toHaveBeenCalledWith(
@@ -221,7 +219,7 @@ describe('PartnershipDetail', () => {
           overviewCards: { ...mockRequest.overviewCards, regulatory: 'Unclear' },
         },
       })
-      runTimers(1500, 8)
+      runTimers(1500, 2)
       expect(onLog).toHaveBeenCalledTimes(2)
       expect(onLog).toHaveBeenLastCalledWith(
         mockRequest.id,
@@ -424,9 +422,7 @@ describe('PartnershipDetail', () => {
     it('shows the reviewers without a questionnaire preview link', () => {
       renderDetail({ request: approved() })
       expect(
-        screen.getByText(
-          'Choose the Internal Interest reviewers and the questions they will answer, then send the request.'
-        )
+        screen.getByText('Send the request to the Internal Interest team listed below.')
       ).toBeInTheDocument()
       expect(screen.getByText('Riza Sayeed')).toBeInTheDocument()
       expect(screen.getByText('Sara Malik')).toBeInTheDocument()
@@ -451,23 +447,23 @@ describe('PartnershipDetail', () => {
       expect(screen.getByText('Dr. Mona Al Hashimi')).toBeInTheDocument()
     })
 
-    it('sends the reviewers and the chosen questions, then waits for approval', async () => {
+    it('shows the questionnaire first, and Send Request sends it to everyone listed', async () => {
       const user = userEvent.setup()
       renderDetail({ request: approved() })
       await user.click(screen.getByRole('button', { name: 'Send Request' }))
+      // Nothing is sent until the popup's own Send Request is pressed
+      expect(onSendReview).not.toHaveBeenCalled()
 
       const dialog = screen.getByRole('dialog', { name: 'Select questionnaire' })
       await user.selectOptions(within(dialog).getByLabelText('Questionnaire'), 'technical')
-      expect(within(dialog).queryByRole('checkbox', { name: 'Sara Malik' })).not.toBeInTheDocument()
-      await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-      await user.click(within(dialog).getByRole('checkbox', { name: 'Sara Malik' }))
+      expect(within(dialog).queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
       await user.click(within(dialog).getByRole('button', { name: 'Send Request' }))
 
       expect(onSendReview).toHaveBeenCalledTimes(1)
       const [id, team, payload] = onSendReview.mock.calls[0]
       expect(id).toBe(mockRequest.id)
       expect(team).toBe('internal')
-      expect(payload.members).toHaveLength(4)
+      expect(payload.members).toHaveLength(5)
       expect(payload.questionnaire.name).toBe('Technical Questionnaire')
       expect(payload.questionnaire.questions).toHaveLength(3)
       // The popup closes once sent

@@ -7,6 +7,8 @@ export interface VendorFormValues {
   phone: string
   email: string
   yearFounded: string
+  website: string
+  country: string
   stageAndExperience: string
   proposal: string
   focusAreas: string[]
@@ -26,6 +28,8 @@ export const EMPTY_VENDOR_FORM: VendorFormValues = {
   phone: '',
   email: '',
   yearFounded: '',
+  website: '',
+  country: '',
   stageAndExperience: '',
   proposal: '',
   focusAreas: [],
@@ -66,6 +70,8 @@ export const REQUIRED_VENDOR_FIELDS: (keyof VendorFormValues)[] = [
   'company',
   'email',
   'yearFounded',
+  'website',
+  'country',
   'stageAndExperience',
   'proposal',
   'focusAreas',
@@ -97,6 +103,8 @@ export const SAMPLE_VENDOR_FORM: VendorFormValues = {
   phone: '+971 50 987 6543',
   email: 'rania@meridianhealth.ai',
   yearFounded: '2019',
+  website: 'https://www.meridianhealth.ai',
+  country: 'United Arab Emirates',
   stageAndExperience:
     'Founded in 2019, we launched our clinical triage platform in 2022 and now serve 14 hospitals across the UK and Saudi Arabia. We opened a Dubai office in 2024 and completed a joint pilot with a large UAE hospital group in 2025.',
   proposal:

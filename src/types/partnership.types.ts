@@ -139,6 +139,8 @@ export interface CompanyInfo {
   phoneNumber?: string // Phone Number (optional)
   email: string // Email Address *
   yearFounded: string // Year Founded *
+  website?: string // Website URL *
+  country?: string // Country the company is based in *
   location?: string // Location (e.g. UAE, Dubai)
 }
 

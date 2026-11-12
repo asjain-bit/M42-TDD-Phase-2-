@@ -1,17 +1,22 @@
 /**
  * TddAdminApp — Template
- * TDD Admin profile view: the M42 Tech Due Diligence admin app (Dashboard, Questionnaires, Vendors, Agents, Value and ROI), entered from the shared login.
+ * TDD Admin profile view: the M42 Tech Due Diligence admin app (Dashboard, Questionnaires, Vendors, Agents, Partnership Form, Value and ROI), entered from the shared login.
  * Used in: HomePage
  */
 
 'use client'
 
 import React, { useState } from 'react'
-import { BarChart3, Bot, Building2, FileText, LayoutDashboard } from 'lucide-react'
+import { BarChart3, Bot, Building2, ClipboardList, FileText, LayoutDashboard } from 'lucide-react'
 import { DashboardScreen } from '@/tdd-admin/components/screens/DashboardScreen'
 import { QuestionnairesScreen } from '@/tdd-admin/components/screens/QuestionnairesScreen'
 import { VendorsScreen } from '@/tdd-admin/components/screens/VendorsScreen'
 import { AgentsScreen } from '@/tdd-admin/components/screens/AgentsScreen'
+import { PartnershipFormScreen } from '@/tdd-admin/components/screens/PartnershipFormScreen'
+import {
+  seedFormVersions,
+  type FormVersion,
+} from '@/tdd-admin/components/screens/partnershipForm.data'
 import { TddAdminValueRoi } from '@/tdd-admin/TddAdminValueRoi'
 import { Sidebar } from '@/components/organisms/Sidebar'
 import { PartnershipDetail } from '@/components/organisms/PartnershipDetail'
@@ -23,23 +28,26 @@ import type { UsageAssumptions } from '@/lib/usageInsights'
 import './tdd-admin.css'
 import './tdd-admin-overrides.css'
 
-type TddAdminTab = 'dashboard' | 'questionnaires' | 'vendors' | 'agents' | 'usage-insights'
+type TddAdminTab =
+  'dashboard' | 'questionnaires' | 'vendors' | 'agents' | 'partnership-form' | 'usage-insights'
 
 const PAGE_TITLES: Record<TddAdminTab, string> = {
   dashboard: 'Dashboard',
   questionnaires: 'Questionnaires',
   vendors: 'Vendors',
   agents: 'Agents',
+  'partnership-form': 'Partnership Request Form',
   'usage-insights': 'Value and ROI Insights',
 }
 
-// Same left nav as the other profile views, with Value and ROI last
+// Same left nav as the other profile views, with the Partnership Form and Value and ROI last
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   // Soft hyphen so the word wraps in the collapsed nav
   { id: 'questionnaires', label: 'Question\u00ADnaires', icon: FileText },
   { id: 'vendors', label: 'Vendors', icon: Building2 },
   { id: 'agents', label: 'Agents', icon: Bot },
+  { id: 'partnership-form', label: 'Partnership Form', icon: ClipboardList },
   { id: 'usage-insights', label: 'Value and ROI', icon: BarChart3 },
 ]
 
@@ -68,6 +76,8 @@ export const TddAdminApp: React.FC<TddAdminAppProps> = ({
   onSignOut,
 }) => {
   const [activeTab, setActiveTab] = useState<TddAdminTab>('dashboard')
+  // Kept here so drafts survive moving between pages
+  const [formVersions, setFormVersions] = useState<FormVersion[]>(seedFormVersions)
   const [isPageLoading, setIsPageLoading] = useState(false)
   // Collapsed by default, like the other profile views
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
@@ -181,6 +191,12 @@ export const TddAdminApp: React.FC<TddAdminAppProps> = ({
               {activeTab === 'questionnaires' && <QuestionnairesScreen />}
               {activeTab === 'vendors' && <VendorsScreen />}
               {activeTab === 'agents' && <AgentsScreen />}
+              {activeTab === 'partnership-form' && (
+                <PartnershipFormScreen
+                  versions={formVersions}
+                  onVersionsChange={(update) => setFormVersions(update)}
+                />
+              )}
               {activeTab === 'usage-insights' && (
                 <TddAdminValueRoi assumptions={usageAssumptions} onRecalculate={onRecalculate} />
               )}

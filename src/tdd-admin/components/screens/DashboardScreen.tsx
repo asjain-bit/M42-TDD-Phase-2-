@@ -870,9 +870,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4">Confidence Level</th>
                 <th className="py-3.5 px-4">Created date</th>
-                <th className="py-3.5 px-4 w-12">
-                  <span className="sr-only">Actions</span>
-                </th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e2e8f0]/60">

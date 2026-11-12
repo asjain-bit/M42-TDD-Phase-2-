@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
+import { CountrySelect } from '@/components/molecules/CountrySelect'
 import { FocusAreaSelect } from '@/components/molecules/FocusAreaSelect'
 import { runVendorFormCheck, type VendorFormSuggestion } from '@/lib/vendorFormCheck'
 import {
@@ -242,7 +243,8 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
   }
 
   const textField = (
-    field: 'name' | 'jobTitle' | 'company' | 'phone' | 'email' | 'yearFounded',
+    field:
+      'name' | 'jobTitle' | 'company' | 'phone' | 'email' | 'yearFounded' | 'website',
     label: string,
     opts: { required?: boolean; type?: string; placeholder?: string } = {}
   ) => (
@@ -494,6 +496,21 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
                   required: true,
                   placeholder: 'e.g. 2018',
                 })}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                {textField('website', 'Website URL', {
+                  required: true,
+                  type: 'url',
+                  placeholder: 'https://www.company.com',
+                })}
+                <Field id="country" label="Country" required error={isMissing('country')}>
+                  <CountrySelect
+                    id="country"
+                    value={values.country}
+                    onChange={(next) => set('country', next)}
+                    error={isMissing('country')}
+                  />
+                </Field>
               </div>
             </div>
           </section>

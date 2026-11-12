@@ -2,7 +2,7 @@
 
 /**
  * RowActionsMenu — Molecule
- * A table row's ⋯ button with a small menu: Edit, and Delete in red. The menu is fixed to the
+ * A table row's ⋯ button with a small menu: Edit, any extra items, and Delete in red. The menu is fixed to the
  * viewport so a scrolling table never clips it; Esc, a click outside or scrolling closes it.
  * Used in: ExistingProjectsScreen, InternalInterestsScreen
  */
@@ -19,6 +19,7 @@ export const RowActionsMenu: React.FC<RowActionsMenuProps> = ({
   onDelete,
   editLabel = 'Edit',
   deleteLabel = 'Delete',
+  extraItems = [],
   strong = false,
 }) => {
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -110,6 +111,18 @@ export const RowActionsMenu: React.FC<RowActionsMenuProps> = ({
             <Pencil className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
             {editLabel}
           </button>
+          {extraItems.map(({ label: itemLabel, icon: ItemIcon, onClick }) => (
+            <button
+              key={itemLabel}
+              type="button"
+              role="menuitem"
+              onClick={pick(onClick)}
+              className={`${ITEM} ${EDIT_TONE}`}
+            >
+              <ItemIcon className="w-4 h-4" />
+              {itemLabel}
+            </button>
+          ))}
           <button
             type="button"
             role="menuitem"

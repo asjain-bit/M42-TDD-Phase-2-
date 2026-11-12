@@ -389,7 +389,6 @@ export const VendorsScreen: React.FC = () => {
         v.country.toLowerCase().includes(query)
       const matchesFilters =
         (!vendorFilters.vendor || v.name === vendorFilters.vendor) &&
-        (!vendorFilters.status || v.status === vendorFilters.status) &&
         (!vendorFilters.country || v.country === vendorFilters.country)
       return matchesStatus && matchesSearch && matchesFilters
     })
@@ -400,7 +399,6 @@ export const VendorsScreen: React.FC = () => {
     const unique = (values: string[]) => [...new Set(values)].sort((a, b) => a.localeCompare(b))
     return [
       { key: 'vendor', label: 'Vendor name', options: unique(vendors.map((v) => v.name)) },
-      { key: 'status', label: 'Status', options: unique(vendors.map((v) => v.status)) },
       { key: 'country', label: 'Country', options: unique(vendors.map((v) => v.country)) },
     ]
   }, [vendors])
@@ -699,6 +697,15 @@ export const VendorsScreen: React.FC = () => {
             />
           </div>
 
+          <FilterMenu
+            fields={vendorFilterFields}
+            values={vendorFilters}
+            onChange={(values) => {
+              setVendorFilters(values)
+              setCurrentPage(1)
+            }}
+          />
+
           <button
             onClick={() => {
               setOnboardingMode('find')
@@ -719,16 +726,6 @@ export const VendorsScreen: React.FC = () => {
             <Plus className="w-4 h-4 text-white" />
             <span>Add Vendor</span>
           </button>
-
-          {/* Filter always sits at the far right */}
-          <FilterMenu
-            fields={vendorFilterFields}
-            values={vendorFilters}
-            onChange={(values) => {
-              setVendorFilters(values)
-              setCurrentPage(1)
-            }}
-          />
         </div>
       </div>
 

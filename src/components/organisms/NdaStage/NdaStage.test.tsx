@@ -183,8 +183,23 @@ describe('NdaStage: everyone else', () => {
     renderStage(signedRequest, 'viewer')
     expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
     expect(screen.getByLabelText('NDA version')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Preview/ })).toBeInTheDocument()
+    // The NDA and the alignment pack are both files with a Preview
+    expect(screen.getAllByRole('button', { name: /Preview/ })).toHaveLength(2)
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Upload new version' })).not.toBeInTheDocument()
+  })
+
+  it('opens the alignment pack in a popup, like the signed NDA', async () => {
+    const user = userEvent.setup()
+    renderStage(signedRequest, 'viewer')
+    expect(screen.getByText('Alignment-Pack.pdf')).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: /Preview/ })[1])
+    const viewer = screen.getByRole('dialog')
+    expect(within(viewer).getByText('Alignment-Pack.pdf')).toBeInTheDocument()
+    expect(within(viewer).getByRole('heading', { name: 'Company Information' })).toBeInTheDocument()
+    // The stage stays behind the popup
+    expect(screen.getByRole('heading', { name: 'Signed NDA' })).toBeInTheDocument()
+    await user.click(within(viewer).getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

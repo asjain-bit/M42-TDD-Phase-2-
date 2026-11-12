@@ -6,15 +6,18 @@
  * the template as a file card (Preview opens the document viewer), acknowledges the vendor's
  * signature and uploads the signed copy. After that, everyone sees the signed NDA as a file card
  * with its versions; Proceed opens the Discovery Call stage, which needs the signed NDA
- * (hasSignedNda). The alignment pack is not shown here.
+ * (hasSignedNda). The alignment pack sits under the signed NDA as a second file: it is generated
+ * when the signed copy is uploaded, and Preview opens it.
  * Used in: PartnershipDetail
  */
 
 import React, { useState } from 'react'
 import { AlertCircle, ChevronDown, Upload } from 'lucide-react'
 import { DocumentFileCard } from '@/components/molecules/DocumentFileCard'
+import { AlignmentPack } from '@/components/organisms/AlignmentPack'
 import { DocumentViewer } from '@/components/organisms/DocumentViewer'
 import { NdaExecutionForm } from '@/components/organisms/NdaExecutionForm'
+import { ThinkingMode } from '@/components/organisms/ThinkingMode'
 import { UploadSignedNdaModal } from '@/components/organisms/UploadSignedNdaModal'
 import { Checkbox } from '@/components/atoms/Checkbox'
 import { StageFooter } from '@/components/molecules/StageFooter'
@@ -34,6 +37,14 @@ const versionMeta = (v: {
   v.signed
     ? `Version ${v.version} · signed copy · ${v.uploadedBy}, ${v.uploadedOn}`
     : `Version ${v.version} · unsigned template · ${NDA_TEMPLATE_SIZE}`
+
+const PACK_NAME = 'Alignment-Pack.pdf'
+const PACK_MESSAGES = [
+  'Collecting the brief and the Director decision',
+  'Summarising the Internal Interest responses',
+  'Adding the Strategy assessment',
+  'Listing the open questions',
+]
 
 type View = 'template' | 'signed'
 
@@ -68,6 +79,9 @@ export const NdaStage: React.FC<NdaStageProps> = ({
   const [uploading, setUploading] = useState(false)
   const [previewing, setPreviewing] = useState(false)
   const [pickedVersion, setPickedVersion] = useState<number | null>(null)
+  // The agent builds the pack right after the Director uploads the signed copy
+  const [packGenerating, setPackGenerating] = useState(false)
+  const [packOpen, setPackOpen] = useState(false)
   const shown = versions.find((v) => v.version === pickedVersion) ?? latest
 
   // Nobody but the Director sees the template: others wait until it has been signed
@@ -165,6 +179,24 @@ export const NdaStage: React.FC<NdaStageProps> = ({
             meta={versionMeta(shown)}
             onPreview={() => setPreviewing(true)}
           />
+          {packGenerating ? (
+            <ThinkingMode
+              inline
+              eyebrow="GENERATING"
+              description="The agent is bringing everything known about this case together into the alignment pack."
+              messages={PACK_MESSAGES}
+              stepMs={900}
+              onComplete={() => setPackGenerating(false)}
+            />
+          ) : (
+            request.alignmentPackOn && (
+              <DocumentFileCard
+                fileName={PACK_NAME}
+                meta={`Alignment pack · generated ${request.alignmentPackOn}`}
+                onPreview={() => setPackOpen(true)}
+              />
+            )
+          )}
           <div className="flex-1" aria-hidden="true" />
           <StageFooter compact>
             {isDirector ? (
@@ -177,9 +209,21 @@ export const NdaStage: React.FC<NdaStageProps> = ({
             ) : (
               <span />
             )}
-            <PrimaryButton onClick={onNext}>Proceed</PrimaryButton>
+            <PrimaryButton disabled={packGenerating} onClick={onNext}>
+              Proceed
+            </PrimaryButton>
           </StageFooter>
         </>
+      )}
+
+      {packOpen && (
+        <DocumentViewer
+          fileName={PACK_NAME}
+          contentLabel="Alignment pack"
+          onClose={() => setPackOpen(false)}
+        >
+          <AlignmentPack request={request} />
+        </DocumentViewer>
       )}
 
       {previewing && (
@@ -206,6 +250,7 @@ export const NdaStage: React.FC<NdaStageProps> = ({
             onAction({ type: 'uploadNda', fileName })
             setUploading(false)
             setPickedVersion(null)
+            setPackGenerating(isDirector)
           }}
         />
       )}

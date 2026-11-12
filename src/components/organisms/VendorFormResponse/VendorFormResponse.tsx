@@ -143,6 +143,16 @@ export const VendorFormResponse: React.FC<VendorFormResponseProps> = ({
               <Question label="Year Company Was Founded" required>
                 <AnswerBox>{c.yearFounded}</AnswerBox>
               </Question>
+              {c.website && (
+                <Question label="Website URL" required>
+                  <AnswerBox>{c.website}</AnswerBox>
+                </Question>
+              )}
+              {c.country && (
+                <Question label="Country" required>
+                  <AnswerBox>{c.country}</AnswerBox>
+                </Question>
+              )}
             </div>
           </section>
 

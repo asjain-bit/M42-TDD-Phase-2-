@@ -253,6 +253,8 @@ export default function HomePage() {
     ])
   const editUser = (id: string, draft: UserDraft) =>
     setPlatformUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...draft } : u)))
+  const setUserStatus = (id: string, status: PlatformUser['status']) =>
+    setPlatformUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status } : u)))
   const deleteUser = (id: string) => setPlatformUsers((prev) => prev.filter((u) => u.id !== id))
 
   const handleSignOut = () => {
@@ -380,6 +382,7 @@ export default function HomePage() {
               onAdd={addUser}
               onEdit={editUser}
               onDelete={deleteUser}
+              onSetStatus={setUserStatus}
             />
           ) : activeTab === 'agents' && userProfile.id === 'partnership-admin' ? (
             <div className="tdd-admin -m-6">

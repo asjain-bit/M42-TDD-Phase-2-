@@ -34,7 +34,7 @@ describe('BriefDecisionModal', () => {
       radios.map((r) =>
         (r as HTMLInputElement)
           .closest('label')
-          ?.textContent?.replace('Suggested by assessment', '')
+          ?.textContent?.replace('Recommended', '')
       )
     ).toEqual(['Proceed', 'Request more info'])
     expect(radios.every((r) => !(r as HTMLInputElement).checked)).toBe(true)
@@ -90,7 +90,7 @@ describe('BriefDecisionModal', () => {
     const user = userEvent.setup()
     const { onClose } = renderModal({ agentRecommendation: 'proceed' })
     const proceed = screen.getByRole('radio', { name: /^Proceed/ }).closest('label')!
-    expect(within(proceed).getByText('Suggested by assessment')).toBeInTheDocument()
+    expect(within(proceed).getByText('Recommended')).toBeInTheDocument()
     expect(screen.getByRole('dialog').className).toContain('max-h-[90vh]')
     await user.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalled()
@@ -102,6 +102,6 @@ describe('BriefDecisionModal', () => {
     expect(screen.getByText(/The assessment points to not taking this further/)).toHaveTextContent(
       'Close request'
     )
-    expect(screen.queryByText('Suggested by assessment')).not.toBeInTheDocument()
+    expect(screen.queryByText('Recommended')).not.toBeInTheDocument()
   })
 })

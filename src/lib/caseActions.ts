@@ -666,6 +666,8 @@ export const buildCaseFromForm = (
       phoneNumber: values.phone.trim() || undefined,
       email: values.email.trim(),
       yearFounded: values.yearFounded.trim(),
+      website: values.website.trim(),
+      country: values.country.trim(),
     },
     assessmentAreas: {
       stageOfMaturityAndExperience: values.stageAndExperience.trim(),
