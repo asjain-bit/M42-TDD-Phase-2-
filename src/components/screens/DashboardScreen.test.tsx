@@ -718,13 +718,25 @@ describe('Internal Interest outcomes', () => {
     render(<Shared profile={directorProfile} initial={[sentToInternal]} />)
     await openCase(user)
     await simulate(user, 'multiple')
-    // The response is acknowledged first, then the sponsors are assigned
-    const ack = screen.getByRole('dialog', { name: 'Internal Interest has responded' })
-    await user.click(within(ack).getByRole('button', { name: 'Proceed' }))
+    // No Proceed step first: the sponsors are assigned straight away
+    expect(
+      screen.queryByRole('dialog', { name: 'Internal Interest has responded' })
+    ).not.toBeInTheDocument()
     const popup = screen.getByRole('dialog', { name: 'Assign sponsors' })
     await user.click(within(popup).getByRole('radio', { name: /Parag Agarwal/ }))
     await user.click(within(popup).getByRole('checkbox', { name: 'Riza Sayeed' }))
     await user.click(within(popup).getByRole('button', { name: 'Assign sponsors' }))
+    // A note, not a popup: the Director stays on the Internal Canvas, where the split cases are listed
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /multiple sponsors, split cases were created/
+    )
+    expect(screen.getByRole('heading', { level: 2, name: 'Internal Canvas' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Split cases' })).toBeInTheDocument()
+    // A couple of seconds later Strategic Alignment opens by itself
+    act(() => {
+      vi.advanceTimersByTime(2600)
+    })
     finishThinking()
     expect(
       screen.getByRole('heading', { level: 2, name: 'Strategic Alignment' })
@@ -737,6 +749,14 @@ describe('Internal Interest outcomes', () => {
     expect(screen.getByText('Lead sponsor:').parentElement).toHaveTextContent(
       /Lead sponsor: Parag Agarwal.*Co-sponsors: Riza Sayeed/
     )
+    // The split case is in the list, right under its case
+    await user.click(screen.getByRole('button', { name: 'Back to Partnership Requests' }))
+    const codes = screen
+      .getAllByRole('row')
+      .map((r) => r.textContent ?? '')
+      .filter((t) => /PR-\d+/.test(t))
+    const at = codes.findIndex((t) => /PR-\d+-A/.test(t))
+    expect(at).toBeGreaterThan(0)
   })
 
   it('shows the Strategy Team approval and its conditions as soon as the request is sent', async () => {

@@ -20,6 +20,11 @@ export interface PlatformUser {
   assignedRequests: number
   status: UserStatus
   lastActive: string
+  /** Service Line Owners only */
+  department?: string
+  /** The KPIs mapped to this owner */
+  kpis?: string[]
+  domainExpertise?: string
 }
 
 export const INITIAL_PLATFORM_USERS: PlatformUser[] = [
@@ -149,4 +154,14 @@ export const INITIAL_PLATFORM_USERS: PlatformUser[] = [
     status: 'Active',
     lastActive: 'Yesterday',
   },
+]
+
+/** The KPIs a Service Line Owner can be mapped to */
+export const SERVICE_LINE_KPIS: string[] = [
+  'Cost Reduction',
+  'Operational Efficiency',
+  'Revenue Growth',
+  'Patient Experience & Satisfaction',
+  'Workforce Productivity',
+  'Quality of Care & Clinical Outcomes',
 ]

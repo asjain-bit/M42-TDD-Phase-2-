@@ -5,14 +5,16 @@
  * Pick a questionnaire, then add questions or switch on Edit to reorder (drag), change or delete
  * them before it is sent. Every change saves a new version, picked from a dropdown once the
  * questionnaire has been edited.
- * Changes only apply to this request, never to the questionnaire library.
+ * Changes only apply to this request, never to the questionnaire library. In read-only mode
+ * (the Send Request popup) it only lists the chosen questionnaire's questions.
  * Used in: SendInternalModal
  */
 
 import React, { useState } from 'react'
 import { ChevronDown, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { AddQuestionModal } from '@/components/organisms/AddQuestionModal'
-import { newQuestionId, QUESTIONNAIRE_LIBRARY } from '@/types/questionnaires'
+import { useQuestionnaireLibrary } from '@/lib/useQuestionnaireLibrary'
+import { newQuestionId } from '@/types/questionnaires'
 import type { QuestionnaireQuestion } from '@/types/partnership.types'
 import type { QuestionnaireEditorProps } from './QuestionnaireEditor.types'
 
@@ -46,8 +48,10 @@ export const QuestionnaireEditor: React.FC<QuestionnaireEditorProps> = ({
   versions,
   currentVersion,
   onSelectVersion,
+  readOnly = false,
   className = '',
 }) => {
+  const library = useQuestionnaireLibrary()
   const [adding, setAdding] = useState(false)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -76,7 +80,7 @@ export const QuestionnaireEditor: React.FC<QuestionnaireEditorProps> = ({
             onChange={(e) => onQuestionnaireChange(e.target.value)}
             className={`${FIELD} h-10 appearance-none pl-3 pr-10 cursor-pointer`}
           >
-            {QUESTIONNAIRE_LIBRARY.map((q) => (
+            {library.map((q) => (
               <option key={q.id} value={q.id}>
                 {q.name}
               </option>
@@ -97,7 +101,7 @@ export const QuestionnaireEditor: React.FC<QuestionnaireEditorProps> = ({
               ({questions.length} {questions.length === 1 ? 'question' : 'questions'})
             </span>
           </h4>
-          {versions && versions.length > 1 && (
+          {!readOnly && versions && versions.length > 1 && (
             <div className="relative">
               <select
                 aria-label="Version"
@@ -118,30 +122,32 @@ export const QuestionnaireEditor: React.FC<QuestionnaireEditorProps> = ({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            aria-pressed={editMode}
-            onClick={() => setEditMode((m) => !m)}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#008a8a] hover:text-[#006e6e] cursor-pointer transition"
-          >
-            <Pencil className="w-4 h-4" aria-hidden="true" />
-            {editMode ? 'Save' : 'Edit'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#008a8a] hover:text-[#006e6e] cursor-pointer transition"
-          >
-            <Plus className="w-4 h-4" aria-hidden="true" />
-            Add question
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              aria-pressed={editMode}
+              onClick={() => setEditMode((m) => !m)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#008a8a] hover:text-[#006e6e] cursor-pointer transition"
+            >
+              <Pencil className="w-4 h-4" aria-hidden="true" />
+              {editMode ? 'Save' : 'Edit'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#008a8a] hover:text-[#006e6e] cursor-pointer transition"
+            >
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              Add question
+            </button>
+          </div>
+        )}
       </div>
 
       {questions.length === 0 ? (
         <p className="text-sm text-[#64748b] text-center py-8 border border-dashed border-[#e2e8f0] rounded-xl">
-          No questions yet. Add at least one question to send.
+          No questions yet.
         </p>
       ) : (
         <ol aria-label="Questions" className="flex flex-col gap-3">

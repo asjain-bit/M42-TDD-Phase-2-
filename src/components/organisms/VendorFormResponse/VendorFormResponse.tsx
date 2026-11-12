@@ -14,9 +14,7 @@ import type { VendorFormResponseProps } from './VendorFormResponse.types'
 const POPULATION_OPTIONS = ['Adult patients', 'Pediatric patients', "Women's health"]
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <h3 className="text-sm font-semibold text-[#0d212c]">
-    {children}
-  </h3>
+  <h3 className="text-sm font-semibold text-[#0d212c]">{children}</h3>
 )
 
 const Question: React.FC<{

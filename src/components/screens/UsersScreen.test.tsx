@@ -101,4 +101,30 @@ describe('UsersScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Reactivate user' }))
     expect(onSetStatus).toHaveBeenCalledWith('usr-08', 'Active')
   })
+
+  it('asks a Service Line Owner for a department, a KPI and a domain expertise', async () => {
+    const { user, onAdd } = setup()
+    await user.click(screen.getByRole('button', { name: /Add New User/ }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).queryByLabelText(/Department/)).not.toBeInTheDocument()
+    await user.type(within(dialog).getByLabelText(/Full Name/), 'Lina Haddad')
+    await user.type(within(dialog).getByLabelText(/Email Address/), 'lhaddad@m42.ae')
+    await user.selectOptions(within(dialog).getByLabelText(/Assigned Role/), 'Service Line Owner')
+    await user.click(within(dialog).getByRole('button', { name: 'Add User' }))
+    expect(onAdd).not.toHaveBeenCalled()
+    await user.type(within(dialog).getByLabelText(/Department/), 'Diagnostics')
+    await user.click(within(dialog).getByLabelText(/^KPIs/))
+    await user.click(within(dialog).getByRole('option', { name: 'Cost Reduction' }))
+    await user.click(within(dialog).getByRole('option', { name: 'Revenue Growth' }))
+    await user.type(within(dialog).getByLabelText(/Domain Expertise/), 'Medical imaging')
+    await user.click(within(dialog).getByRole('button', { name: 'Add User' }))
+    expect(onAdd).toHaveBeenCalledWith({
+      name: 'Lina Haddad',
+      email: 'lhaddad@m42.ae',
+      role: 'Service Line Owner',
+      department: 'Diagnostics',
+      kpis: ['Cost Reduction', 'Revenue Growth'],
+      domainExpertise: 'Medical imaging',
+    })
+  })
 })

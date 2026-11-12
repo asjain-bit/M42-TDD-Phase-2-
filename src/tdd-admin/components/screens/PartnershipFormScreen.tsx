@@ -2,13 +2,11 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Archive,
-  ArchiveRestore,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
-  ExternalLink,
   Eye,
-  FileEdit,
+  GitBranch,
   Inbox,
   MoreHorizontal,
   Pencil,
@@ -23,8 +21,12 @@ import {
   createDraft,
   describeChanges,
   formatDate,
+  FORM_WORKFLOWS,
+  makeAudit,
+  totalQuestions,
   type DraftSource,
   type FormVersion,
+  type FormWorkflow,
   type VersionStatus,
 } from './partnershipForm.data'
 import {
@@ -37,11 +39,14 @@ import {
 } from './PartnershipFormParts'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { PartnershipFormEditor } from './PartnershipFormEditor'
-import { PartnershipFormPreview } from './PartnershipFormPreview'
+import { FilterMenu } from '@/tdd-admin/components/molecules/FilterMenu'
 
 interface PartnershipFormScreenProps {
   versions: FormVersion[]
   onVersionsChange: (update: (prev: FormVersion[]) => FormVersion[]) => void
+  /** Whether vendors can submit the live form */
+  acceptingRequests: boolean
+  onAcceptingChange: (next: boolean) => void
 }
 
 type StatusFilter = 'all' | VersionStatus
@@ -54,23 +59,36 @@ interface ToastState {
 export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
   versions,
   onVersionsChange,
+  acceptingRequests,
+  onAcceptingChange,
 }) => {
   const [openId, setOpenId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [creating, setCreating] = useState(false)
-  const [viewingPublic, setViewingPublic] = useState(false)
+  const [workflowFilter, setWorkflowFilter] = useState<Record<string, string>>({})
   const [discardTarget, setDiscardTarget] = useState<FormVersion | null>(null)
-  const [archiveTarget, setArchiveTarget] = useState<FormVersion | null>(null)
   const [menu, setMenu] = useState<{ id: string; top: number; left: number } | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const live = versions.find((v) => v.status === 'live')
-  const draft = versions.find((v) => v.status === 'draft')
+  const liveFor = (workflow: FormWorkflow) =>
+    versions.find((v) => v.workflow === workflow && v.status === 'live')
+  const draftFor = (workflow: FormWorkflow) =>
+    versions.find((v) => v.workflow === workflow && v.status === 'draft')
+  const liveCount = versions.filter((v) => v.status === 'live').length
   const archived = versions.filter((v) => v.status === 'archived')
-  const sorted = useMemo(() => [...versions].sort((a, b) => b.number - a.number), [versions])
+  // Grouped by workflow, newest version first
+  const sorted = useMemo(
+    () =>
+      [...versions].sort(
+        (a, b) =>
+          FORM_WORKFLOWS.indexOf(a.workflow) - FORM_WORKFLOWS.indexOf(b.workflow) ||
+          b.number - a.number
+      ),
+    [versions]
+  )
   const totalRequests = versions.reduce((sum, v) => sum + v.requests, 0)
 
   useEffect(
@@ -105,8 +123,21 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
   const replaceVersion = (next: FormVersion) =>
     onVersionsChange((prev) => prev.map((v) => (v.id === next.id ? next : v)))
 
-  const startDraft = (source: DraftSource, fromVersionId: string | undefined, note: string) => {
-    const created = createDraft(versions, source, fromVersionId, note)
+  const startDraft = (
+    source: DraftSource,
+    fromVersionId: string | undefined,
+    note: string,
+    workflow: FormWorkflow = 'Partnership'
+  ) => {
+    // One open draft per workflow: carry on with it instead of starting another
+    const open = draftFor(workflow)
+    if (open) {
+      setCreating(false)
+      setOpenId(open.id)
+      showToast(`Version ${open.number} is already a draft. Continuing it.`)
+      return
+    }
+    const created = createDraft(versions, source, fromVersionId, note, workflow)
     onVersionsChange((prev) => [created, ...prev])
     setCreating(false)
     setOpenId(created.id)
@@ -114,7 +145,7 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
   }
 
   const publish = (version: FormVersion, note: string) => {
-    const changes = describeChanges(live, version)
+    const changes = describeChanges(liveFor(version.workflow), version)
     onVersionsChange((prev) =>
       prev.map((v) => {
         if (v.id === version.id) {
@@ -124,9 +155,34 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
             publishedAt: formatDate(),
             editedAt: formatDate(),
             note: note || `${changes.length} ${changes.length === 1 ? 'change' : 'changes'}`,
+            auditLog: [
+              ...v.auditLog,
+              makeAudit(
+                `Version ${version.number} published`,
+                `Vendors now see this version.${note ? ` Note: ${note}.` : ''} ${
+                  changes.length
+                    ? `Changes: ${changes.join('; ')}.`
+                    : 'No changes from the previous version.'
+                }`,
+                'approval'
+              ),
+            ],
           }
         }
-        return v.status === 'live' ? { ...v, status: 'archived' } : v
+        return v.status === 'live' && v.workflow === version.workflow
+          ? {
+              ...v,
+              status: 'archived',
+              auditLog: [
+                ...v.auditLog,
+                makeAudit(
+                  'Archived',
+                  `Replaced by Version ${version.number}, which is now live.`,
+                  'critical'
+                ),
+              ],
+            }
+          : v
       })
     )
     setOpenId(null)
@@ -140,23 +196,18 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
     showToast(`Draft Version ${version.number} discarded.`)
   }
 
-  const archive = (version: FormVersion) => {
-    replaceVersion({ ...version, status: 'archived', editedAt: formatDate() })
-    setArchiveTarget(null)
-    showToast(`Version ${version.number} archived.`)
-  }
-
-  /** An archived version comes back as the open draft */
-  const unarchive = (version: FormVersion) => {
-    replaceVersion({ ...version, status: 'draft', editedAt: formatDate() })
-    showToast(`Version ${version.number} unarchived. It is now the open draft.`)
-  }
-
   const filtered = sorted.filter((v) => {
     const query = search.trim().toLowerCase()
     const matchesSearch =
-      !query || `version ${v.number}`.includes(query) || v.note.toLowerCase().includes(query)
-    return matchesSearch && (statusFilter === 'all' || v.status === statusFilter)
+      !query ||
+      `version ${v.number}`.includes(query) ||
+      v.workflow.toLowerCase().includes(query) ||
+      v.note.toLowerCase().includes(query)
+    return (
+      matchesSearch &&
+      (statusFilter === 'all' || v.status === statusFilter) &&
+      (!workflowFilter.workflow || v.workflow === workflowFilter.workflow)
+    )
   })
 
   const toastEl = toast && (
@@ -193,7 +244,15 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
           onChange={replaceVersion}
           onPublish={publish}
           onDiscard={discard}
-          onOpenDraft={() => draft && setOpenId(draft.id)}
+          onOpenDraft={() => {
+            const open = draftFor(opened.workflow)
+            if (open) setOpenId(open.id)
+          }}
+          accepting={acceptingRequests}
+          onAcceptingChange={(next) => {
+            onAcceptingChange(next)
+            showToast(next ? 'Now accepting requests.' : 'Requests are closed.')
+          }}
           onToast={showToast}
         />
       </>
@@ -201,7 +260,7 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
   }
 
   const chips: { key: StatusFilter; label: string; count: number }[] = [
-    { key: 'all', label: 'All versions', count: versions.length },
+    { key: 'all', label: 'All request forms', count: versions.length },
     { key: 'draft', label: 'Draft', count: versions.filter((v) => v.status === 'draft').length },
     { key: 'live', label: 'Live', count: versions.filter((v) => v.status === 'live').length },
     { key: 'archived', label: 'Archived', count: archived.length },
@@ -214,21 +273,15 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         <StatCard
           icon={<Radio className="w-5 h-5 text-[#0284c7] stroke-[2]" />}
-          label="Live version"
-          value={live ? `v${live.number}` : '-'}
-          caption={live ? `Published ${live.publishedAt}, what vendors see` : 'No form is live'}
+          label="Live forms"
+          value={String(liveCount)}
+          caption="Request forms vendors can fill in now"
         />
         <StatCard
-          icon={<FileEdit className="w-5 h-5 text-[#d97706] stroke-[2]" />}
-          label="Draft"
-          value={draft ? `v${draft.number}` : '-'}
-          caption={draft ? 'In progress, private to admins' : 'No open draft'}
-        />
-        <StatCard
-          icon={<Inbox className="w-5 h-5 text-[#6366f1] stroke-[2]" />}
-          label="Requests answered"
-          value={String(totalRequests)}
-          caption="Across all versions"
+          icon={<GitBranch className="w-5 h-5 text-[#d97706] stroke-[2]" />}
+          label="Workflow stages"
+          value={String(FORM_WORKFLOWS.length)}
+          caption={FORM_WORKFLOWS.join(', ').replace(/, ([^,]*)$/, ' and $1')}
         />
         <StatCard
           icon={<Sparkles className="w-5 h-5 text-[#ef4444] stroke-[2]" />}
@@ -236,47 +289,42 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
           value={`${AI_CHECKS_TODAY.used} / ${AI_CHECKS_TODAY.limit}`}
           caption={`${AI_CHECKS_TODAY.perVendor} per vendor email a day`}
         />
+        <StatCard
+          icon={<Inbox className="w-5 h-5 text-[#6366f1] stroke-[2]" />}
+          label="Requests answered"
+          value={String(totalRequests)}
+          caption="Across all request forms"
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-0.5">
-          <h2 className="text-xl font-extrabold">Form versions</h2>
+          <h2 className="text-xl font-extrabold">Request forms</h2>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 text-[#64748b] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              aria-label="Search versions"
-              placeholder="Search version or note..."
+              aria-label="Search request forms"
+              placeholder="Search workflow, version or note..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={`${FIELD_CLASS} !py-2 pl-10 !text-xs shadow-xs`}
             />
           </div>
+          <FilterMenu
+            fields={[{ key: 'workflow', label: 'Workflow stage', options: [...FORM_WORKFLOWS] }]}
+            values={workflowFilter}
+            onChange={setWorkflowFilter}
+          />
           <button
             type="button"
-            onClick={() => setViewingPublic(true)}
-            disabled={!live}
-            className={`${SECONDARY_BUTTON} shrink-0 disabled:opacity-40 disabled:cursor-not-allowed`}
-          >
-            <ExternalLink className="w-4 h-4 text-[#64748b]" />
-            View public form
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (draft) {
-                setOpenId(draft.id)
-                showToast(`Version ${draft.number} is already a draft. Continuing it.`)
-              } else {
-                setCreating(true)
-              }
-            }}
+            onClick={() => setCreating(true)}
             className={`${PRIMARY_BUTTON} shrink-0`}
           >
             <Plus className="w-4 h-4" />
-            New draft
+            Request form
           </button>
         </div>
       </div>
@@ -312,7 +360,15 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
         <table className="w-full text-left text-xs min-w-[720px]">
           <thead>
             <tr className="bg-[#f8fafc] text-[11px] font-bold uppercase tracking-wide text-[#64748b]">
-              {['Version', 'Status', 'Questions', 'Changes', 'Last edited', 'Requests'].map((h) => (
+              {[
+                'Workflow',
+                'Version',
+                'Status',
+                'Questions',
+                'Changes',
+                'Last edited',
+                'Requests',
+              ].map((h) => (
                 <th key={h} scope="col" className="px-5 py-3 font-bold">
                   {h}
                 </th>
@@ -324,13 +380,19 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
           </thead>
           <tbody>
             {filtered.map((v) => {
-              const changeCount = v.status === 'draft' ? describeChanges(live, v).length : 0
+              const changeCount =
+                v.status === 'draft' ? describeChanges(liveFor(v.workflow), v).length : 0
               return (
                 <tr
                   key={v.id}
                   onClick={() => setOpenId(v.id)}
                   className="hover:bg-[#f8fafc] transition cursor-pointer"
                 >
+                  <td className="px-5 py-4">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#f3e8ff] text-[11px] font-bold text-[#7e22ce]">
+                      {v.workflow}
+                    </span>
+                  </td>
                   <td className="px-5 py-4">
                     <button
                       type="button"
@@ -346,7 +408,7 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
                   <td className="px-5 py-4">
                     <VersionStatusChip status={v.status} />
                   </td>
-                  <td className="px-5 py-4 text-[#334155]">{v.questions.length}</td>
+                  <td className="px-5 py-4 text-[#334155]">{totalQuestions(v)}</td>
                   <td className="px-5 py-4 text-[#334155]">
                     {v.note ||
                       (v.status === 'draft'
@@ -386,8 +448,8 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
         {filtered.length === 0 && (
           <div className="px-6 py-12 flex flex-col items-center gap-1.5 text-center">
             <ClipboardCheck className="w-6 h-6 text-[#94a3b8]" aria-hidden="true" />
-            <span className="text-sm font-bold">No versions match</span>
-            <span className="text-xs text-[#64748b]">Try another search or status.</span>
+            <span className="text-sm font-bold">No request forms match</span>
+            <span className="text-xs text-[#64748b]">Try another search, status or workflow.</span>
           </div>
         )}
       </div>
@@ -416,35 +478,10 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
                   <MenuItem
                     icon={Plus}
                     label="Use as a new draft"
-                    disabledHint={draft ? 'A draft is already open' : undefined}
+                    disabledHint={draftFor(v.workflow) ? 'A draft is already open' : undefined}
                     onClick={() => {
                       setMenu(null)
-                      startDraft('older', v.id, '')
-                    }}
-                  />
-                )}
-                {v.status === 'archived' ? (
-                  <MenuItem
-                    icon={ArchiveRestore}
-                    label="Unarchive version"
-                    disabledHint={draft ? 'A draft is already open' : undefined}
-                    onClick={() => {
-                      setMenu(null)
-                      unarchive(v)
-                    }}
-                  />
-                ) : (
-                  <MenuItem
-                    icon={Archive}
-                    label="Archive version"
-                    disabledHint={
-                      v.status === 'live'
-                        ? 'Publish another version before archiving this one'
-                        : undefined
-                    }
-                    onClick={() => {
-                      setMenu(null)
-                      setArchiveTarget(v)
+                      startDraft('older', v.id, '', v.workflow)
                     }}
                   />
                 )}
@@ -465,27 +502,12 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
         </div>
       )}
 
-      {viewingPublic && live && (
-        <PartnershipFormPreview version={live} onClose={() => setViewingPublic(false)} />
-      )}
-
       {creating && (
         <NewDraftDialog
-          live={live}
+          liveFor={liveFor}
           archived={archived}
           onCreate={startDraft}
           onClose={() => setCreating(false)}
-        />
-      )}
-
-      {archiveTarget && (
-        <ConfirmDialog
-          title={`Archive Version ${archiveTarget.number}?`}
-          description="It moves out of the active versions, and you can unarchive it later."
-          icon={Archive}
-          confirmLabel="Archive"
-          onCancel={() => setArchiveTarget(null)}
-          onConfirm={() => archive(archiveTarget)}
         />
       )}
 
@@ -550,15 +572,28 @@ const MenuItem: React.FC<{
 type DraftStart = 'live' | 'existing' | 'blank'
 
 const NewDraftDialog: React.FC<{
-  live?: FormVersion
+  liveFor: (workflow: FormWorkflow) => FormVersion | undefined
   /** Archived versions to restore from */
   archived: FormVersion[]
-  onCreate: (source: DraftSource, fromVersionId: string | undefined, note: string) => void
+  onCreate: (
+    source: DraftSource,
+    fromVersionId: string | undefined,
+    note: string,
+    workflow: FormWorkflow
+  ) => void
   onClose: () => void
-}> = ({ live, archived, onCreate, onClose }) => {
-  const [source, setSource] = useState<DraftStart>(live ? 'live' : 'blank')
-  const [olderId, setOlderId] = useState(archived[0]?.id ?? '')
+}> = ({ liveFor, archived, onCreate, onClose }) => {
+  const [workflow, setWorkflow] = useState<FormWorkflow>('Partnership')
+  const live = liveFor(workflow)
+  const older = archived.filter((v) => v.workflow === workflow)
+  const [pick, setPick] = useState<DraftStart>('live')
+  const [olderId, setOlderId] = useState('')
   const [note, setNote] = useState('')
+
+  // A start that the chosen workflow cannot offer falls back to the nearest one
+  const source: DraftStart =
+    pick === 'live' && !live ? 'blank' : pick === 'existing' && older.length === 0 ? 'blank' : pick
+  const fromId = older.some((v) => v.id === olderId) ? olderId : (older[0]?.id ?? '')
 
   const options: {
     key: DraftStart
@@ -570,7 +605,7 @@ const NewDraftDialog: React.FC<{
     {
       key: 'live',
       title: live ? `Live version (Version ${live.number})` : 'Live version',
-      description: live ? `${live.questions.length} questions.` : 'No version is live yet.',
+      description: live ? `${totalQuestions(live)} questions.` : `No ${workflow} form is live yet.`,
       badge: 'Recommended',
       disabled: !live,
     },
@@ -578,25 +613,26 @@ const NewDraftDialog: React.FC<{
       key: 'existing',
       title: 'Existing version',
       description: 'Restore the wording of an archived version.',
-      disabled: archived.length === 0,
+      disabled: older.length === 0,
     },
     {
       key: 'blank',
       title: 'Blank form',
-      description: 'Fixed company fields only, no assessment questions.',
+      description: 'Start from scratch: create your own sections and input fields.',
     },
   ]
 
   const create = () =>
     onCreate(
       source === 'live' ? 'live' : source === 'existing' ? 'older' : 'blank',
-      source === 'existing' ? olderId : undefined,
-      note
+      source === 'existing' ? fromId : undefined,
+      note,
+      workflow
     )
 
   return (
     <Modal
-      title="New draft"
+      title="New request form"
       info="A draft is private to admins. Vendors keep seeing the live version until you publish."
       onClose={onClose}
       footer={
@@ -610,6 +646,30 @@ const NewDraftDialog: React.FC<{
         </>
       }
     >
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="pf-draft-workflow" className="text-xs font-bold">
+          Workflow
+        </label>
+        <div className="relative">
+          <select
+            id="pf-draft-workflow"
+            value={workflow}
+            onChange={(e) => setWorkflow(e.target.value as FormWorkflow)}
+            className={`${FIELD_CLASS} appearance-none pr-10 cursor-pointer`}
+          >
+            {FORM_WORKFLOWS.map((w) => (
+              <option key={w} value={w}>
+                {w}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            aria-hidden="true"
+            className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+          />
+        </div>
+      </div>
+
       <fieldset className="flex flex-col gap-2.5 border-0 p-0 m-0 min-w-0">
         <legend className="text-xs font-bold mb-2">Start from</legend>
         {options.map((option) => (
@@ -627,7 +687,7 @@ const NewDraftDialog: React.FC<{
               value={option.key}
               checked={source === option.key}
               disabled={option.disabled}
-              onChange={() => setSource(option.key)}
+              onChange={() => setPick(option.key)}
               className="peer sr-only"
             />
             <RadioMark checked={source === option.key} />
@@ -653,13 +713,13 @@ const NewDraftDialog: React.FC<{
           </label>
           <select
             id="pf-draft-version"
-            value={olderId}
+            value={fromId}
             onChange={(e) => setOlderId(e.target.value)}
             className={FIELD_CLASS}
           >
-            {archived.map((v) => (
+            {older.map((v) => (
               <option key={v.id} value={v.id}>
-                Version {v.number} ({v.questions.length} questions)
+                Version {v.number} ({totalQuestions(v)} questions)
               </option>
             ))}
           </select>

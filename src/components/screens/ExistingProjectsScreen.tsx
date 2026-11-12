@@ -149,9 +149,7 @@ export const ExistingProjectsScreen: React.FC<ExistingProjectsScreenProps> = ({
                 <th className="py-4 px-4">Status</th>
                 <th className="py-4 px-4">Vendors</th>
                 <th className="py-4 px-4">Overlap</th>
-                {canEdit && (
-                  <th className="py-4 px-4 text-right">Actions</th>
-                )}
+                {canEdit && <th className="py-4 px-4 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">

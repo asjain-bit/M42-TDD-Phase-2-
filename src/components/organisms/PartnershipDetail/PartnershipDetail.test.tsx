@@ -177,6 +177,19 @@ describe('PartnershipDetail', () => {
     })
   })
 
+  describe('step tooltips', () => {
+    it('names who completed the brief, on hover, and shows nothing for later steps', async () => {
+      const user = userEvent.setup()
+      renderDetail({ request: approved() })
+      const brief = stepper().getByRole('button', { name: /Initial Assessment Brief/ })
+      await user.hover(brief)
+      expect(screen.getByRole('tooltip')).toHaveTextContent('Director')
+      await user.unhover(brief)
+      await user.hover(stepper().getByRole('button', { name: /Strategic Alignment/ }))
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    })
+  })
+
   describe('thinking animation', () => {
     it('shimmers for a couple of seconds, then shows the brief and logs the analysis', () => {
       vi.useFakeTimers()
@@ -439,12 +452,25 @@ describe('PartnershipDetail', () => {
       await user.click(screen.getAllByRole('button', { name: /Delete respondent/i })[0])
       await user.click(screen.getByRole('button', { name: 'Delete' }))
       expect(screen.queryByText('Riza Sayeed')).not.toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: /Add Respondant/i }))
+      await user.click(screen.getByRole('button', { name: /Add Respondent/i }))
       await user.selectOptions(screen.getByRole('combobox'), 'cand-1')
       await user.type(screen.getByPlaceholderText(/Enter reason why/i), 'Clinical expertise.')
-      const adds = screen.getAllByRole('button', { name: 'Add Respondant' })
+      const adds = screen.getAllByRole('button', { name: 'Add Respondent' })
       await user.click(adds[adds.length - 1])
       expect(screen.getByText('Dr. Mona Al Hashimi')).toBeInTheDocument()
+    })
+
+    it('has a tertiary Add questionnaire button before Send Request', async () => {
+      const user = userEvent.setup()
+      renderDetail({ request: approved() })
+      const add = screen.getByRole('button', { name: 'Add questionnaire' })
+      const send = screen.getByRole('button', { name: 'Send Request' })
+      expect(add.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(add.className).toContain('bg-transparent')
+      await user.click(add)
+      const dialog = screen.getByRole('dialog', { name: 'Add questionnaire' })
+      expect(within(dialog).getByRole('tab', { name: 'Add new questionnaire' })).toBeInTheDocument()
+      expect(within(dialog).getByRole('tab', { name: 'All questionnaires' })).toBeInTheDocument()
     })
 
     it('shows the questionnaire first, and Send Request sends it to everyone listed', async () => {

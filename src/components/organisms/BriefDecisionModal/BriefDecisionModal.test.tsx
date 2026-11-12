@@ -32,9 +32,7 @@ describe('BriefDecisionModal', () => {
     const radios = screen.getAllByRole('radio')
     expect(
       radios.map((r) =>
-        (r as HTMLInputElement)
-          .closest('label')
-          ?.textContent?.replace('Recommended', '')
+        (r as HTMLInputElement).closest('label')?.textContent?.replace('Recommended', '')
       )
     ).toEqual(['Proceed', 'Request more info'])
     expect(radios.every((r) => !(r as HTMLInputElement).checked)).toBe(true)

@@ -1,6 +1,6 @@
 /**
  * TddAdminApp — Template
- * TDD Admin profile view: the M42 Tech Due Diligence admin app (Dashboard, Questionnaires, Vendors, Agents, Partnership Form, Value and ROI), entered from the shared login.
+ * TDD Admin profile view: the M42 Tech Due Diligence admin app (Dashboard, Questionnaires, Vendors, Agents, Request Form, Value and ROI), entered from the shared login.
  * Used in: HomePage
  */
 
@@ -36,7 +36,7 @@ const PAGE_TITLES: Record<TddAdminTab, string> = {
   questionnaires: 'Questionnaires',
   vendors: 'Vendors',
   agents: 'Agents',
-  'partnership-form': 'Partnership Request Form',
+  'partnership-form': 'Request Form',
   'usage-insights': 'Value and ROI Insights',
 }
 
@@ -47,7 +47,7 @@ const NAV_ITEMS = [
   { id: 'questionnaires', label: 'Question\u00ADnaires', icon: FileText },
   { id: 'vendors', label: 'Vendors', icon: Building2 },
   { id: 'agents', label: 'Agents', icon: Bot },
-  { id: 'partnership-form', label: 'Partnership Form', icon: ClipboardList },
+  { id: 'partnership-form', label: 'Request Form', icon: ClipboardList },
   { id: 'usage-insights', label: 'Value and ROI', icon: BarChart3 },
 ]
 
@@ -78,6 +78,7 @@ export const TddAdminApp: React.FC<TddAdminAppProps> = ({
   const [activeTab, setActiveTab] = useState<TddAdminTab>('dashboard')
   // Kept here so drafts survive moving between pages
   const [formVersions, setFormVersions] = useState<FormVersion[]>(seedFormVersions)
+  const [acceptingRequests, setAcceptingRequests] = useState(true)
   const [isPageLoading, setIsPageLoading] = useState(false)
   // Collapsed by default, like the other profile views
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
@@ -195,6 +196,8 @@ export const TddAdminApp: React.FC<TddAdminAppProps> = ({
                 <PartnershipFormScreen
                   versions={formVersions}
                   onVersionsChange={(update) => setFormVersions(update)}
+                  acceptingRequests={acceptingRequests}
+                  onAcceptingChange={setAcceptingRequests}
                 />
               )}
               {activeTab === 'usage-insights' && (

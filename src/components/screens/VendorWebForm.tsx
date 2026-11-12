@@ -243,8 +243,7 @@ export const VendorWebForm: React.FC<VendorWebFormProps> = ({ onSubmitCase, onSi
   }
 
   const textField = (
-    field:
-      'name' | 'jobTitle' | 'company' | 'phone' | 'email' | 'yearFounded' | 'website',
+    field: 'name' | 'jobTitle' | 'company' | 'phone' | 'email' | 'yearFounded' | 'website',
     label: string,
     opts: { required?: boolean; type?: string; placeholder?: string } = {}
   ) => (

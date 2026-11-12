@@ -376,7 +376,8 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     role: 'Head of AI & Analytics',
     department: 'AI & Analytics',
     expertise: 'AI Strategy',
-    whySuggested: 'Evaluated high-scoring diagnostic algorithms and data infrastructure alignment',
+    whySuggested:
+      'Automation and technology integration reduce manual effort, operational expenses, and overall cost of service delivery.',
     avatarColorBg: '#dbeafe',
     avatarColorText: '#1e40af',
     status: 'Completed',
@@ -429,7 +430,8 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     role: 'Radiology & Imaging Lead',
     department: 'Medical Imaging',
     expertise: 'Imaging',
-    whySuggested: 'Direct expertise in radiology workflow integration and clinical PACS validation',
+    whySuggested:
+      'Streamlined workflows and optimized resource utilization reduce turnaround times and improve operational productivity.',
     avatarColorBg: '#f3e8ff',
     avatarColorText: '#6b21a8',
     status: 'Pending',
@@ -444,7 +446,8 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     role: 'Clinical Innovation Lead',
     department: 'Clinical Innovation',
     expertise: 'Clinical Validation',
-    whySuggested: 'Leads clinical protocol assessment and clinical trial readiness',
+    whySuggested:
+      'New digital capabilities and improved service delivery create opportunities to increase patient volumes and generate additional revenue.',
     avatarColorBg: '#d1fae5',
     avatarColorText: '#065f46',
     status: 'Pending',
@@ -459,7 +462,8 @@ export const DEFAULT_INTERNAL_INTERESTS: InternalInterestStakeholder[] = [
     role: 'Operations Transformation Lead',
     department: 'Operations',
     expertise: 'Operations',
-    whySuggested: 'Assesses operational feasibility and clinical IT deployment readiness',
+    whySuggested:
+      'Improved accessibility, faster service delivery, and personalized care enhance patient satisfaction and engagement.',
     avatarColorBg: '#ffedd5',
     avatarColorText: '#9a3412',
     status: 'Pending',

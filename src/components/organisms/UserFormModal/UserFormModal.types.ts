@@ -5,6 +5,10 @@ export interface UserDraft {
   name: string
   email: string
   role: UserRole
+  /** Only given for a Service Line Owner */
+  department?: string
+  kpis?: string[]
+  domainExpertise?: string
 }
 
 export interface UserFormModalProps {

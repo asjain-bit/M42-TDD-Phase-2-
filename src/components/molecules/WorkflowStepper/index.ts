@@ -1,2 +1,7 @@
 export { WorkflowStepper } from './WorkflowStepper'
-export type { WorkflowStep, WorkflowStepState, WorkflowStepperProps } from './WorkflowStepper.types'
+export type {
+  WorkflowStep,
+  WorkflowStepActor,
+  WorkflowStepState,
+  WorkflowStepperProps,
+} from './WorkflowStepper.types'

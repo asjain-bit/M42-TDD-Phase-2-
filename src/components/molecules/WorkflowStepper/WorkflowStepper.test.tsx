@@ -59,4 +59,38 @@ describe('WorkflowStepper', () => {
     expect(screen.getByText('Current')).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument()
   })
+
+  it('shows who did a completed or current step on hover, and nothing for later steps', async () => {
+    const user = userEvent.setup()
+    const withActors: WorkflowStep[] = [
+      {
+        id: 'a',
+        label: 'Initial Assessment Brief',
+        state: 'completed',
+        actors: [{ action: 'Approved by', role: 'Director', name: 'Zaid Al Ali' }],
+      },
+      {
+        id: 'b',
+        label: 'Internal Canvas',
+        state: 'current',
+        actors: [{ action: 'Awaiting', role: 'Internal Interest team', name: 'Riza Sayeed' }],
+      },
+      { id: 'c', label: 'Strategic Alignment', state: 'upcoming' },
+    ]
+    render(<WorkflowStepper steps={withActors} activeId="b" onSelect={vi.fn()} />)
+    await user.hover(screen.getByRole('button', { name: /Initial Assessment Brief/ }))
+    const tip = screen.getByRole('tooltip')
+    expect(tip).toHaveTextContent('Approved by')
+    expect(tip).toHaveTextContent('Zaid Al Ali')
+    expect(tip).toHaveTextContent('Director')
+    await user.unhover(screen.getByRole('button', { name: /Initial Assessment Brief/ }))
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    await user.hover(screen.getByRole('button', { name: /Internal Canvas/ }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Riza Sayeed')
+    await user.unhover(screen.getByRole('button', { name: /Internal Canvas/ }))
+
+    await user.hover(screen.getByRole('button', { name: /Strategic Alignment/ }))
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
 })

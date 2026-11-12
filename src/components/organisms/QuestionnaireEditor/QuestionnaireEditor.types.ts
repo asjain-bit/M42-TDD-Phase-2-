@@ -19,5 +19,7 @@ export interface QuestionnaireEditorProps {
   currentVersion?: number
   /** Switches to another saved version */
   onSelectVersion?: (version: number) => void
+  /** Only list the questions: no Edit, Add question or versions */
+  readOnly?: boolean
   className?: string
 }

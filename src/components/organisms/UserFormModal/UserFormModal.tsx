@@ -2,7 +2,8 @@
 
 /**
  * UserFormModal — Organism
- * Popup to add or edit a platform user: full name, email address and one assigned role.
+ * Popup to add or edit a platform user: full name, email address and one assigned role. A
+ * Service Line Owner also has a department, a KPI and a domain expertise.
  * Used in: UsersScreen (Partnership Admin)
  */
 
@@ -12,6 +13,7 @@ import { Button } from '@/components/atoms/Button'
 import { Input } from '@/components/atoms/Input'
 import { Select } from '@/components/atoms/Select'
 import { AppDialog } from '@/components/molecules/AppDialog'
+import { KpiMultiSelect } from '@/components/molecules/KpiMultiSelect'
 import { USER_ROLES, type UserRole } from '@/types/platformUsers'
 import type { UserFormModalProps } from './UserFormModal.types'
 
@@ -45,7 +47,13 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
   const [name, setName] = useState(initial?.name ?? '')
   const [email, setEmail] = useState(initial?.email ?? '')
   const [role, setRole] = useState<UserRole>(initial?.role ?? 'Evaluator')
+  const [department, setDepartment] = useState(initial?.department ?? '')
+  const [kpis, setKpis] = useState<string[]>(initial?.kpis ?? [])
+  const [expertise, setExpertise] = useState(initial?.domainExpertise ?? '')
   const [showErrors, setShowErrors] = useState(false)
+  const isOwner = role === 'Service Line Owner'
+  const missing = (value: string) =>
+    showErrors && isOwner && !value.trim() ? 'This field is required' : undefined
 
   const nameError = showErrors && !name.trim() ? 'This field is required' : undefined
   const trimmedEmail = email.trim()
@@ -63,9 +71,19 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     const valid =
       name.trim() &&
       EMAIL.test(trimmedEmail) &&
-      !takenEmails.some((e) => e.toLowerCase() === trimmedEmail.toLowerCase())
+      !takenEmails.some((e) => e.toLowerCase() === trimmedEmail.toLowerCase()) &&
+      (!isOwner || (department.trim() && kpis.length > 0 && expertise.trim()))
     if (!valid) return setShowErrors(true)
-    onSave({ name: name.trim(), email: trimmedEmail, role })
+    onSave({
+      name: name.trim(),
+      email: trimmedEmail,
+      role,
+      ...(isOwner && {
+        department: department.trim(),
+        kpis,
+        domainExpertise: expertise.trim(),
+      }),
+    })
   }
 
   return (
@@ -123,6 +141,42 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
             />
           </div>
         </Field>
+        {isOwner && (
+          <>
+            <Field id="user-department" label="Department" error={missing(department)}>
+              <Input
+                id="user-department"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                placeholder="e.g. Diagnostics"
+                hasError={Boolean(missing(department))}
+                className={SOFT}
+              />
+            </Field>
+            <Field
+              id="user-kpis"
+              label="KPIs"
+              error={showErrors && kpis.length === 0 ? 'Select at least one KPI' : undefined}
+            >
+              <KpiMultiSelect
+                id="user-kpis"
+                value={kpis}
+                onChange={setKpis}
+                error={showErrors && kpis.length === 0}
+              />
+            </Field>
+            <Field id="user-expertise" label="Domain Expertise" error={missing(expertise)}>
+              <Input
+                id="user-expertise"
+                value={expertise}
+                onChange={(e) => setExpertise(e.target.value)}
+                placeholder="e.g. Medical imaging"
+                hasError={Boolean(missing(expertise))}
+                className={SOFT}
+              />
+            </Field>
+          </>
+        )}
       </div>
     </AppDialog>
   )

@@ -276,9 +276,7 @@ export const InternalInterestsScreen: React.FC<InternalInterestsScreenProps> = (
                 <th className="py-4 px-4">Submitted</th>
                 <th className="py-4 px-4">Status</th>
                 <th className="py-4 px-4">Overlap</th>
-                {canManage && (
-                  <th className="py-4 px-4 text-right">Actions</th>
-                )}
+                {canManage && <th className="py-4 px-4 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">

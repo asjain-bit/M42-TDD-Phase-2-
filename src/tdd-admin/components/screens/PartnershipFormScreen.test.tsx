@@ -14,11 +14,19 @@ import {
 
 const Harness: React.FC = () => {
   const [versions, setVersions] = useState<FormVersion[]>(seedFormVersions)
-  return <PartnershipFormScreen versions={versions} onVersionsChange={setVersions} />
+  const [accepting, setAccepting] = useState(true)
+  return (
+    <PartnershipFormScreen
+      versions={versions}
+      onVersionsChange={setVersions}
+      acceptingRequests={accepting}
+      onAcceptingChange={setAccepting}
+    />
+  )
 }
 
 const startDraft = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(screen.getByRole('button', { name: 'New draft' }))
+  await user.click(screen.getByRole('button', { name: 'Request form' }))
   await user.click(screen.getByRole('button', { name: 'Create draft' }))
 }
 
@@ -56,7 +64,30 @@ describe('PartnershipFormScreen', () => {
     render(<Harness />)
     expect(screen.getByText('Version 2')).toBeInTheDocument()
     expect(screen.getByText('Version 1')).toBeInTheDocument()
-    expect(screen.getByText('No open draft')).toBeInTheDocument()
+  })
+
+  it('shows the Live forms, Workflow stages, AI checks and Requests answered cards', () => {
+    render(<Harness />)
+    const card = (label: string) =>
+      screen.getByText(label).parentElement?.parentElement as HTMLElement
+    expect(within(card('Live forms')).getByText('1')).toBeInTheDocument()
+    expect(within(card('Workflow stages')).getByText('3')).toBeInTheDocument()
+    expect(card('Workflow stages')).toHaveTextContent('Partnership, Procure and M&A')
+    expect(within(card('AI checks today')).getByText('5 / 300')).toBeInTheDocument()
+    expect(within(card('Requests answered')).getByText('2')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Request forms' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'View public form' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
+  })
+
+  it('filters the request forms by workflow stage', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    await user.selectOptions(screen.getByLabelText('Workflow stage'), 'Procure')
+    expect(screen.getByText('No request forms match')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Workflow stage'), 'Partnership')
+    expect(screen.getByText('Version 2')).toBeInTheDocument()
   })
 
   it('filters versions by status', async () => {
@@ -130,15 +161,29 @@ describe('PartnershipFormScreen', () => {
     expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
   })
 
-  it('lays the company fields out like the vendor form, with an asterisk on the required ones', async () => {
+  it('shows the tabs Questions and Audit log, and two sections', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await startDraft(user)
-    const section = screen.getByRole('region', { name: /Company information/ })
-    // Labels only: there are no input previews
-    expect(within(section).queryAllByRole('textbox')).toHaveLength(0)
+    // A draft has no public form yet; Form preview, Form settings and Version history are gone
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Questions', 'Audit log'])
+    expect(
+      screen.queryByRole('tab', { name: /Form preview|Form settings|Version history/ })
+    ).toBeNull()
+    expect(screen.getByRole('region', { name: 'Company information' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Key assessment areas' })).toBeInTheDocument()
+    expect(
+      screen.getByText('Select a question on the left to see and change its settings.')
+    ).toBeInTheDocument()
+  })
+
+  it('lists the company fields like the vendor form, with no drag handle', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await startDraft(user)
+    const section = screen.getByRole('region', { name: 'Company information' })
     const labels = within(section)
-      .getAllByTestId('company-label')
+      .getAllByTestId('row-label')
       .map((el) => el.textContent?.replace(/\s*\*$/, '').trim())
     expect(labels).toEqual([
       'Vendor ID (if a request was raised before)',
@@ -151,63 +196,130 @@ describe('PartnershipFormScreen', () => {
       'Website URL',
       'Country',
     ])
-    // Required fields show a red asterisk; Phone Number and Vendor ID do not
     expect(within(section).getAllByLabelText('required')).toHaveLength(7)
-    // No edit icon on each field: a single Edit button sits at the top of the section
-    expect(within(section).getAllByRole('button', { name: 'Edit' })).toHaveLength(1)
-    // The explanation sits behind the info icon instead of upfront
-    expect(screen.getByRole('tooltip')).toHaveTextContent(/fixed and cannot be removed/)
+    expect(within(section).queryByRole('button', { name: /Reorder/ })).not.toBeInTheDocument()
   })
 
-  it('edits the whole company section in place, with no popup', async () => {
+  it('edits a company field in the side panel, called Edit question', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await startDraft(user)
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    const name = screen.getByLabelText('Name of vendorName')
+    await user.click(screen.getByRole('button', { name: /^Phone Number/ }))
+    const panel = screen.getByRole('complementary', { name: 'Edit question' })
+    expect(within(panel).getByRole('heading', { name: 'Edit question' })).toBeInTheDocument()
+    expect(within(panel).queryByRole('switch')).not.toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    const required = within(panel).getByRole('checkbox', { name: 'Require Phone Number' })
+    expect(required).not.toBeChecked()
+    await user.click(required)
+    const name = within(panel).getByLabelText(/^Question/)
     await user.clear(name)
-    await user.type(name, 'Contact name')
-    const phone = screen.getByRole('checkbox', { name: 'Require Phone Number' })
-    expect(phone).not.toBeChecked()
-    await user.click(phone)
-    expect(screen.getByRole('checkbox', { name: 'Require Phone Number' })).toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Show Phone Number' })).toBeChecked()
-    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    await user.type(name, 'Mobile number')
+    await user.click(within(panel).getByRole('button', { name: 'Save changes' }))
+    expect(screen.getByText('Mobile number')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Publish' })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: 'Done' }))
-    expect(screen.getByText('Contact name')).toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: 'Require Phone Number' })).not.toBeInTheDocument()
   })
 
   it('locks the fields that are always shown and required', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await startDraft(user)
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
     for (const name of ['Email Address', 'Company Name', 'Website URL', 'Country']) {
+      await user.click(screen.getByRole('button', { name: new RegExp(`^${name}`) }))
       expect(screen.getByRole('checkbox', { name: `Require ${name}` })).toBeDisabled()
       expect(screen.getByRole('checkbox', { name: `Require ${name}` })).toBeChecked()
       expect(screen.getByRole('checkbox', { name: `Show ${name}` })).toBeDisabled()
     }
     // The Vendor ID has no Required checkbox at all
+    await user.click(screen.getByRole('button', { name: /^Vendor ID/ }))
     expect(screen.queryByRole('checkbox', { name: /Require Vendor ID/ })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('tooltip').some((t) => t.textContent === 'Always required')).toBe(
-      true
-    )
+    expect(screen.queryAllByRole('tooltip')).toHaveLength(0)
   })
 
   it('greys out a hidden field and turns its Required checkbox off', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await startDraft(user)
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: /^Job Title/ }))
     await user.click(screen.getByRole('checkbox', { name: 'Show Job Title' }))
     expect(screen.getByRole('checkbox', { name: 'Require Job Title' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Require Job Title' })).not.toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Done' }))
-    expect(screen.getByText('Hidden from vendors')).toBeInTheDocument()
-    expect(screen.getByText('Job Title').closest('li')).toHaveTextContent('Hidden from vendors')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(screen.getByText('Job Title').closest('div.group')).toHaveTextContent(
+      'Hidden from vendors'
+    )
+  })
+
+  it('greys out a hidden assessment question too', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await startDraft(user)
+    await user.click(screen.getByRole('button', { name: /stage of maturity and experience/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'Show to vendors' }))
+    await user.click(screen.getByRole('button', { name: 'Save question' }))
+    expect(screen.getAllByText('Hidden from vendors')).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Preview as vendor' }))
+    const preview = screen.getByRole('dialog', { name: 'Vendor form preview' })
+    expect(within(preview).queryByText(/stage of maturity and experience/)).not.toBeInTheDocument()
+  })
+
+  it('shows the live version a Public form tab: accepting requests, the link and the form', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Version 2' }))
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      'Questions',
+      'Public form',
+      'Audit log',
+    ])
+    await user.click(screen.getByRole('tab', { name: 'Public form' }))
+    expect(screen.getByRole('region', { name: 'Accepting requests' })).toHaveTextContent(
+      /Takes effect at once/
+    )
+    expect(screen.getByRole('region', { name: 'Public link' })).toHaveTextContent(
+      '/partnership-request'
+    )
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View public form' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Partnership request form' })).toBeInTheDocument()
+    // Switching requests off shows vendors the closed message instead of the form
+    await user.click(screen.getByRole('switch', { name: 'Accepting requests' }))
+    expect(
+      screen.getByRole('heading', { name: 'Partnership requests are closed' })
+    ).toBeInTheDocument()
+  })
+
+  it('logs everything done to a draft in the Audit log tab', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await startDraft(user)
+    await user.click(screen.getByRole('button', { name: /^Phone Number/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'Require Phone Number' }))
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(screen.getByRole('button', { name: 'Remove question 1' }))
+    await user.click(screen.getByRole('button', { name: /proposal of collaboration/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'Required question' }))
+    await user.click(screen.getByRole('button', { name: 'Save question' }))
+    await user.click(screen.getByRole('tab', { name: 'Audit log' }))
+    const log = screen.getByRole('region', { name: 'Audit Log' })
+    expect(within(log).getByText('Draft created')).toBeInTheDocument()
+    expect(within(log).getByText('Edited a company field')).toBeInTheDocument()
+    expect(within(log).getByText(/Phone Number: now required/)).toBeInTheDocument()
+    expect(within(log).getByText('Removed a question')).toBeInTheDocument()
+    expect(within(log).getByText('Edited a question')).toBeInTheDocument()
+    expect(within(log).getAllByText('TDD Admin').length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('logs publishing in the audit log of the published version', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await startDraft(user)
+    await user.click(screen.getByRole('button', { name: 'Remove question 1' }))
+    await user.click(screen.getByRole('button', { name: 'Publish' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Publish' }))
+    await user.click(screen.getByRole('button', { name: 'Version 3' }))
+    await user.click(screen.getByRole('tab', { name: 'Audit log' }))
+    expect(screen.getByText('Version 3 published')).toBeInTheDocument()
   })
 
   it('reorders questions by dragging the handle', async () => {
@@ -239,14 +351,17 @@ describe('PartnershipFormScreen', () => {
     expect(strip(screen.getAllByTestId('question-card')[1])).toBe(first)
   })
 
-  it('has icon-only edit and remove buttons, with the remove icon in red', async () => {
+  it('has no edit buttons on rows, only a red remove icon on questions', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await startDraft(user)
-    expect(screen.getByRole('button', { name: 'Edit question 1' })).toHaveTextContent('')
+    expect(screen.queryByRole('button', { name: /^Edit (question|Phone)/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove question 1' }).className).toContain(
       'text-red-500'
     )
+    // Questions have no icon tile; the section chip sits beside the title
+    const section = screen.getByRole('region', { name: 'Key assessment areas' })
+    expect(within(section).getByText('9 questions')).toBeInTheDocument()
   })
 
   it('previews the form the way vendors see it', async () => {
@@ -270,9 +385,9 @@ describe('PartnershipFormScreen', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await startDraft(user)
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: /^Phone Number/ }))
     await user.click(screen.getByRole('checkbox', { name: 'Show Phone Number' }))
-    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await user.click(screen.getByRole('button', { name: 'Preview as vendor' }))
     const preview = screen.getByRole('dialog', { name: 'Vendor form preview' })
     expect(within(preview).queryByText('Phone Number')).not.toBeInTheDocument()
@@ -284,8 +399,8 @@ describe('PartnershipFormScreen', () => {
   it('starts a draft from the live version, an existing version or a blank form', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'New draft' }))
-    const dialog = screen.getByRole('dialog', { name: 'New draft' })
+    await user.click(screen.getByRole('button', { name: 'Request form' }))
+    const dialog = screen.getByRole('dialog', { name: 'New request form' })
     expect(within(dialog).getAllByRole('radio')).toHaveLength(3)
     expect(within(dialog).getByRole('radio', { name: /Live version/ })).toBeChecked()
     // The version picker is its own field and only shows once Existing version is chosen
@@ -311,80 +426,93 @@ describe('PartnershipFormScreen', () => {
     expect(screen.queryByText(/with AI check/)).not.toBeInTheDocument()
   })
 
-  it('archives a version only after confirming, and unarchives it again', async () => {
+  it('has no archive actions: publishing archives the live version by itself', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    // The live version cannot be archived
     await user.click(screen.getByRole('button', { name: 'Actions for Version 2' }))
-    expect(screen.getByRole('menuitem', { name: 'Archive version' })).toBeDisabled()
-    await user.keyboard('{Escape}')
-    await user.click(screen.getByText('Actions', { selector: 'th' }))
-
-    await startDraft(user)
-    await user.click(screen.getByRole('button', { name: /Back to versions/ }))
-    await user.click(screen.getByRole('button', { name: 'Actions for Version 3' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Archive version' }))
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('Archive Version 3?')).toBeInTheDocument()
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-    const row = () =>
-      screen.getByText('Version 3', { selector: 'button' }).closest('tr') as HTMLElement
-    expect(within(row()).getByText('Draft')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Actions for Version 3' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Archive version' }))
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive' }))
-    expect(within(row()).getByText('Archived')).toBeInTheDocument()
-
-    // Unarchiving needs no confirmation
-    await user.click(screen.getByRole('button', { name: 'Actions for Version 3' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Unarchive version' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(within(row()).getByText('Draft')).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /archive/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'View version' })).toBeInTheDocument()
   })
 
-  it('opens the live public form from the list', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'View public form' }))
-    expect(screen.getByText(/Previewing Version 2 \(Live\)/)).toBeInTheDocument()
-  })
-
-  it('continues the open draft when New draft is pressed again', async () => {
+  it('folds the company information away while an assessment question is edited', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await startDraft(user)
-    await user.click(screen.getByRole('button', { name: /Back to versions/ }))
-    await user.click(screen.getByRole('button', { name: 'New draft' }))
-    expect(screen.getByText(/already a draft/)).toBeInTheDocument()
-    expect(screen.getByText('Version 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Phone Number/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /stage of maturity and experience/ }))
+    expect(screen.queryByRole('button', { name: /^Phone Number/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand Company information' })).toBeInTheDocument()
+    // The answer type is a dropdown, not cards shown upfront
+    expect(screen.getByRole('combobox', { name: 'Answer type' })).toHaveValue('long')
   })
-
-  it('locks the page scroll while a dialog is open, and asks for Required with a checkbox', async () => {
+  it('asks for the workflow first, and a workflow with no live form can only start blank', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    await startDraft(user)
-    await user.click(screen.getByRole('button', { name: 'Add question' }))
-    expect(document.body.style.overflow).toBe('hidden')
-    const dialog = screen.getByRole('dialog')
+    await user.click(screen.getByRole('button', { name: 'Request form' }))
+    const dialog = screen.getByRole('dialog', { name: 'New request form' })
+    const workflow = within(dialog).getByLabelText('Workflow')
     expect(
-      within(dialog).queryByRole('switch', { name: 'Required question' })
-    ).not.toBeInTheDocument()
-    await user.click(within(dialog).getByRole('checkbox', { name: /Required question/ }))
-    expect(within(dialog).getByRole('checkbox', { name: /Required question/ })).toBeChecked()
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-    expect(document.body.style.overflow).toBe('')
+      within(workflow)
+        .getAllByRole('option')
+        .map((o) => o.textContent)
+    ).toEqual(['Partnership', 'Procure', 'M&A'])
+    expect(within(dialog).getByRole('radio', { name: /Live version/ })).toBeChecked()
+    await user.selectOptions(workflow, 'Procure')
+    expect(within(dialog).getByRole('radio', { name: /Live version/ })).toBeDisabled()
+    expect(within(dialog).getByRole('radio', { name: /Existing version/ })).toBeDisabled()
+    expect(within(dialog).getByRole('radio', { name: /Blank form/ })).toBeChecked()
   })
 
-  it('discards a draft after confirming', async () => {
+  it('builds a blank form from scratch: first a section, then its input fields', async () => {
     const user = userEvent.setup()
     render(<Harness />)
-    await startDraft(user)
-    await user.click(screen.getByRole('button', { name: 'Discard draft' }))
+    await user.click(screen.getByRole('button', { name: 'Request form' }))
+    const dialog = screen.getByRole('dialog', { name: 'New request form' })
+    await user.selectOptions(within(dialog).getByLabelText('Workflow'), 'Procure')
+    await user.click(within(dialog).getByRole('button', { name: 'Create draft' }))
+
+    // Nothing is filled in for them: no company fields and no assessment section
+    expect(screen.getByText('Procure', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Company information' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Key assessment areas' })).not.toBeInTheDocument()
+    expect(screen.getByText('Start by creating a section')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'Create section' }))
+    await user.type(screen.getByLabelText(/Section name/), 'Company information')
     await user.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Discard draft' })
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Create section' })
     )
-    expect(screen.getByText('Draft Version 3 discarded.')).toBeInTheDocument()
-    expect(screen.getByText('No open draft')).toBeInTheDocument()
+    const section = screen.getByRole('region', { name: 'Company information' })
+    expect(within(section).getByText('0 questions')).toBeInTheDocument()
+
+    await user.click(within(section).getByRole('button', { name: 'Add question' }))
+    await user.type(screen.getByLabelText(/^Question/), 'Vendor name')
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Add question' })
+    )
+    expect(
+      within(screen.getByRole('region', { name: 'Company information' })).getByText('1 question')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeEnabled()
+
+    // The preview shows the section and its field, and the audit log has it all
+    await user.click(screen.getByRole('button', { name: 'Preview as vendor' }))
+    const preview = screen.getByRole('dialog', { name: 'Vendor form preview' })
+    expect(
+      within(preview).getByRole('heading', { name: 'Company information' })
+    ).toBeInTheDocument()
+    expect(within(preview).getByText('Vendor name')).toBeInTheDocument()
+    await user.click(within(preview).getByRole('button', { name: 'Close preview' }))
+    await user.click(screen.getByRole('tab', { name: 'Audit log' }))
+    const log = screen.getByRole('region', { name: 'Audit Log' })
+    expect(within(log).getByText('Created a section')).toBeInTheDocument()
+    expect(within(log).getByText('Added a question')).toBeInTheDocument()
+
+    // Publishing makes it the live Procure form, and the Partnership form stays live
+    await user.click(screen.getByRole('button', { name: 'Publish' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Publish' }))
+    expect(screen.getByText('Version 1 is now live.')).toBeInTheDocument()
+    expect(screen.getByText('Live forms').parentElement?.parentElement).toHaveTextContent('2')
   })
 })

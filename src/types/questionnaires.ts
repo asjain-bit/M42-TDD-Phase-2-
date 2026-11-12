@@ -3,6 +3,8 @@ import type { QuestionnaireQuestion } from './partnership.types'
 export interface QuestionnaireTemplate {
   id: string
   name: string
+  /** The heading reviewers see on the questionnaire; the name is how the Director finds it */
+  title?: string
   questions: QuestionnaireQuestion[]
 }
 
@@ -89,8 +91,47 @@ export const QUESTIONNAIRE_LIBRARY: QuestionnaireTemplate[] = [
 
 export const DEFAULT_QUESTIONNAIRE_ID = 'internal-evaluation'
 
-export const getQuestionnaire = (id: string) =>
-  QUESTIONNAIRE_LIBRARY.find((q) => q.id === id) ?? QUESTIONNAIRE_LIBRARY[0]
+/**
+ * The questionnaires the Director can send: the built-in ones plus any added or edited from the
+ * Internal Canvas. Kept for the session; components follow it with useQuestionnaireLibrary.
+ */
+const BUILT_IN = QUESTIONNAIRE_LIBRARY
+let library: QuestionnaireTemplate[] = BUILT_IN.map((q) => ({
+  ...q,
+  questions: q.questions.map((x) => ({ ...x })),
+}))
+const listeners = new Set<() => void>()
+const publish = (next: QuestionnaireTemplate[]) => {
+  library = next
+  listeners.forEach((l) => l())
+}
+
+export const getLibrary = () => library
+export const subscribeLibrary = (listener: () => void) => {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+export const resetLibrary = () =>
+  publish(BUILT_IN.map((q) => ({ ...q, questions: q.questions.map((x) => ({ ...x })) })))
+
+export interface QuestionnaireDraft {
+  name: string
+  title: string
+  questions: QuestionnaireQuestion[]
+}
+
+export const addQuestionnaire = (draft: QuestionnaireDraft): string => {
+  const id = `custom-q-${Date.now().toString(36)}-${library.length}`
+  publish([...library, { id, ...draft }])
+  return id
+}
+
+export const updateQuestionnaire = (id: string, draft: QuestionnaireDraft) =>
+  publish(library.map((q) => (q.id === id ? { ...q, ...draft } : q)))
+
+export const getQuestionnaire = (id: string) => library.find((q) => q.id === id) ?? library[0]
 
 /** Copies a template's questions so edits never change the library */
 export const cloneQuestions = (questions: QuestionnaireQuestion[]): QuestionnaireQuestion[] =>

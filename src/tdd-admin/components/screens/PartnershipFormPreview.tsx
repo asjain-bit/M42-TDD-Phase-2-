@@ -57,25 +57,18 @@ const Field: React.FC<{
 
 interface PartnershipFormPreviewProps {
   version: FormVersion
+  /** The form is not accepting requests: vendors see the closed message */
+  closed?: boolean
   onClose: () => void
 }
 
-/** The form as vendors see it, in the vendor web form's layout. Nothing typed here is saved. */
-export const PartnershipFormPreview: React.FC<PartnershipFormPreviewProps> = ({
+/** The form's content in the vendor web form's layout. Nothing typed here is saved. */
+export const PartnershipFormPreviewBody: React.FC<{ version: FormVersion; closed?: boolean }> = ({
   version,
-  onClose,
+  closed = false,
 }) => {
   const [multi, setMulti] = useState<Record<string, string[]>>({})
   const [country, setCountry] = useState('')
-
-  useEffect(() => lockPageScroll(), [])
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const shown = (key: CompanyFieldKey) =>
     version.companyFields.find((f) => f.key === key && f.visible)
@@ -198,6 +191,102 @@ export const PartnershipFormPreview: React.FC<PartnershipFormPreviewProps> = ({
     )
   }
 
+  if (closed) {
+    return (
+      <main className="w-full max-w-[1400px] mx-auto px-6 lg:px-10 py-16 flex flex-col items-center gap-2 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">Partnership requests are closed</h1>
+        <p className="text-sm text-[#64748b] max-w-md leading-relaxed">
+          M42 is not taking new partnership requests right now. Please check back later.
+        </p>
+      </main>
+    )
+  }
+
+  return (
+    <main className="w-full max-w-[1400px] mx-auto px-6 lg:px-10 py-8 flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-6 flex-wrap">
+        <div className="flex flex-col gap-1.5 max-w-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight">Partnership request form</h1>
+          <p className="text-sm text-[#64748b] leading-relaxed">
+            Tell us about your company and solution. You can run an AI check to review your
+            responses and get suggestions before you submit, to make them more complete and
+            accurate.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled
+          className="h-11 px-5 rounded-lg bg-[#e6f7f8] text-sm font-semibold text-[#0f766e] opacity-60 cursor-not-allowed flex items-center gap-2 shrink-0"
+        >
+          <Sparkles className="w-4 h-4 text-[#36c0c9]" aria-hidden="true" />
+          Run AI check
+        </button>
+      </div>
+
+      {version.layout === 'custom' ? (
+        version.sections.length === 0 ? (
+          <p className="text-sm text-[#64748b]">This form has no sections yet.</p>
+        ) : (
+          version.sections.map((section) => (
+            <section
+              key={section.id}
+              className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-6 sm:p-8 flex flex-col gap-7"
+            >
+              <h2 className="text-base font-semibold">{section.title}</h2>
+              {section.questions.filter((q) => q.visible).map(question)}
+            </section>
+          ))
+        )
+      ) : (
+        <>
+          <section className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-6 sm:p-8 flex flex-col gap-6">
+            <h2 className="text-base font-semibold">Company Information</h2>
+            <div className="flex flex-col gap-5">
+              {textField(shown('vendorId'))}
+              {textField(shown('vendorName'))}
+              {textField(shown('jobTitle'))}
+              {textField(shown('companyName'))}
+              {row.some(Boolean) && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-5">
+                  {row.map((field) => textField(field))}
+                </div>
+              )}
+              {lastRow.some(Boolean) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                  {lastRow.map((field) => textField(field))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-6 sm:p-8 flex flex-col gap-7">
+            <h2 className="text-base font-semibold">Key Assessment Areas</h2>
+            {version.questions.filter((q) => q.visible).length === 0 && (
+              <p className="text-xs text-[#64748b]">This version has no assessment questions.</p>
+            )}
+            {version.questions.filter((q) => q.visible).map(question)}
+          </section>
+        </>
+      )}
+    </main>
+  )
+}
+
+/** The form as vendors see it, full screen. Nothing typed here is saved. */
+export const PartnershipFormPreview: React.FC<PartnershipFormPreviewProps> = ({
+  version,
+  closed = false,
+  onClose,
+}) => {
+  useEffect(() => lockPageScroll(), [])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
     <div
       role="dialog"
@@ -228,54 +317,7 @@ export const PartnershipFormPreview: React.FC<PartnershipFormPreviewProps> = ({
       </header>
 
       <div className="relative flex-1 min-h-0 overflow-y-auto">
-        <main className="w-full max-w-[1400px] mx-auto px-6 lg:px-10 py-8 flex flex-col gap-6">
-          <div className="flex items-start justify-between gap-6 flex-wrap">
-            <div className="flex flex-col gap-1.5 max-w-3xl">
-              <h1 className="text-2xl font-semibold tracking-tight">Partnership request form</h1>
-              <p className="text-sm text-[#64748b] leading-relaxed">
-                Tell us about your company and solution. You can run an AI check to review your
-                responses and get suggestions before you submit, to make them more complete and
-                accurate.
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled
-              className="h-11 px-5 rounded-lg bg-[#e6f7f8] text-sm font-semibold text-[#0f766e] opacity-60 cursor-not-allowed flex items-center gap-2 shrink-0"
-            >
-              <Sparkles className="w-4 h-4 text-[#36c0c9]" aria-hidden="true" />
-              Run AI check
-            </button>
-          </div>
-
-          <section className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-6 sm:p-8 flex flex-col gap-6">
-            <h2 className="text-base font-semibold">Company Information</h2>
-            <div className="flex flex-col gap-5">
-              {textField(shown('vendorId'))}
-              {textField(shown('vendorName'))}
-              {textField(shown('jobTitle'))}
-              {textField(shown('companyName'))}
-              {row.some(Boolean) && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-5">
-                  {row.map((field) => textField(field))}
-                </div>
-              )}
-              {lastRow.some(Boolean) && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
-                  {lastRow.map((field) => textField(field))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-6 sm:p-8 flex flex-col gap-7">
-            <h2 className="text-base font-semibold">Key Assessment Areas</h2>
-            {version.questions.length === 0 && (
-              <p className="text-xs text-[#64748b]">This version has no assessment questions.</p>
-            )}
-            {version.questions.map(question)}
-          </section>
-        </main>
+        <PartnershipFormPreviewBody version={version} closed={closed} />
       </div>
 
       <footer className="shrink-0 bg-white border-t border-[#e2e8f0] shadow-[0_-4px_12px_rgba(15,23,42,0.04)]">

@@ -22,6 +22,7 @@ import {
   Clock,
   Eye,
   HandHeart,
+  ListPlus,
   Star,
   Check,
   XCircle,
@@ -64,11 +65,17 @@ import {
   type AdminRouting,
 } from '@/lib/caseActions'
 import { getDisplayStatus, type DisplayStatus } from '@/lib/caseStatus'
+import { ManageQuestionnairesModal } from '@/components/organisms/ManageQuestionnairesModal'
 import { SendInternalModal } from '@/components/organisms/SendInternalModal'
 import { AssessmentBrief, AssessmentBriefShimmer } from '@/components/organisms/AssessmentBrief'
 import { BriefDecisionModal } from '@/components/organisms/BriefDecisionModal'
 import { ReviewersLoading } from '@/components/molecules/ReviewersLoading'
-import { WorkflowStepper, type WorkflowStep } from '@/components/molecules/WorkflowStepper'
+import {
+  WorkflowStepper,
+  type WorkflowStep,
+  type WorkflowStepActor,
+} from '@/components/molecules/WorkflowStepper'
+import { INITIAL_PLATFORM_USERS } from '@/types/platformUsers'
 import {
   KnowledgeBaseUpload,
   type KnowledgeBaseFile,
@@ -195,6 +202,9 @@ const MAX_STRATEGY_MEMBERS = 5
 
 /** The agent's thinking animation before the initial assessment brief. Set to true to bring it back. */
 const SHOW_BRIEF_THINKING = false
+
+/** How long the split case note shows before Strategic Alignment opens */
+const SPLIT_NOTE_MS = 2500
 
 type StepId =
   'brief' | 'canvas' | 'alignment' | 'nda' | 'discovery' | 'value' | 'questionnaire' | 'preread'
@@ -384,16 +394,25 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     scenarioPrompt === 'open'
   const showNoResponseClose =
     isDirector && internalScenario === 'none' && !isClosedAfterBrief && scenarioPrompt === 'open'
-  // Several people are ready to sponsor: acknowledge that first, then assign the sponsors
-  const [multipleAcknowledged, setMultipleAcknowledged] = useState(false)
+  // Several people are ready to sponsor: the sponsors are assigned straight away, then a notice
+  // explains the split cases and Proceed moves on to Strategic Alignment
+  const [splitNotice, setSplitNotice] = useState<{ lead: string; co: string[] } | null>(null)
+  // The note stays for a moment, then the Director moves on to Strategic Alignment by itself
+  React.useEffect(() => {
+    if (!splitNotice) return
+    const timer = setTimeout(() => {
+      setSplitNotice(null)
+      setActiveStep('alignment')
+    }, SPLIT_NOTE_MS)
+    return () => clearTimeout(timer)
+  }, [splitNotice])
   const waitingOnSponsors =
     isDirector &&
     internalScenario === 'multiple' &&
     !request.sponsors &&
     !isClosedAfterBrief &&
     scenarioPrompt === 'open'
-  const showMultipleAck = waitingOnSponsors && !multipleAcknowledged
-  const showSponsorAssign = waitingOnSponsors && multipleAcknowledged
+  const showSponsorAssign = waitingOnSponsors
   // One person is ready to sponsor: say so, then move on to Strategic Alignment either way
   const showSponsorReady =
     isDirector && readyPromptOpen && internalScenario === 'single' && Boolean(request.sponsors)
@@ -449,7 +468,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
   }
 
   const firstOpenIndex = stepDefs.findIndex((d) => !isStepCompleted(d.id))
-  const stepperSteps: WorkflowStep[] = stepDefs.map((d, i) => {
+  const baseSteps: WorkflowStep[] = stepDefs.map((d, i) => {
     const completed = isStepCompleted(d.id)
     const state: WorkflowStep['state'] = completed
       ? 'completed'
@@ -496,6 +515,97 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     }
     return { id: d.id, label: d.label, state, caption }
   })
+
+  /** Who completed a step, or who it is with: shown on hover for completed and current steps */
+  const actorsFor = (id: StepId, state: WorkflowStep['state']): WorkflowStepActor[] => {
+    const done = state === 'completed'
+    const director = request.owner
+    const names = (people: { name: string }[]) => people.map((p) => p.name).join(', ')
+    switch (id) {
+      case 'brief': {
+        const admin = INITIAL_PLATFORM_USERS.find((u) => u.role === 'Partnership Admin')
+        const routed: WorkflowStepActor[] =
+          request.adminDecision && admin
+            ? [{ action: 'Routed by', role: 'Partnership Admin', name: admin.name }]
+            : []
+        return [
+          ...routed,
+          {
+            action: done ? 'Approved by' : 'Awaiting',
+            role: 'Director',
+            name: request.decision?.decidedBy ?? director,
+          },
+        ]
+      }
+      case 'canvas':
+      case 'questionnaire': {
+        const approval = request.stageApprovals?.internal
+        return approval && done
+          ? [{ action: 'Approved by', role: 'Internal Interest team', name: approval.by }]
+          : [
+              {
+                action: internalSent ? 'Awaiting' : 'To send by',
+                role: internalSent ? 'Internal Interest team' : 'Director',
+                name: internalSent
+                  ? names(
+                      request.internalInterests?.length
+                        ? request.internalInterests
+                        : DEFAULT_INTERNAL_INTERESTS
+                    )
+                  : director,
+              },
+            ]
+      }
+      case 'alignment':
+      case 'preread': {
+        const approval = request.stageApprovals?.strategy
+        return approval && done
+          ? [
+              {
+                action: approval.status === 'declined' ? 'Declined by' : 'Approved by',
+                role: 'Strategy team',
+                name: approval.by,
+              },
+            ]
+          : [
+              {
+                action: strategySent ? 'Awaiting' : 'To send by',
+                role: strategySent ? 'Strategy team' : 'Director',
+                name: strategySent
+                  ? names(request.strategyTeamMembers?.length ? request.strategyTeamMembers : [])
+                  : director,
+              },
+            ]
+      }
+      case 'nda': {
+        const signedCopy = [...(request.nda?.versions ?? [])].reverse().find((v) => v.signed)
+        return [
+          {
+            action: done ? 'Signed copy uploaded by' : 'To upload by',
+            role: 'Director',
+            name: signedCopy?.uploadedBy ?? director,
+          },
+        ]
+      }
+      case 'discovery':
+        return [{ action: done ? 'Completed by' : 'With', role: 'Director', name: director }]
+      default:
+        return [
+          {
+            action: done ? 'Completed by' : 'With',
+            role: 'Sponsor',
+            name: request.sponsors?.lead ?? director,
+          },
+        ]
+    }
+  }
+  const stepperSteps: WorkflowStep[] = baseSteps.map((step) => ({
+    ...step,
+    actors:
+      step.state === 'completed' || step.state === 'current'
+        ? actorsFor(step.id as StepId, step.state)
+        : undefined,
+  }))
 
   const [activeStep, setActiveStep] = useState<StepId>(() => {
     // The Strategy lead's own work is the pre-read; later stages are theirs to view only. The
@@ -804,7 +914,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     }
   }, [request.sent?.internal, request.internalInterests])
 
-  // Add Respondant modal states
+  // Add Respondent modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [selectedCandidateId, setSelectedCandidateId] = useState('')
   const [newRole, setNewRole] = useState('')
@@ -905,6 +1015,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
 
   // Send Review states
   const [sendTeam, setSendTeam] = useState<'strategy' | 'internal' | null>(null)
+  const [managingQuestionnaires, setManagingQuestionnaires] = useState(false)
   const [showVendorForm, setShowVendorForm] = useState(false)
   const [reviewToast, setReviewToast] = useState<string | null>(null)
   // Reviewer tables: edit layout until that request is sent, tracking layout afterwards
@@ -1049,7 +1160,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
     briefModal ||
     showNotReadyConfirm ||
     showNoResponseClose ||
-    showMultipleAck ||
     showSponsorAssign ||
     internalAckOpen ||
     showSponsorReady ||
@@ -1179,7 +1289,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                         No respondents added yet
                       </div>
                       <div className="text-xs text-[#64748b]">
-                        Click &quot;+ Add Respondant&quot; to assign review team members.
+                        Click &quot;+ Add Respondent&quot; to assign review team members.
                       </div>
                     </div>
                   </td>
@@ -1357,7 +1467,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
               }`}
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Add Respondant</span>
+              <span>Add Respondent</span>
             </button>
             <div className="pointer-events-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity absolute left-0 top-full mt-2 z-40 whitespace-nowrap bg-[#0d212c] text-white text-[11px] font-medium px-3 py-1.5 rounded-lg shadow-xl text-center">
               {stakeholders.length >= 5
@@ -1986,14 +2096,24 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                               ? 'Send the request to the Internal Interest team listed below.'
                               : 'The Director has not sent this to the Internal Interest team yet.',
                         canEditInternal ? (
-                          <button
-                            type="button"
-                            disabled={stakeholders.length === 0}
-                            onClick={() => setSendTeam('internal')}
-                            className={sendButtonClass(stakeholders.length === 0)}
-                          >
-                            <span>Send Request</span>
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setManagingQuestionnaires(true)}
+                              className="h-10 px-3 rounded-lg bg-transparent text-sm font-semibold text-[#36c0c9] hover:text-[#2badb6] inline-flex items-center gap-2 cursor-pointer transition border-0"
+                            >
+                              <ListPlus className="w-4 h-4" aria-hidden="true" />
+                              Add questionnaire
+                            </button>
+                            <button
+                              type="button"
+                              disabled={stakeholders.length === 0}
+                              onClick={() => setSendTeam('internal')}
+                              className={sendButtonClass(stakeholders.length === 0)}
+                            >
+                              <span>Send Request</span>
+                            </button>
+                          </div>
                         ) : isDirector && internalSent && !strategySent ? (
                           // Prototype only: sits where the awaiting-approval chip used to be, and
                           // stays available so every outcome can be tried on the same screen
@@ -2001,7 +2121,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                             value={request.internalOutcome?.scenario}
                             onChange={(scenario) => {
                               setScenarioPrompt('open')
-                              setMultipleAcknowledged(false)
                               if (scenario === 'single') setReadyPromptOpen(true)
                               onCaseAction?.(request.id, { type: 'internalScenario', scenario })
                             }}
@@ -2029,6 +2148,30 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                             </>
                           )}
                         </p>
+                      )}
+                      {splitNotice && (
+                        <div
+                          role="status"
+                          className="flex items-start gap-2.5 rounded-xl border border-[#bae6fd] bg-[#f0f9ff] px-4 py-3 text-sm text-[#0c4a6e] leading-relaxed animate-in fade-in duration-200"
+                        >
+                          <Info
+                            className="w-4 h-4 shrink-0 mt-0.5 text-[#0369a1]"
+                            aria-hidden="true"
+                          />
+                          <span>
+                            Because there are multiple sponsors, split cases were created.{' '}
+                            {splitNotice.co.join(', ')} {splitNotice.co.length === 1 ? 'is' : 'are'}{' '}
+                            allocated to{' '}
+                            {splitNotice.co.length === 1 ? 'a duplicate case' : 'duplicate cases'}{' '}
+                            with the same ID and details (
+                            {splitNotice.co
+                              .map(
+                                (_, i) => `${request.requestCode}-${String.fromCharCode(65 + i)}`
+                              )
+                              .join(', ')}
+                            ). Moving to Strategic Alignment shortly.
+                          </span>
+                        </div>
                       )}
                       {splitCases.length > 0 && (
                         <section aria-label="Split cases" className="flex flex-col gap-3">
@@ -2359,7 +2502,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           <div className="relative bg-white rounded-2xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#e2e8f0] flex flex-col gap-5 animate-in fade-in zoom-in-95">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-[#0d212c]">Add Respondant</h3>
+                <h3 className="text-lg font-semibold text-[#0d212c]">Add Respondent</h3>
                 <p className="text-xs text-[#64748b] mt-0.5">
                   Assign an internal team member to review this partnership request.
                 </p>
@@ -2510,7 +2653,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                     : 'bg-[#36c0c9] hover:bg-[#2fb0b9] text-white cursor-pointer'
                 }`}
               >
-                Add Respondant
+                Add Respondent
               </button>
             </div>
           </div>
@@ -2656,16 +2799,6 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           onConfirm={acknowledgeStrategy}
         />
       )}
-      {showMultipleAck && (
-        <ConfirmDialog
-          title="Internal Interest has responded"
-          description={`${sponsorCandidates.length} people from the Internal Interest team are ready to sponsor this request. Choose the lead sponsor next.`}
-          confirmLabel="Proceed"
-          hideCancel
-          onCancel={() => setScenarioPrompt('dismissed')}
-          onConfirm={() => setMultipleAcknowledged(true)}
-        />
-      )}
       {internalAckOpen && (
         <ConfirmDialog
           title="Internal Interest has responded"
@@ -2682,7 +2815,9 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           onClose={() => setScenarioPrompt('dismissed')}
           onConfirm={({ lead, co }) => {
             onCaseAction?.(request.id, { type: 'assignSponsors', lead, co })
-            setActiveStep('alignment')
+            // With co-sponsors the Director stays here until the split cases are explained
+            if (co.length > 0) setSplitNotice({ lead, co })
+            else setActiveStep('alignment')
           }}
         />
       )}
@@ -2827,6 +2962,10 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
           </div>
         </div>
       </AppDialog>
+
+      {managingQuestionnaires && (
+        <ManageQuestionnairesModal onClose={() => setManagingQuestionnaires(false)} />
+      )}
 
       {/* SEND TO INTERNAL INTEREST: the questionnaire, then Send Request */}
       {sendTeam === 'internal' && (

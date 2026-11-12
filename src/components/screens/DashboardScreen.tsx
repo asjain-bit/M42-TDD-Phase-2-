@@ -308,7 +308,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         parent &&
         !prev.some((r) => r.splitFrom === requestId)
       ) {
-        return [...next, ...buildSplitCases(parent)]
+        // The duplicates sit right under their case, so they show on the same page of the table
+        const at = next.findIndex((r) => r.id === requestId) + 1
+        return [...next.slice(0, at), ...buildSplitCases(parent), ...next.slice(at)]
       }
       return next
     })

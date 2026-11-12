@@ -2,7 +2,7 @@
 
 /**
  * SendInternalModal — Organism
- * Popup for the Internal Interest request: pick the questionnaire and edit its questions, then
+ * Popup for the Internal Interest request: pick the questionnaire and read its questions, then
  * Send Request sends it to everyone listed in the Internal Canvas. The body scrolls inside the
  * popup.
  * Used in: PartnershipDetail
@@ -11,9 +11,8 @@
 import React, { useEffect, useId, useState } from 'react'
 import { Calendar, Send, X } from 'lucide-react'
 import { QuestionnaireEditor } from '@/components/organisms/QuestionnaireEditor'
-import type { QuestionnaireVersion } from '@/components/organisms/QuestionnaireEditor/QuestionnaireEditor.types'
-import type { QuestionnaireQuestion } from '@/types/partnership.types'
-import { cloneQuestions, DEFAULT_QUESTIONNAIRE_ID, getQuestionnaire } from '@/types/questionnaires'
+import { useQuestionnaireLibrary } from '@/lib/useQuestionnaireLibrary'
+import { DEFAULT_QUESTIONNAIRE_ID, getQuestionnaire } from '@/types/questionnaires'
 import { formatDueDate, internalDueOn } from '@/lib/caseActions'
 import type { SendInternalModalProps } from './SendInternalModal.types'
 
@@ -23,21 +22,8 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
   onClose,
 }) => {
   const [questionnaireId, setQuestionnaireId] = useState(DEFAULT_QUESTIONNAIRE_ID)
-  // Every change to the questions is saved as a new version; the last one is current
-  const [versions, setVersions] = useState<QuestionnaireVersion[]>(() => [
-    {
-      version: 1,
-      label: 'Original',
-      questions: cloneQuestions(getQuestionnaire(DEFAULT_QUESTIONNAIRE_ID).questions),
-    },
-  ])
-  const [currentVersion, setCurrentVersion] = useState(1)
-  const questions = (versions.find((v) => v.version === currentVersion) ?? versions[0]).questions
-  const saveVersion = (next: QuestionnaireQuestion[], label: string) => {
-    const version = Math.max(...versions.map((v) => v.version)) + 1
-    setVersions((prev) => [...prev, { version, label, questions: next }])
-    setCurrentVersion(version)
-  }
+  // Questions are edited from Add questionnaire; here the chosen one is only listed
+  const questions = useQuestionnaireLibrary().find((q) => q.id === questionnaireId)?.questions ?? []
   const titleId = useId()
 
   useEffect(() => {
@@ -77,7 +63,8 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
                 Select questionnaire
               </h3>
               <p className="text-xs text-[#64748b] mt-0.5">
-                Choose the questionnaire and edit its questions for the Internal Interest team.
+                Choose the questionnaire for the Internal Interest team. Use Add questionnaire to
+                create or edit one.
               </p>
             </div>
           </div>
@@ -93,23 +80,11 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 flex flex-col gap-6">
           <QuestionnaireEditor
+            readOnly
             questionnaireId={questionnaireId}
-            onQuestionnaireChange={(id) => {
-              setQuestionnaireId(id)
-              setVersions([
-                {
-                  version: 1,
-                  label: 'Original',
-                  questions: cloneQuestions(getQuestionnaire(id).questions),
-                },
-              ])
-              setCurrentVersion(1)
-            }}
+            onQuestionnaireChange={setQuestionnaireId}
             questions={questions}
-            onQuestionsChange={saveVersion}
-            versions={versions}
-            currentVersion={currentVersion}
-            onSelectVersion={setCurrentVersion}
+            onQuestionsChange={() => undefined}
           />
         </div>
 
@@ -137,7 +112,7 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
                   memberIds: members.map((m) => m.id),
                   questionnaire: {
                     name: getQuestionnaire(questionnaireId).name,
-                    version: currentVersion,
+                    version: 1,
                     questions,
                   },
                 })

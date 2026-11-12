@@ -1,3 +1,6 @@
+import { formatTimestamp } from '@/lib/caseActions'
+import type { AuditEvent, AuditKind } from '@/types/partnership.types'
+
 /**
  * Partnership request form configuration: the versions the TDD admin edits and publishes, and the
  * helpers that create drafts and describe what changed. The seed mirrors the vendor web form.
@@ -23,6 +26,8 @@ export interface FormQuestion {
   /** The choices of a dropdown or multi-select */
   options: string[]
   required: boolean
+  /** Whether vendors see the question; a hidden one stays in the list, greyed out */
+  visible: boolean
   /** Whether the vendor's "Run AI check" reviews this answer */
   aiCheck: boolean
   /** The "Q for AI": only the AI check reads it, vendors never see it */
@@ -54,6 +59,17 @@ export interface CompanyField {
 
 export type VersionStatus = 'draft' | 'live' | 'archived'
 
+/** The workflows a request form can belong to */
+export const FORM_WORKFLOWS = ['Partnership', 'Procure', 'M&A'] as const
+export type FormWorkflow = (typeof FORM_WORKFLOWS)[number]
+
+/** A group of input fields that the admin creates on a form started from scratch */
+export interface FormSection {
+  id: string
+  title: string
+  questions: FormQuestion[]
+}
+
 export interface FormVersion {
   id: string
   number: number
@@ -64,9 +80,36 @@ export interface FormVersion {
   editedAt: string
   /** Requests submitted on this version */
   requests: number
+  workflow: FormWorkflow
+  /**
+   * standard: the fixed company fields and the key assessment questions.
+   * custom: a form started from a blank page, made only of the sections the admin creates.
+   */
+  layout: 'standard' | 'custom'
   companyFields: CompanyField[]
   questions: FormQuestion[]
+  /** The sections of a custom form */
+  sections: FormSection[]
+  /** Everything done to this version, oldest first */
+  auditLog: AuditEvent[]
 }
+
+/** The admin the audit log names (the prototype has one TDD Admin) */
+export const FORM_ACTOR = 'TDD Admin'
+
+let auditCounter = 0
+export const makeAudit = (
+  title: string,
+  description: string,
+  kind: AuditKind = 'user'
+): AuditEvent => ({
+  id: `fa-${Date.now().toString(36)}-${auditCounter++}`,
+  title,
+  description,
+  actor: FORM_ACTOR,
+  kind,
+  timestamp: formatTimestamp(),
+})
 
 export const AI_CHECKS_TODAY = { used: 5, limit: 300, perVendor: 3 }
 
@@ -113,6 +156,7 @@ const text = (
   type,
   options: [],
   required: true,
+  visible: true,
   aiCheck: true,
   aiGuidance,
 })
@@ -155,6 +199,7 @@ const seedQuestions = (): FormQuestion[] => [
       'Neurology & Digital Health',
     ],
     required: true,
+    visible: true,
     aiCheck: false,
     aiGuidance: '',
   },
@@ -196,6 +241,7 @@ const seedQuestions = (): FormQuestion[] => [
       'Built on third-party technologies or platforms',
     ],
     required: false,
+    visible: true,
     aiCheck: false,
     aiGuidance: '',
   },
@@ -217,6 +263,7 @@ const seedQuestions = (): FormQuestion[] => [
     type: 'multi',
     options: ['Adult patients', 'Pediatric patients', "Women's health"],
     required: false,
+    visible: true,
     aiCheck: false,
     aiGuidance: '',
   },
@@ -231,8 +278,21 @@ export const seedFormVersions = (): FormVersion[] => [
     publishedAt: '6 Nov 2026',
     editedAt: '6 Nov 2026',
     requests: 1,
+    workflow: 'Partnership',
+    layout: 'standard',
     companyFields: defaultCompanyFields(),
     questions: seedQuestions(),
+    sections: [],
+    auditLog: [
+      {
+        id: 'fa-seed-2',
+        title: 'Version 2 published',
+        description: 'Version 2 became the form vendors see. Version 1 was archived.',
+        actor: FORM_ACTOR,
+        kind: 'approval',
+        timestamp: '6 Nov 2026, 11:20 AM',
+      },
+    ],
   },
   {
     id: 'fv-1',
@@ -242,8 +302,21 @@ export const seedFormVersions = (): FormVersion[] => [
     publishedAt: '6 Nov 2026',
     editedAt: '6 Nov 2026',
     requests: 1,
+    workflow: 'Partnership',
+    layout: 'standard',
     companyFields: defaultCompanyFields(),
     questions: seedQuestions(),
+    sections: [],
+    auditLog: [
+      {
+        id: 'fa-seed-1',
+        title: 'Version 1 published',
+        description: 'The first version of the partnership request form went live.',
+        actor: FORM_ACTOR,
+        kind: 'approval',
+        timestamp: '6 Nov 2026, 09:05 AM',
+      },
+    ],
   },
 ]
 
@@ -255,6 +328,7 @@ export const blankQuestion = (): FormQuestion => ({
   type: 'short',
   options: [],
   required: false,
+  visible: true,
   aiCheck: false,
   aiGuidance: '',
 })
@@ -267,30 +341,66 @@ export const countAiChecked = (version: Pick<FormVersion, 'questions'>) =>
 
 export type DraftSource = 'live' | 'older' | 'blank'
 
-/** A new draft numbered after the highest version, started from a version or a blank form */
+export const newSection = (title: string): FormSection => ({
+  id: `s-${Date.now().toString(36)}-${idCounter++}`,
+  title,
+  questions: [],
+})
+
+/** How many questions a version asks, in whichever layout it has */
+export const totalQuestions = (v: Pick<FormVersion, 'layout' | 'questions' | 'sections'>) =>
+  v.layout === 'custom'
+    ? v.sections.reduce((sum, section) => sum + section.questions.length, 0)
+    : v.questions.length
+
+const cloneQuestion = (q: FormQuestion): FormQuestion => ({ ...q, options: [...q.options] })
+
+/**
+ * A new draft numbered after the highest version of the same workflow, started from a version
+ * or, with source "blank", from an empty page: no company fields, no questions, no sections.
+ */
 export const createDraft = (
   versions: FormVersion[],
   source: DraftSource,
   fromVersionId: string | undefined,
-  note: string
+  note: string,
+  workflow: FormWorkflow = 'Partnership'
 ): FormVersion => {
+  const sameWorkflow = versions.filter((v) => v.workflow === workflow)
   const from =
     source === 'live'
-      ? versions.find((v) => v.status === 'live')
+      ? sameWorkflow.find((v) => v.status === 'live')
       : source === 'older'
         ? versions.find((v) => v.id === fromVersionId)
         : undefined
-  // Question IDs carry over so the draft can be compared with the live version
-  const questions = (from?.questions ?? []).map((q) => ({ ...q, options: [...q.options] }))
+  const custom = source === 'blank' || from?.layout === 'custom'
   return {
-    id: `fv-${Date.now().toString(36)}`,
-    number: Math.max(0, ...versions.map((v) => v.number)) + 1,
+    id: `fv-${Date.now().toString(36)}-${idCounter++}`,
+    number: Math.max(0, ...sameWorkflow.map((v) => v.number)) + 1,
     status: 'draft',
     note: note.trim(),
     editedAt: formatDate(),
     requests: 0,
-    companyFields: (from?.companyFields ?? defaultCompanyFields()).map((f) => ({ ...f })),
-    questions,
+    workflow,
+    layout: custom ? 'custom' : 'standard',
+    // Question IDs carry over so the draft can be compared with the live version
+    companyFields: custom
+      ? []
+      : (from?.companyFields ?? defaultCompanyFields()).map((f) => ({ ...f })),
+    questions: custom ? [] : (from?.questions ?? []).map(cloneQuestion),
+    sections: custom
+      ? (from?.sections ?? []).map((s) => ({ ...s, questions: s.questions.map(cloneQuestion) }))
+      : [],
+    auditLog: [
+      makeAudit(
+        'Draft created',
+        `${
+          from
+            ? `Started from Version ${from.number}`
+            : `Started from a blank ${workflow} form, with no sections yet`
+        }${note.trim() ? `. Reason: ${note.trim()}` : '.'}`
+      ),
+    ],
   }
 }
 
@@ -302,12 +412,14 @@ const sameQuestion = (a: FormQuestion, b: FormQuestion) =>
   a.placeholder === b.placeholder &&
   a.type === b.type &&
   a.required === b.required &&
+  a.visible === b.visible &&
   a.aiCheck === b.aiCheck &&
   a.aiGuidance === b.aiGuidance &&
   a.options.join('\n') === b.options.join('\n')
 
 /** What publishing the draft would change for vendors, compared with the live version */
 export const describeChanges = (live: FormVersion | undefined, draft: FormVersion): string[] => {
+  if (draft.layout === 'custom') return describeCustomChanges(live, draft)
   const baseFields = live?.companyFields ?? defaultCompanyFields()
   const baseQuestions = live?.questions ?? []
   const changes: string[] = []
@@ -351,4 +463,66 @@ export const validateQuestion = (q: FormQuestion): { label?: string; options?: s
     errors.options = 'Add at least two options to choose from.'
   }
   return errors
+}
+
+/** What changed between two versions of one question, for the audit log */
+export const describeQuestionEdit = (before: FormQuestion, after: FormQuestion): string[] => {
+  const changes: string[] = []
+  if (before.label !== after.label) changes.push('the question')
+  if (before.helper !== after.helper) changes.push('the help text')
+  if (before.type !== after.type)
+    changes.push(`the answer type (now ${ANSWER_TYPE_LABELS[after.type]})`)
+  if (before.options.join('\n') !== after.options.join('\n')) changes.push('the options')
+  if (before.placeholder !== after.placeholder) changes.push('the placeholder')
+  if (before.required !== after.required)
+    changes.push(after.required ? 'now required' : 'now optional')
+  if (before.visible !== after.visible) changes.push(after.visible ? 'now shown' : 'now hidden')
+  if (before.aiCheck !== after.aiCheck) changes.push(after.aiCheck ? 'AI check on' : 'AI check off')
+  if (before.aiGuidance !== after.aiGuidance) changes.push('the AI guidance')
+  return changes
+}
+
+/** What changed on one company field, for the audit log */
+export const describeFieldEdit = (before: CompanyField, after: CompanyField): string[] => {
+  const changes: string[] = []
+  if (before.label !== after.label) changes.push(`renamed from "${before.label}"`)
+  if ((before.helper ?? '') !== (after.helper ?? '')) changes.push('the help text')
+  if (before.visible !== after.visible) changes.push(after.visible ? 'now shown' : 'now hidden')
+  if (before.required !== after.required)
+    changes.push(after.required ? 'now required' : 'now optional')
+  return changes
+}
+
+/** What publishing a custom form would change, section by section */
+const describeCustomChanges = (live: FormVersion | undefined, draft: FormVersion): string[] => {
+  const changes: string[] = []
+  const base = live?.layout === 'custom' ? live.sections : []
+  if (live && live.layout !== 'custom')
+    changes.push('Replaced the standard form with a custom form')
+  draft.sections.forEach((section) => {
+    const before = base.find((b) => b.id === section.id)
+    if (!before) {
+      changes.push(`Added the section "${clip(section.title)}"`)
+      return
+    }
+    if (before.title !== section.title) {
+      changes.push(`Renamed the section "${clip(before.title)}" to "${clip(section.title)}"`)
+    }
+    section.questions.forEach((q) => {
+      const old = before.questions.find((b) => b.id === q.id)
+      if (!old) changes.push(`Added "${clip(q.label)}" to "${clip(section.title)}"`)
+      else if (!sameQuestion(old, q)) changes.push(`Edited "${clip(q.label)}"`)
+    })
+    before.questions.forEach((b) => {
+      if (!section.questions.some((q) => q.id === b.id)) changes.push(`Removed "${clip(b.label)}"`)
+    })
+    if (before.questions.map((q) => q.id).join() !== section.questions.map((q) => q.id).join()) {
+      changes.push(`Changed the order of the questions in "${clip(section.title)}"`)
+    }
+  })
+  base.forEach((b) => {
+    if (!draft.sections.some((s) => s.id === b.id))
+      changes.push(`Removed the section "${clip(b.title)}"`)
+  })
+  return changes
 }

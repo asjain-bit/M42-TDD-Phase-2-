@@ -1,5 +1,14 @@
 export type WorkflowStepState = 'completed' | 'current' | 'upcoming' | 'closed'
 
+/** Who did, or is to do, a step: shown in the tooltip of a completed or current step */
+export interface WorkflowStepActor {
+  /** What they did, e.g. "Approved by" or "Awaiting" */
+  action: string
+  /** Their designation, e.g. Director */
+  role: string
+  name: string
+}
+
 export interface WorkflowStep {
   id: string
   label: string
@@ -11,6 +20,8 @@ export interface WorkflowStep {
    * explain it, and shows this as its tooltip.
    */
   lockedHint?: string
+  /** Shown on hover for completed and current steps only */
+  actors?: WorkflowStepActor[]
 }
 
 export interface WorkflowStepperProps {

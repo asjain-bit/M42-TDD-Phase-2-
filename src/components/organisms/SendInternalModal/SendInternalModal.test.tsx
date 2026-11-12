@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { SendInternalModal } from './SendInternalModal'
@@ -34,38 +34,27 @@ describe('SendInternalModal', () => {
     expect(dialog.querySelector('.overflow-y-auto')).not.toBeNull()
   })
 
-  it('sends to everyone listed, with the chosen questions', async () => {
+  it('only lists the questions: editing happens from Add questionnaire', () => {
+    renderModal()
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add question' })).not.toBeInTheDocument()
+  })
+
+  it('sends to everyone listed, with the chosen questionnaire', async () => {
     const user = userEvent.setup()
     const { onSend } = renderModal()
     await user.selectOptions(screen.getByLabelText('Questionnaire'), 'technical')
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
-    await user.click(screen.getByRole('button', { name: 'Delete question 3' }))
-
     await user.click(screen.getByRole('button', { name: 'Send Request' }))
     expect(onSend).toHaveBeenCalledTimes(1)
     const payload = onSend.mock.calls[0][0]
     expect(payload.memberIds).toHaveLength(5)
     expect(payload.questionnaire.name).toBe('Technical Questionnaire')
-    expect(payload.questionnaire.questions).toHaveLength(2)
-    // Deleting a question saved a second version
-    expect(payload.questionnaire.version).toBe(2)
+    expect(payload.questionnaire.questions).toHaveLength(3)
   })
 
-  it('cannot send without questions, or without anyone to send to', async () => {
-    const user = userEvent.setup()
-    renderModal()
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
-    for (let i = 5; i >= 1; i--) {
-      await user.click(screen.getByRole('button', { name: `Delete question ${i}` }))
-    }
-    expect(screen.getByText('Add at least one question.')).toBeInTheDocument()
+  it('cannot send without anyone to send to', () => {
+    renderModal([])
     expect(screen.getByRole('button', { name: 'Send Request' })).toBeDisabled()
-    await user.click(screen.getByRole('button', { name: 'Add question' }))
-    const dialog = screen.getByRole('dialog', { name: 'Add new question' })
-    await user.type(within(dialog).getByLabelText(/Question text/), 'Is it safe?')
-    await user.type(within(dialog).getByLabelText(/Response cue/), 'Yes or no')
-    await user.click(within(dialog).getByRole('button', { name: 'Save question' }))
-    expect(screen.getByRole('button', { name: 'Send Request' })).toBeEnabled()
   })
 
   it('closes with the X and Cancel', async () => {
