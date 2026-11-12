@@ -1804,7 +1804,7 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                 <Eye className="w-4 h-4" aria-hidden="true" />
                 View vendor response
               </button>
-              {(isInternalTeam || isStrategyTeam || isSponsor) &&
+              {(isInternalTeam || isSponsor) &&
                 !viewOnly &&
                 !noWorkflow &&
                 displayStatus !== 'Completed' &&
@@ -2392,7 +2392,46 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
                         onComplete={() => setPreReadStage('ready')}
                       />
                     )}
-                    {preReadStage === 'ready' && (
+                    {/* Once the Strategy lead has responded, the stage shows that response the
+                        way the Director sees it; the pre-read summary is inside the response */}
+                    {preReadStage === 'ready' && strategyDone && (
+                      <>
+                        {stepHeader(
+                          'Strategic Alignment',
+                          strategyOutcome === 'Reject'
+                            ? 'You rejected this partnership.'
+                            : 'You proceeded with this partnership.',
+                          stageChip(strategyOutcome === 'Reject' ? 'declined' : 'approved')
+                        )}
+                        {strategyMine?.finalDecisionNote && (
+                          <div
+                            className={`rounded-xl border px-4 py-3 flex flex-col gap-1 -mt-2 ${
+                              strategyOutcome === 'Reject'
+                                ? 'border-red-200 bg-red-50'
+                                : 'border-emerald-200 bg-emerald-50'
+                            }`}
+                          >
+                            <span
+                              className={`text-sm font-semibold ${
+                                strategyOutcome === 'Reject' ? 'text-red-800' : 'text-emerald-800'
+                              }`}
+                            >
+                              {strategyOutcome === 'Reject' ? 'Rejection' : 'Approval: Proceed'}
+                            </span>
+                            <p
+                              className={`text-sm leading-relaxed ${
+                                strategyOutcome === 'Reject' ? 'text-red-900' : 'text-emerald-900'
+                              }`}
+                            >
+                              {strategyOutcome === 'Reject' ? 'Reason' : 'Conditions'}:{' '}
+                              {strategyMine.finalDecisionNote}
+                            </p>
+                          </div>
+                        )}
+                        {strategySection}
+                      </>
+                    )}
+                    {preReadStage === 'ready' && !strategyDone && (
                       <>
                         <div className="flex items-start justify-between gap-4 flex-wrap">
                           <div className="flex flex-col gap-1">

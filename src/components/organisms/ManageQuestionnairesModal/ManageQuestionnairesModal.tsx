@@ -8,10 +8,12 @@
  */
 
 import React, { useEffect, useId, useState } from 'react'
-import { ArrowLeft, ListChecks, Pencil, X } from 'lucide-react'
+import { ArrowLeft, ListChecks, Pencil, Trash2, X } from 'lucide-react'
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { QuestionnaireForm } from '@/components/organisms/QuestionnaireForm'
 import { useQuestionnaireLibrary } from '@/lib/useQuestionnaireLibrary'
-import { addQuestionnaire, updateQuestionnaire } from '@/types/questionnaires'
+import { addQuestionnaire, deleteQuestionnaire, updateQuestionnaire } from '@/types/questionnaires'
+import type { QuestionnaireTemplate } from '@/types/questionnaires'
 import type { ManageQuestionnairesModalProps } from './ManageQuestionnairesModal.types'
 
 type Tab = 'new' | 'all'
@@ -23,6 +25,7 @@ export const ManageQuestionnairesModal: React.FC<ManageQuestionnairesModalProps>
   const [tab, setTab] = useState<Tab>('new')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<QuestionnaireTemplate | null>(null)
   const [formKey, setFormKey] = useState(0)
   const titleId = useId()
 
@@ -133,18 +136,34 @@ export const ManageQuestionnairesModal: React.FC<ManageQuestionnairesModalProps>
                         {q.questions.length} {q.questions.length === 1 ? 'question' : 'questions'}
                       </span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(q.id)
-                        setToast(null)
-                      }}
-                      aria-label={`Edit ${title}`}
-                      title="Edit"
-                      className="w-8 h-8 flex items-center justify-center text-[#64748b] hover:text-[#0d212c] cursor-pointer bg-transparent border-0 shrink-0"
-                    >
-                      <Pencil className="w-4 h-4" aria-hidden="true" />
-                    </button>
+                    <span className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(q.id)
+                          setToast(null)
+                        }}
+                        aria-label={`Edit ${title}`}
+                        title="Edit"
+                        className="w-8 h-8 flex items-center justify-center text-[#64748b] hover:text-[#0d212c] cursor-pointer bg-transparent border-0 shrink-0"
+                      >
+                        <Pencil className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleting(q)}
+                        disabled={library.length <= 1}
+                        aria-label={`Delete ${title}`}
+                        title={
+                          library.length <= 1
+                            ? 'The last questionnaire cannot be deleted'
+                            : 'Delete'
+                        }
+                        className="w-8 h-8 flex items-center justify-center text-red-500 cursor-pointer bg-transparent border-0 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    </span>
                   </li>
                 )
               })}
@@ -179,6 +198,22 @@ export const ManageQuestionnairesModal: React.FC<ManageQuestionnairesModalProps>
           )}
         </div>
       </div>
+      {deleting && (
+        <ConfirmDialog
+          title="Delete this questionnaire?"
+          description={`"${deleting.title ?? deleting.name}" and its ${deleting.questions.length} questions will be deleted. This cannot be undone.`}
+          icon={Trash2}
+          danger
+          confirmLabel="Delete questionnaire"
+          cancelLabel="Cancel"
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => {
+            deleteQuestionnaire(deleting.id)
+            setToast(`"${deleting.title ?? deleting.name}" was deleted.`)
+            setDeleting(null)
+          }}
+        />
+      )}
     </div>
   )
 }

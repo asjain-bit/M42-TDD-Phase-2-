@@ -73,10 +73,8 @@ describe('PartnershipFormScreen', () => {
       screen.getByText(label).parentElement?.parentElement as HTMLElement
     // Partnership, Procure and M&A are live; the Security Questionnaire has no form yet
     expect(within(card('Live forms')).getByText('3')).toBeInTheDocument()
-    expect(within(card('Workflow stages')).getByText('4')).toBeInTheDocument()
-    expect(card('Workflow stages')).toHaveTextContent(
-      'Partnership, Procure, M&A and Security Questionnaire'
-    )
+    expect(within(card('Active Workflows')).getByText('4')).toBeInTheDocument()
+    expect(card('Active Workflows')).toHaveTextContent('Number of workflows configured for use')
     expect(within(card('AI checks today')).getByText('5')).toBeInTheDocument()
     expect(card('AI checks today')).toHaveTextContent('One check per email ID')
     expect(card('AI checks today')).not.toHaveTextContent('300')

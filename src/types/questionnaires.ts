@@ -131,6 +131,12 @@ export const addQuestionnaire = (draft: QuestionnaireDraft): string => {
 export const updateQuestionnaire = (id: string, draft: QuestionnaireDraft) =>
   publish(library.map((q) => (q.id === id ? { ...q, ...draft } : q)))
 
+/** Removes a questionnaire; the last one cannot be deleted */
+export const deleteQuestionnaire = (id: string) => {
+  if (library.length <= 1) return
+  publish(library.filter((q) => q.id !== id))
+}
+
 export const getQuestionnaire = (id: string) => library.find((q) => q.id === id) ?? library[0]
 
 /** Copies a template's questions so edits never change the library */

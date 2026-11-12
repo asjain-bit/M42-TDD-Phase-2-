@@ -70,4 +70,27 @@ describe('ManageQuestionnairesModal', () => {
     expect(updated?.name).toBe('Technical Review')
     expect(updated?.questions).toHaveLength(4)
   })
+  it('deletes a whole questionnaire after a red confirmation', async () => {
+    const user = userEvent.setup()
+    render(<ManageQuestionnairesModal onClose={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: 'All questionnaires' }))
+    const before = getLibrary().length
+    const trash = screen.getByRole('button', { name: 'Delete Technical Questionnaire' })
+    expect(trash.className).toContain('text-red-500')
+    await user.click(trash)
+    const confirm = screen.getByRole('dialog', { name: 'Delete this questionnaire?' })
+    // Cancel keeps it
+    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }))
+    expect(getLibrary()).toHaveLength(before)
+    await user.click(trash)
+    const ok = within(screen.getByRole('dialog', { name: 'Delete this questionnaire?' })).getByRole(
+      'button',
+      { name: 'Delete questionnaire' }
+    )
+    expect(ok.className).toContain('bg-red-600')
+    await user.click(ok)
+    expect(getLibrary()).toHaveLength(before - 1)
+    expect(getLibrary().some((q) => q.id === 'technical')).toBe(false)
+    expect(screen.getByRole('status')).toHaveTextContent('was deleted')
+  })
 })

@@ -23,7 +23,9 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
 }) => {
   const [questionnaireId, setQuestionnaireId] = useState(DEFAULT_QUESTIONNAIRE_ID)
   // Questions are edited from Add questionnaire; here the chosen one is only listed
-  const questions = useQuestionnaireLibrary().find((q) => q.id === questionnaireId)?.questions ?? []
+  const library = useQuestionnaireLibrary()
+  const chosen = library.find((q) => q.id === questionnaireId) ?? library[0]
+  const questions = chosen?.questions ?? []
   const titleId = useId()
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
         <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-6 flex flex-col gap-6">
           <QuestionnaireEditor
             readOnly
-            questionnaireId={questionnaireId}
+            questionnaireId={chosen?.id ?? questionnaireId}
             onQuestionnaireChange={setQuestionnaireId}
             questions={questions}
             onQuestionsChange={() => undefined}
@@ -111,7 +113,7 @@ export const SendInternalModal: React.FC<SendInternalModalProps> = ({
                 onSend({
                   memberIds: members.map((m) => m.id),
                   questionnaire: {
-                    name: getQuestionnaire(questionnaireId).name,
+                    name: chosen?.name ?? getQuestionnaire(questionnaireId).name,
                     version: 1,
                     questions,
                   },

@@ -272,9 +272,9 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
         />
         <StatCard
           icon={<GitBranch className="w-5 h-5 text-[#d97706] stroke-[2]" />}
-          label="Workflow stages"
+          label="Active Workflows"
           value={String(FORM_WORKFLOWS.length)}
-          caption={FORM_WORKFLOWS.join(', ').replace(/, ([^,]*)$/, ' and $1')}
+          caption="Number of workflows configured for use"
         />
         <StatCard
           icon={<Sparkles className="w-5 h-5 text-[#ef4444] stroke-[2]" />}

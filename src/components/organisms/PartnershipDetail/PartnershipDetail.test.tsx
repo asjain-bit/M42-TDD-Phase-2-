@@ -1177,6 +1177,13 @@ describe('PartnershipDetail', () => {
   })
 
   describe('Strategy Team', () => {
+    it('has no Express sponsor interest button', () => {
+      renderDetail({ userProfile: strategyProfile, request: STRATEGY_DONE })
+      expect(
+        screen.queryByRole('button', { name: /Express sponsor interest/i })
+      ).not.toBeInTheDocument()
+    })
+
     it('opens on the brief, with no animation, every workflow stage and a fixed Next', () => {
       renderDetail({ userProfile: strategyProfile, animateAgentRun: true })
       expect(screen.queryByText('ANALYZING')).not.toBeInTheDocument()
@@ -1276,7 +1283,10 @@ describe('PartnershipDetail', () => {
         })
       )
       expect(screen.queryByText(/Review the pre-read, then record/)).not.toBeInTheDocument()
-      expect(screen.getByText('Rejected')).toBeInTheDocument()
+      // The response is shown the way the Director sees it, not the pre-read summary
+      expect(screen.getAllByText('Declined').length).toBeGreaterThan(0)
+      expect(screen.getByText('You rejected this partnership.')).toBeInTheDocument()
+      expect(screen.queryByRole('list', { name: 'Pre-read summary' })).not.toBeInTheDocument()
     })
 
     it('proceeds without a reason or a second popup, and records the documents added', async () => {
@@ -1315,7 +1325,10 @@ describe('PartnershipDetail', () => {
           }),
         })
       )
-      expect(screen.getByText('Proceeded')).toBeInTheDocument()
+      expect(screen.getAllByText('Approved').length).toBeGreaterThan(0)
+      expect(screen.getByText('You proceeded with this partnership.')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Strategy Team' })).toBeInTheDocument()
+      expect(screen.queryByRole('list', { name: 'Pre-read summary' })).not.toBeInTheDocument()
     })
 
     it('keeps everything after the decision view-only and locked until the Director acts', async () => {
@@ -1324,13 +1337,17 @@ describe('PartnershipDetail', () => {
       // Even a decided case opens on the brief first
       expect(screen.getByRole('heading', { name: 'Company Information' })).toBeInTheDocument()
       await user.click(stepper().getByRole('button', { name: /Strategic Alignment/ }))
+      // The response, as the Director sees it; the pre-read summary is inside the response
+      expect(screen.queryByRole('list', { name: 'Pre-read summary' })).not.toBeInTheDocument()
+      expect(screen.getAllByText('Approved').length).toBeGreaterThan(0)
+      await user.click(screen.getByRole('button', { name: 'View member response' }))
       expect(
         within(screen.getByRole('list', { name: 'Pre-read summary' })).getAllByRole('heading', {
           level: 3,
         })
       ).toHaveLength(6)
+      await user.click(screen.getAllByRole('button', { name: /Close/ })[0])
       expect(screen.queryByRole('button', { name: 'Proceed' })).not.toBeInTheDocument()
-      expect(screen.getByText('Proceeded')).toBeInTheDocument()
       // The NDA stage opens only once the Director has uploaded the signed NDA
       expect(stepper().getByRole('button', { name: /^NDA/ })).toBeDisabled()
       expect(stepper().getByRole('button', { name: /Value & Due Diligence/ })).toBeDisabled()

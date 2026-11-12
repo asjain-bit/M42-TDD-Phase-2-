@@ -12,7 +12,20 @@ import {
 import { InternalInterestsScreen } from '@/components/screens/InternalInterestsScreen'
 import { ExistingProjectsScreen } from '@/components/screens/ExistingProjectsScreen'
 import { Sidebar } from '@/components/organisms/Sidebar'
-import { BarChart3, Bot, FolderKanban, LayoutDashboard, Lightbulb, Users } from 'lucide-react'
+import {
+  BarChart3,
+  Bot,
+  ClipboardList,
+  FolderKanban,
+  LayoutDashboard,
+  Lightbulb,
+  Users,
+} from 'lucide-react'
+import { PartnershipFormScreen } from '@/tdd-admin/components/screens/PartnershipFormScreen'
+import {
+  seedFormVersions,
+  type FormVersion,
+} from '@/tdd-admin/components/screens/partnershipForm.data'
 import { UsersScreen } from '@/components/screens/UsersScreen'
 import { INITIAL_PLATFORM_USERS, type PlatformUser } from '@/types/platformUsers'
 import type { UserDraft } from '@/components/organisms/UserFormModal'
@@ -47,12 +60,14 @@ type MainTab =
   | 'my-interests'
   | 'agents'
   | 'users'
+  | 'request-form'
 
 const TAB_TITLES: Record<MainTab, string> = {
   dashboard: 'Dashboard',
   usage: 'Value and ROI Insights',
   agents: 'Agents',
   users: 'Users',
+  'request-form': 'Request Form',
   'internal-interests': 'Internal Interests',
   'existing-projects': 'Existing Projects',
   'my-interests': 'Internal interests',
@@ -82,6 +97,9 @@ export default function HomePage() {
   const [customKpis, setCustomKpis] = useState<CustomKpi[]>([])
   // Platform users the Partnership Admin manages
   const [platformUsers, setPlatformUsers] = useState<PlatformUser[]>(INITIAL_PLATFORM_USERS)
+  // The request forms are shared by the TDD Admin and the Partnership Admin
+  const [formVersions, setFormVersions] = useState<FormVersion[]>(seedFormVersions)
+  const [acceptingRequests, setAcceptingRequests] = useState(true)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
 
   const handleLogin = (profile: UserProfile) => {
@@ -234,6 +252,7 @@ export default function HomePage() {
       ? [
           { id: 'agents', label: 'Agents', icon: Bot },
           { id: 'users', label: 'Users', icon: Users },
+          { id: 'request-form', label: 'Request Form', icon: ClipboardList },
         ]
       : []),
     // Value & ROI always sits last in the left nav
@@ -290,6 +309,10 @@ export default function HomePage() {
         onRequestsChange={setRequests}
         usageAssumptions={usageAssumptions}
         onRecalculate={setUsageAssumptions}
+        formVersions={formVersions}
+        onFormVersionsChange={setFormVersions}
+        acceptingRequests={acceptingRequests}
+        onAcceptingChange={setAcceptingRequests}
         onSignOut={handleSignOut}
       />
     )
@@ -384,6 +407,15 @@ export default function HomePage() {
               onDelete={deleteUser}
               onSetStatus={setUserStatus}
             />
+          ) : activeTab === 'request-form' && userProfile.id === 'partnership-admin' ? (
+            <div className="tdd-admin -m-6">
+              <PartnershipFormScreen
+                versions={formVersions}
+                onVersionsChange={setFormVersions}
+                acceptingRequests={acceptingRequests}
+                onAcceptingChange={setAcceptingRequests}
+              />
+            </div>
           ) : activeTab === 'agents' && userProfile.id === 'partnership-admin' ? (
             <div className="tdd-admin -m-6">
               <AgentsScreen showRoleSwitch={false} />

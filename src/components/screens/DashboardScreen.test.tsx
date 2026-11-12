@@ -501,7 +501,7 @@ describe('DashboardScreen', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
-    expect(screen.getByText('Proceeded')).toBeInTheDocument()
+    expect(screen.getByText('You proceeded with this partnership.')).toBeInTheDocument()
   })
 
   it('does not display Exited status or Exited filter chip to internal and strategy teams', () => {

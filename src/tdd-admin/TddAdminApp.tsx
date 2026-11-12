@@ -62,6 +62,11 @@ interface TddAdminAppProps {
   /** The Value/ROI inputs shared with the other profile views; TDD Admin can recalculate them */
   usageAssumptions?: UsageAssumptions
   onRecalculate?: (assumptions: UsageAssumptions) => void
+  /** The request forms, shared with the Partnership Admin view; kept here when not given */
+  formVersions?: FormVersion[]
+  onFormVersionsChange?: React.Dispatch<React.SetStateAction<FormVersion[]>>
+  acceptingRequests?: boolean
+  onAcceptingChange?: (next: boolean) => void
   onSignOut: () => void
 }
 
@@ -73,12 +78,20 @@ export const TddAdminApp: React.FC<TddAdminAppProps> = ({
   onRequestsChange,
   usageAssumptions,
   onRecalculate,
+  formVersions: sharedVersions,
+  onFormVersionsChange,
+  acceptingRequests: sharedAccepting,
+  onAcceptingChange,
   onSignOut,
 }) => {
   const [activeTab, setActiveTab] = useState<TddAdminTab>('dashboard')
   // Kept here so drafts survive moving between pages
-  const [formVersions, setFormVersions] = useState<FormVersion[]>(seedFormVersions)
-  const [acceptingRequests, setAcceptingRequests] = useState(true)
+  const [localVersions, setLocalVersions] = useState<FormVersion[]>(seedFormVersions)
+  const [localAccepting, setLocalAccepting] = useState(true)
+  const formVersions = sharedVersions ?? localVersions
+  const setFormVersions = onFormVersionsChange ?? setLocalVersions
+  const acceptingRequests = sharedAccepting ?? localAccepting
+  const setAcceptingRequests = onAcceptingChange ?? setLocalAccepting
   const [isPageLoading, setIsPageLoading] = useState(false)
   // Collapsed by default, like the other profile views
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
