@@ -63,16 +63,20 @@ describe('PartnershipFormScreen', () => {
   it('lists the live and archived versions', () => {
     render(<Harness />)
     expect(screen.getByText('Version 2')).toBeInTheDocument()
-    expect(screen.getByText('Version 1')).toBeInTheDocument()
+    // Version 1 of Partnership (archived), Procure and M&A
+    expect(screen.getAllByText('Version 1')).toHaveLength(3)
   })
 
   it('shows the Live forms, Workflow stages, AI checks and Requests answered cards', () => {
     render(<Harness />)
     const card = (label: string) =>
       screen.getByText(label).parentElement?.parentElement as HTMLElement
-    expect(within(card('Live forms')).getByText('1')).toBeInTheDocument()
-    expect(within(card('Workflow stages')).getByText('3')).toBeInTheDocument()
-    expect(card('Workflow stages')).toHaveTextContent('Partnership, Procure and M&A')
+    // Partnership, Procure and M&A are live; the Security Questionnaire has no form yet
+    expect(within(card('Live forms')).getByText('3')).toBeInTheDocument()
+    expect(within(card('Workflow stages')).getByText('4')).toBeInTheDocument()
+    expect(card('Workflow stages')).toHaveTextContent(
+      'Partnership, Procure, M&A and Security Questionnaire'
+    )
     expect(within(card('AI checks today')).getByText('5 / 300')).toBeInTheDocument()
     expect(within(card('Requests answered')).getByText('2')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Request forms' })).toBeInTheDocument()
@@ -84,8 +88,11 @@ describe('PartnershipFormScreen', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Filter' }))
-    await user.selectOptions(screen.getByLabelText('Workflow stage'), 'Procure')
+    await user.selectOptions(screen.getByLabelText('Workflow stage'), 'Security Questionnaire')
     expect(screen.getByText('No request forms match')).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Workflow stage'), 'Procure')
+    expect(screen.getByText('Version 1')).toBeInTheDocument()
+    expect(screen.queryByText('Version 2')).not.toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText('Workflow stage'), 'Partnership')
     expect(screen.getByText('Version 2')).toBeInTheDocument()
   })
@@ -445,7 +452,7 @@ describe('PartnershipFormScreen', () => {
     // The answer type is a dropdown, not cards shown upfront
     expect(screen.getByRole('combobox', { name: 'Answer type' })).toHaveValue('long')
   })
-  it('asks for the workflow first, and a workflow with no live form can only start blank', async () => {
+  it('asks for the workflow first; the Security Questionnaire has no live version to start from', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Request form' }))
@@ -455,12 +462,46 @@ describe('PartnershipFormScreen', () => {
       within(workflow)
         .getAllByRole('option')
         .map((o) => o.textContent)
-    ).toEqual(['Partnership', 'Procure', 'M&A'])
+    ).toEqual(['Partnership', 'Procure', 'M&A', 'Security Questionnaire'])
     expect(within(dialog).getByRole('radio', { name: /Live version/ })).toBeChecked()
+    // Procure has its own live form, with the same fields as Partnership
     await user.selectOptions(workflow, 'Procure')
+    expect(within(dialog).getByRole('radio', { name: /Live version/ })).toBeEnabled()
+    await user.selectOptions(workflow, 'Security Questionnaire')
     expect(within(dialog).getByRole('radio', { name: /Live version/ })).toBeDisabled()
-    expect(within(dialog).getByRole('radio', { name: /Existing version/ })).toBeDisabled()
+    expect(within(dialog).getByRole('radio', { name: /Existing version/ })).toBeEnabled()
     expect(within(dialog).getByRole('radio', { name: /Blank form/ })).toBeChecked()
+  })
+
+  it('shows Procure and M&A the same fields as Partnership', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    for (const workflow of ['Procure', 'M&A']) {
+      const row = screen.getByText(workflow, { selector: 'span' }).closest('tr') as HTMLElement
+      await user.click(within(row).getByRole('button', { name: 'Version 1' }))
+      const company = screen.getByRole('region', { name: 'Company information' })
+      expect(within(company).getByText('9 questions')).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Key assessment areas' })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /Back to versions/ }))
+    }
+  })
+
+  it('restores an archived version even while a draft is open', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await startDraft(user)
+    await user.click(screen.getByRole('button', { name: /Back to versions/ }))
+    await user.click(screen.getByRole('button', { name: 'Request form' }))
+    const dialog = screen.getByRole('dialog', { name: 'New request form' })
+    await user.click(within(dialog).getByRole('radio', { name: /Existing version/ }))
+    const picker = within(dialog).getByLabelText('Select version')
+    expect(picker).toHaveDisplayValue(/Partnership · Version 1/)
+    await user.click(within(dialog).getByRole('button', { name: 'Create draft' }))
+    // A new draft, Version 4, made from the archived Version 1 (not the open Version 3)
+    expect(screen.getByText('Version 4')).toBeInTheDocument()
+    expect(screen.getByText('Draft created.')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Audit log' }))
+    expect(screen.getByText(/Started from Version 1/)).toBeInTheDocument()
   })
 
   it('builds a blank form from scratch: first a section, then its input fields', async () => {
@@ -468,11 +509,12 @@ describe('PartnershipFormScreen', () => {
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Request form' }))
     const dialog = screen.getByRole('dialog', { name: 'New request form' })
-    await user.selectOptions(within(dialog).getByLabelText('Workflow'), 'Procure')
+    await user.selectOptions(within(dialog).getByLabelText('Workflow'), 'Security Questionnaire')
     await user.click(within(dialog).getByRole('button', { name: 'Create draft' }))
 
     // Nothing is filled in for them: no company fields and no assessment section
-    expect(screen.getByText('Procure', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.getByText('Security Questionnaire', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.queryByRole('complementary', { name: 'Edit question' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Company information' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Key assessment areas' })).not.toBeInTheDocument()
     expect(screen.getByText('Start by creating a section')).toBeInTheDocument()
@@ -513,6 +555,6 @@ describe('PartnershipFormScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Publish' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Publish' }))
     expect(screen.getByText('Version 1 is now live.')).toBeInTheDocument()
-    expect(screen.getByText('Live forms').parentElement?.parentElement).toHaveTextContent('2')
+    expect(screen.getByText('Live forms').parentElement?.parentElement).toHaveTextContent('4')
   })
 })

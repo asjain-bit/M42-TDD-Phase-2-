@@ -177,7 +177,7 @@ export const SectionCard: React.FC<{
       aria-label={title}
       className="rounded-2xl border border-[#e2e8f0] bg-white shadow-xs overflow-hidden"
     >
-      <div className="flex items-center gap-4 px-5 py-4">
+      <div className="flex items-center gap-4 px-6 py-5">
         <span className="w-11 h-11 rounded-xl bg-[#e6f7f8] text-[#0d7280] flex items-center justify-center shrink-0">
           <Icon className="w-5 h-5" aria-hidden="true" />
         </span>
@@ -201,7 +201,7 @@ export const SectionCard: React.FC<{
           <ChevronDown className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
       </div>
-      {open && <div className="px-5 pb-5 flex flex-col gap-2">{children}</div>}
+      {open && <div className="px-6 pb-6 flex flex-col gap-3">{children}</div>}
     </section>
   )
 }
@@ -230,7 +230,7 @@ export const Row: React.FC<{
   extra,
 }) => (
   <div
-    className={`group flex items-center gap-2 rounded-xl border px-3 py-2.5 transition ${
+    className={`group flex items-center gap-3 rounded-xl border px-4 py-4 transition ${
       selected
         ? 'border-[#36c0c9] bg-[#f0fbfc]'
         : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1]'
@@ -248,7 +248,7 @@ export const Row: React.FC<{
           <Icon className="w-4 h-4" aria-hidden="true" />
         </span>
       )}
-      <span className="flex flex-col min-w-0">
+      <span className="flex flex-col gap-1 min-w-0">
         <span
           data-testid="row-label"
           className={`text-sm font-semibold leading-snug ${hidden ? 'text-[#64748b]' : 'text-[#0d212c]'}`}
@@ -261,7 +261,9 @@ export const Row: React.FC<{
             </span>
           )}
         </span>
-        {helper && <span className="text-xs text-[#64748b] line-clamp-1">{helper}</span>}
+        {helper && (
+          <span className="text-xs text-[#64748b] leading-relaxed line-clamp-2">{helper}</span>
+        )}
         {extra}
       </span>
     </button>
@@ -409,7 +411,7 @@ const AssessmentSection: React.FC<{
               selected={selectedId === q.id}
               onSelect={() => onSelect(q.id)}
               extra={
-                <span className="flex items-center gap-1.5 pt-1">
+                <span className="flex items-center gap-2 pt-1.5">
                   <span className="px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[10px] font-semibold text-[#475569]">
                     {ANSWER_TYPE_LABELS[q.type]}
                     {isChoiceType(q.type) && ` · ${q.options.length} options`}

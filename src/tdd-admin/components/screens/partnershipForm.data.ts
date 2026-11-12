@@ -60,7 +60,7 @@ export interface CompanyField {
 export type VersionStatus = 'draft' | 'live' | 'archived'
 
 /** The workflows a request form can belong to */
-export const FORM_WORKFLOWS = ['Partnership', 'Procure', 'M&A'] as const
+export const FORM_WORKFLOWS = ['Partnership', 'Procure', 'M&A', 'Security Questionnaire'] as const
 export type FormWorkflow = (typeof FORM_WORKFLOWS)[number]
 
 /** A group of input fields that the admin creates on a form started from scratch */
@@ -318,6 +318,31 @@ export const seedFormVersions = (): FormVersion[] => [
       },
     ],
   },
+  // Procure and M&A start with the same fields and questions as Partnership
+  ...(['Procure', 'M&A'] as const).map((workflow): FormVersion => ({
+    id: `fv-${workflow === 'Procure' ? 'p' : 'm'}1`,
+    number: 1,
+    status: 'live',
+    note: '',
+    publishedAt: '6 Nov 2026',
+    editedAt: '6 Nov 2026',
+    requests: 0,
+    workflow,
+    layout: 'standard',
+    companyFields: defaultCompanyFields(),
+    questions: seedQuestions(),
+    sections: [],
+    auditLog: [
+      {
+        id: `fa-seed-${workflow === 'Procure' ? 'p' : 'm'}1`,
+        title: 'Version 1 published',
+        description: `The first ${workflow} request form went live.`,
+        actor: FORM_ACTOR,
+        kind: 'approval',
+        timestamp: '6 Nov 2026, 11:40 AM',
+      },
+    ],
+  })),
 ]
 
 export const blankQuestion = (): FormQuestion => ({

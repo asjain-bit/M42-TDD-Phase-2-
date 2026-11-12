@@ -129,14 +129,6 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
     note: string,
     workflow: FormWorkflow = 'Partnership'
   ) => {
-    // One open draft per workflow: carry on with it instead of starting another
-    const open = draftFor(workflow)
-    if (open) {
-      setCreating(false)
-      setOpenId(open.id)
-      showToast(`Version ${open.number} is already a draft. Continuing it.`)
-      return
-    }
     const created = createDraft(versions, source, fromVersionId, note, workflow)
     onVersionsChange((prev) => [created, ...prev])
     setCreating(false)
@@ -478,7 +470,6 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
                   <MenuItem
                     icon={Plus}
                     label="Use as a new draft"
-                    disabledHint={draftFor(v.workflow) ? 'A draft is already open' : undefined}
                     onClick={() => {
                       setMenu(null)
                       startDraft('older', v.id, '', v.workflow)
@@ -585,7 +576,9 @@ const NewDraftDialog: React.FC<{
 }> = ({ liveFor, archived, onCreate, onClose }) => {
   const [workflow, setWorkflow] = useState<FormWorkflow>('Partnership')
   const live = liveFor(workflow)
-  const older = archived.filter((v) => v.workflow === workflow)
+  // A workflow with no archived version of its own can restore from any archived version
+  const own = archived.filter((v) => v.workflow === workflow)
+  const older = own.length > 0 ? own : archived
   const [pick, setPick] = useState<DraftStart>('live')
   const [olderId, setOlderId] = useState('')
   const [note, setNote] = useState('')
@@ -612,7 +605,10 @@ const NewDraftDialog: React.FC<{
     {
       key: 'existing',
       title: 'Existing version',
-      description: 'Restore the wording of an archived version.',
+      description:
+        own.length > 0
+          ? 'Restore the wording of an archived version.'
+          : 'Restore the wording of an archived version from another workflow.',
       disabled: older.length === 0,
     },
     {
@@ -719,7 +715,7 @@ const NewDraftDialog: React.FC<{
           >
             {older.map((v) => (
               <option key={v.id} value={v.id}>
-                Version {v.number} ({totalQuestions(v)} questions)
+                {v.workflow} · Version {v.number} ({totalQuestions(v)} questions)
               </option>
             ))}
           </select>

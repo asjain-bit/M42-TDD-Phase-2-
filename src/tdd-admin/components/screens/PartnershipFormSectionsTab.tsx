@@ -44,7 +44,10 @@ export const PartnershipFormSectionsTab: React.FC<SectionsTabProps> = ({
   const [naming, setNaming] = useState<{ section?: FormSection } | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const selected = version.sections.flatMap((s) => s.questions).find((q) => q.id === selectedId)
+  const allQuestions = version.sections.flatMap((s) => s.questions)
+  const selected = allQuestions.find((q) => q.id === selectedId)
+  // The Edit question panel only appears once the form has a question to edit
+  const hasQuestions = allQuestions.length > 0
 
   const addSectionButton = !readOnly && (
     <button
@@ -58,7 +61,11 @@ export const PartnershipFormSectionsTab: React.FC<SectionsTabProps> = ({
   )
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
+    <div
+      className={`grid grid-cols-1 gap-5 items-start ${
+        hasQuestions ? 'lg:grid-cols-[minmax(0,1fr)_380px]' : ''
+      }`}
+    >
       <div className="flex flex-col gap-4 min-w-0">
         {version.sections.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#cbd5e1] bg-white px-6 py-14 flex flex-col items-center gap-3 text-center">
@@ -107,30 +114,32 @@ export const PartnershipFormSectionsTab: React.FC<SectionsTabProps> = ({
         )}
       </div>
 
-      <aside
-        aria-label="Edit question"
-        className="rounded-2xl border border-[#e2e8f0] bg-white shadow-xs lg:sticky lg:top-4 flex flex-col max-h-[calc(100vh-2rem)]"
-      >
-        {selected ? (
-          <QuestionPanel
-            key={selected.id}
-            question={selected}
-            readOnly={readOnly}
-            onClose={() => setSelectedId(null)}
-            onSave={(after) => onSaveQuestion(selected, after)}
-          />
-        ) : (
-          <div className="px-6 py-12 flex flex-col items-center gap-2 text-center">
-            <span className="w-10 h-10 rounded-xl bg-[#f1f5f9] text-[#64748b] flex items-center justify-center">
-              <Pencil className="w-4 h-4" aria-hidden="true" />
-            </span>
-            <span className="text-sm font-bold">Edit question</span>
-            <span className="text-xs text-[#64748b]">
-              Select a question on the left to see and change its settings.
-            </span>
-          </div>
-        )}
-      </aside>
+      {hasQuestions && (
+        <aside
+          aria-label="Edit question"
+          className="rounded-2xl border border-[#e2e8f0] bg-white shadow-xs lg:sticky lg:top-4 flex flex-col max-h-[calc(100vh-2rem)]"
+        >
+          {selected ? (
+            <QuestionPanel
+              key={selected.id}
+              question={selected}
+              readOnly={readOnly}
+              onClose={() => setSelectedId(null)}
+              onSave={(after) => onSaveQuestion(selected, after)}
+            />
+          ) : (
+            <div className="px-6 py-12 flex flex-col items-center gap-2 text-center">
+              <span className="w-10 h-10 rounded-xl bg-[#f1f5f9] text-[#64748b] flex items-center justify-center">
+                <Pencil className="w-4 h-4" aria-hidden="true" />
+              </span>
+              <span className="text-sm font-bold">Edit question</span>
+              <span className="text-xs text-[#64748b]">
+                Select a question on the left to see and change its settings.
+              </span>
+            </div>
+          )}
+        </aside>
+      )}
 
       {naming && (
         <SectionNameDialog
@@ -326,7 +335,7 @@ const SectionBlock: React.FC<{
               selected={selectedId === q.id}
               onSelect={() => onSelect(q.id)}
               extra={
-                <span className="flex items-center gap-1.5 pt-1">
+                <span className="flex items-center gap-2 pt-1.5">
                   <span className="px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[10px] font-semibold text-[#475569]">
                     {ANSWER_TYPE_LABELS[q.type]}
                     {isChoiceType(q.type) && ` · ${q.options.length} options`}
