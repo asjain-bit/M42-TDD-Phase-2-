@@ -36,6 +36,7 @@ import {
   SECONDARY_BUTTON,
   RadioMark,
   VersionStatusChip,
+  WORKFLOW_CHIP,
 } from './PartnershipFormParts'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { PartnershipFormEditor } from './PartnershipFormEditor'
@@ -278,8 +279,8 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
         <StatCard
           icon={<Sparkles className="w-5 h-5 text-[#ef4444] stroke-[2]" />}
           label="AI checks today"
-          value={`${AI_CHECKS_TODAY.used} / ${AI_CHECKS_TODAY.limit}`}
-          caption={`${AI_CHECKS_TODAY.perVendor} per vendor email a day`}
+          value={String(AI_CHECKS_TODAY.used)}
+          caption="One check per email ID"
         />
         <StatCard
           icon={<Inbox className="w-5 h-5 text-[#6366f1] stroke-[2]" />}
@@ -381,7 +382,9 @@ export const PartnershipFormScreen: React.FC<PartnershipFormScreenProps> = ({
                   className="hover:bg-[#f8fafc] transition cursor-pointer"
                 >
                   <td className="px-5 py-4">
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#f3e8ff] text-[11px] font-bold text-[#7e22ce]">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${WORKFLOW_CHIP[v.workflow]}`}
+                    >
                       {v.workflow}
                     </span>
                   </td>
@@ -576,9 +579,7 @@ const NewDraftDialog: React.FC<{
 }> = ({ liveFor, archived, onCreate, onClose }) => {
   const [workflow, setWorkflow] = useState<FormWorkflow>('Partnership')
   const live = liveFor(workflow)
-  // A workflow with no archived version of its own can restore from any archived version
-  const own = archived.filter((v) => v.workflow === workflow)
-  const older = own.length > 0 ? own : archived
+  const older = archived.filter((v) => v.workflow === workflow)
   const [pick, setPick] = useState<DraftStart>('live')
   const [olderId, setOlderId] = useState('')
   const [note, setNote] = useState('')
@@ -605,10 +606,7 @@ const NewDraftDialog: React.FC<{
     {
       key: 'existing',
       title: 'Existing version',
-      description:
-        own.length > 0
-          ? 'Restore the wording of an archived version.'
-          : 'Restore the wording of an archived version from another workflow.',
+      description: 'Restore the wording of an archived version.',
       disabled: older.length === 0,
     },
     {
@@ -715,7 +713,7 @@ const NewDraftDialog: React.FC<{
           >
             {older.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.workflow} · Version {v.number} ({totalQuestions(v)} questions)
+                Version {v.number} ({totalQuestions(v)} questions)
               </option>
             ))}
           </select>

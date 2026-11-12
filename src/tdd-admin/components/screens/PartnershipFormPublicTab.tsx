@@ -37,33 +37,25 @@ export const PartnershipFormPublicTab: React.FC<PublicTabProps> = ({
 
   return (
     <div className="flex flex-col gap-4">
-      <section
-        aria-label="Accepting requests"
-        className="rounded-2xl border border-[#e2e8f0] bg-white shadow-xs px-6 py-5 flex items-center justify-between gap-4"
-      >
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-base font-bold text-[#0d212c]">Accepting requests</h3>
-          <p className="text-xs text-[#64748b]">
-            Takes effect at once. Not part of a version. When off, vendors see the closed message
-            instead of the form.
-          </p>
-        </div>
-        <Switch checked={accepting} onChange={onAcceptingChange} label="Accepting requests" />
-      </section>
+      <div className="rounded-2xl border border-[#e2e8f0] bg-white shadow-xs divide-y divide-[#e2e8f0]">
+        <section
+          aria-label="Accepting requests"
+          className="px-6 py-4 flex items-center justify-between gap-4"
+        >
+          <div className="flex flex-col gap-0.5">
+            <h3 className="text-base font-bold text-[#0d212c]">Accepting requests</h3>
+            <p className="text-xs text-[#64748b]">
+              Takes effect at once. Not part of a version. When off, vendors see the closed message
+              instead of the form.
+            </p>
+          </div>
+          <Switch checked={accepting} onChange={onAcceptingChange} label="Accepting requests" />
+        </section>
 
-      <section
-        aria-label="Public link"
-        className="rounded-2xl border border-[#e2e8f0] bg-white shadow-xs px-6 py-5 flex flex-col gap-3"
-      >
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-base font-bold text-[#0d212c]">Public link</h3>
-          <p className="text-xs text-[#64748b]">
-            Built from the deployment URL, so it is right in every environment. No login is needed.
-          </p>
-        </div>
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <code className="text-xs text-[#0d212c] break-all">{link}</code>
-          <div className="flex items-center gap-2">
+        <section aria-label="Public link" className="px-6 py-4 flex items-center gap-4 flex-wrap">
+          <h3 className="text-base font-bold text-[#0d212c] shrink-0">Public link</h3>
+          <code className="text-xs text-[#0d212c] break-all flex-1 min-w-0">{link}</code>
+          <div className="flex items-center gap-2 shrink-0">
             <button type="button" onClick={copy} className={SECONDARY_BUTTON}>
               <Copy className="w-4 h-4 text-[#64748b]" aria-hidden="true" />
               Copy link
@@ -73,8 +65,8 @@ export const PartnershipFormPublicTab: React.FC<PublicTabProps> = ({
               View public form
             </button>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] overflow-hidden">
         <PartnershipFormPreviewBody version={version} closed={!accepting} />

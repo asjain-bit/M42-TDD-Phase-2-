@@ -77,7 +77,9 @@ describe('PartnershipFormScreen', () => {
     expect(card('Workflow stages')).toHaveTextContent(
       'Partnership, Procure, M&A and Security Questionnaire'
     )
-    expect(within(card('AI checks today')).getByText('5 / 300')).toBeInTheDocument()
+    expect(within(card('AI checks today')).getByText('5')).toBeInTheDocument()
+    expect(card('AI checks today')).toHaveTextContent('One check per email ID')
+    expect(card('AI checks today')).not.toHaveTextContent('300')
     expect(within(card('Requests answered')).getByText('2')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Request forms' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'View public form' })).not.toBeInTheDocument()
@@ -469,7 +471,7 @@ describe('PartnershipFormScreen', () => {
     expect(within(dialog).getByRole('radio', { name: /Live version/ })).toBeEnabled()
     await user.selectOptions(workflow, 'Security Questionnaire')
     expect(within(dialog).getByRole('radio', { name: /Live version/ })).toBeDisabled()
-    expect(within(dialog).getByRole('radio', { name: /Existing version/ })).toBeEnabled()
+    expect(within(dialog).getByRole('radio', { name: /Existing version/ })).toBeDisabled()
     expect(within(dialog).getByRole('radio', { name: /Blank form/ })).toBeChecked()
   })
 
@@ -495,7 +497,7 @@ describe('PartnershipFormScreen', () => {
     const dialog = screen.getByRole('dialog', { name: 'New request form' })
     await user.click(within(dialog).getByRole('radio', { name: /Existing version/ }))
     const picker = within(dialog).getByLabelText('Select version')
-    expect(picker).toHaveDisplayValue(/Partnership · Version 1/)
+    expect(picker).toHaveDisplayValue(/Version 1/)
     await user.click(within(dialog).getByRole('button', { name: 'Create draft' }))
     // A new draft, Version 4, made from the archived Version 1 (not the open Version 3)
     expect(screen.getByText('Version 4')).toBeInTheDocument()
@@ -556,5 +558,37 @@ describe('PartnershipFormScreen', () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Publish' }))
     expect(screen.getByText('Version 1 is now live.')).toBeInTheDocument()
     expect(screen.getByText('Live forms').parentElement?.parentElement).toHaveTextContent('4')
+  })
+  it('gives each workflow its own chip colour', () => {
+    render(<Harness />)
+    const colour = (workflow: string) =>
+      screen.getAllByText(workflow, { selector: 'span' })[0].className.match(/bg-\[#\w+\]/)?.[0]
+    const colours = ['Partnership', 'Procure', 'M&A'].map(colour)
+    expect(new Set(colours).size).toBe(3)
+  })
+
+  it('puts the live, archived and editing notes in the subheading, in one card for the public form', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Version 2' }))
+    expect(
+      screen.getByText(
+        /Published 6 Nov 2026\. This is the form vendors see now\. It cannot be edited\./
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Use New draft on the versions page/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Public form' }))
+    const accepting = screen.getByRole('region', { name: 'Accepting requests' })
+    const link = screen.getByRole('region', { name: 'Public link' })
+    expect(accepting.parentElement).toBe(link.parentElement)
+    expect(link).not.toHaveTextContent('Built from the deployment URL')
+    expect(within(link).getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
+    expect(within(link).getByRole('button', { name: 'View public form' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Back to versions/ }))
+    const archivedRow = screen
+      .getAllByText('Version 1', { selector: 'button' })[0]
+      .closest('tr') as HTMLElement
+    await user.click(within(archivedRow).getByRole('button', { name: 'Version 1' }))
+    expect(screen.getByText(/now archived\. It cannot be edited\./)).toBeInTheDocument()
   })
 })

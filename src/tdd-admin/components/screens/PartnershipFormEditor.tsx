@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Eye,
   History,
-  Info,
   Globe,
   ListChecks,
   Pencil,
@@ -35,6 +34,7 @@ import {
   SECONDARY_BUTTON,
   TERTIARY_BUTTON,
   VersionStatusChip,
+  WORKFLOW_CHIP,
 } from './PartnershipFormParts'
 import { PartnershipFormAuditLog } from './PartnershipFormAuditLog'
 import { PartnershipFormPreview } from './PartnershipFormPreview'
@@ -274,7 +274,9 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-xl font-extrabold">Version {version.number}</h2>
             <VersionStatusChip status={version.status} />
-            <span className="px-2.5 py-0.5 rounded-full bg-[#f3e8ff] text-[11px] font-bold text-[#7e22ce]">
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${WORKFLOW_CHIP[version.workflow]}`}
+            >
               {version.workflow}
             </span>
             {isDraft && (
@@ -287,8 +289,8 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
           {!isDraft && (
             <p className="text-xs text-[#64748b]">
               {version.status === 'live'
-                ? `Published ${version.publishedAt}. This is the form vendors see now.`
-                : `Published ${version.publishedAt}, now archived.`}
+                ? `Published ${version.publishedAt}. This is the form vendors see now. It cannot be edited.`
+                : `Published ${version.publishedAt}, now archived. It cannot be edited.`}
             </p>
           )}
         </div>
@@ -325,14 +327,6 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
           ) : null}
         </div>
       </div>
-
-      {!isDraft && (
-        <div className="flex items-start gap-2.5 rounded-xl bg-[#f0f9ff] px-4 py-3 text-xs text-[#0c4a6e] leading-relaxed">
-          <Info className="w-4 h-4 shrink-0 mt-px text-[#0369a1]" aria-hidden="true" />
-          This version is {version.status === 'live' ? 'live' : 'archived'} and cannot be edited.
-          Use New draft on the versions page to make changes.
-        </div>
-      )}
 
       <div
         role="tablist"

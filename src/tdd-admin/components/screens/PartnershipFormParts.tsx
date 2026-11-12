@@ -258,3 +258,11 @@ export const RadioMark: React.FC<{ checked: boolean }> = ({ checked }) => (
     )}
   </svg>
 )
+
+/** One chip colour per workflow, so the forms are easy to tell apart */
+export const WORKFLOW_CHIP: Record<string, string> = {
+  Partnership: 'bg-[#f3e8ff] text-[#7e22ce]',
+  Procure: 'bg-[#dbeafe] text-[#1d4ed8]',
+  'M&A': 'bg-[#ffedd5] text-[#c2410c]',
+  'Security Questionnaire': 'bg-[#dcfce7] text-[#15803d]',
+}
