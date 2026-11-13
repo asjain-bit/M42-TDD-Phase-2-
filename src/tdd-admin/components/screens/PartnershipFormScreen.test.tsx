@@ -166,6 +166,18 @@ describe('PartnershipFormScreen', () => {
     render(<Harness />)
     await startDraft(user)
     await user.click(screen.getByRole('button', { name: 'Remove question 1' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this question?' })).getByRole('button', {
+        name: 'Keep question',
+      })
+    )
+    expect(screen.queryByRole('dialog', { name: 'Delete this question?' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove question 1' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this question?' })).getByRole('button', {
+        name: 'Delete question',
+      })
+    )
     expect(screen.getByText('Question removed.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Publish' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'Undo' }))
@@ -308,6 +320,11 @@ describe('PartnershipFormScreen', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Require Phone Number' }))
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await user.click(screen.getByRole('button', { name: 'Remove question 1' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this question?' })).getByRole('button', {
+        name: 'Delete question',
+      })
+    )
     await user.click(screen.getByRole('button', { name: /proposal of collaboration/ }))
     await user.click(screen.getByRole('checkbox', { name: 'Required question' }))
     await user.click(screen.getByRole('button', { name: 'Save question' }))
@@ -326,6 +343,11 @@ describe('PartnershipFormScreen', () => {
     render(<Harness />)
     await startDraft(user)
     await user.click(screen.getByRole('button', { name: 'Remove question 1' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this question?' })).getByRole('button', {
+        name: 'Delete question',
+      })
+    )
     await user.click(screen.getByRole('button', { name: 'Publish' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Publish' }))
     await user.click(screen.getByRole('button', { name: 'Version 3' }))
@@ -561,6 +583,11 @@ describe('PartnershipFormScreen', () => {
     expect(screen.getByText('Tax registration number')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Remove Tax registration number' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this question?' })).getByRole('button', {
+        name: 'Delete question',
+      })
+    )
     expect(screen.queryByText('Tax registration number')).not.toBeInTheDocument()
   })
 

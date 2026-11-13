@@ -82,6 +82,11 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
   const [publishing, setPublishing] = useState(false)
   const [discarding, setDiscarding] = useState(false)
   const [removingSection, setRemovingSection] = useState<FormSection | null>(null)
+  // Removing a question asks first; the pending removal runs once the admin confirms
+  const [removingQuestion, setRemovingQuestion] = useState<{
+    label: string
+    remove: () => void
+  } | null>(null)
   const [publishNote, setPublishNote] = useState('')
 
   const isDraft = version.status === 'draft'
@@ -384,7 +389,12 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
           onRemoveSection={setRemovingSection}
           onAddQuestion={(section) => setAdding({ question: blankQuestion(), section })}
           onSaveQuestion={saveSectionQuestion}
-          onRemoveQuestion={removeSectionQuestion}
+          onRemoveQuestion={(section, question) =>
+            setRemovingQuestion({
+              label: question.label,
+              remove: () => removeSectionQuestion(section, question),
+            })
+          }
           onReorder={reorderSection}
         />
       )}
@@ -396,10 +406,20 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
           onAdd={() => setAdding({ question: blankQuestion() })}
           onAddCompany={() => setAdding({ question: blankQuestion(), company: true })}
           onSaveCompanyQuestion={saveCompanyQuestion}
-          onRemoveCompany={removeCompanyQuestion}
+          onRemoveCompany={(question) =>
+            setRemovingQuestion({
+              label: question.label,
+              remove: () => removeCompanyQuestion(question),
+            })
+          }
           onSaveField={saveField}
           onSaveQuestion={saveQuestion}
-          onRemove={removeQuestion}
+          onRemove={(question) =>
+            setRemovingQuestion({
+              label: question.label,
+              remove: () => removeQuestion(question),
+            })
+          }
           onReorder={reorder}
         />
       )}
@@ -496,6 +516,22 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
             />
           </div>
         </Modal>
+      )}
+
+      {removingQuestion && (
+        <ConfirmDialog
+          title="Delete this question?"
+          description={`"${removingQuestion.label}" will be removed from this draft. Vendors are not affected.`}
+          icon={Trash2}
+          danger
+          confirmLabel="Delete question"
+          cancelLabel="Keep question"
+          onCancel={() => setRemovingQuestion(null)}
+          onConfirm={() => {
+            removingQuestion.remove()
+            setRemovingQuestion(null)
+          }}
+        />
       )}
 
       {removingSection && (
