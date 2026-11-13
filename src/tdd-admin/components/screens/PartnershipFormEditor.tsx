@@ -81,6 +81,7 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
   const [previewing, setPreviewing] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [discarding, setDiscarding] = useState(false)
+  const [removingSection, setRemovingSection] = useState<FormSection | null>(null)
   const [publishNote, setPublishNote] = useState('')
 
   const isDraft = version.status === 'draft'
@@ -380,7 +381,7 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
           readOnly={!isDraft}
           onAddSection={addSection}
           onRenameSection={renameSection}
-          onRemoveSection={removeSection}
+          onRemoveSection={setRemovingSection}
           onAddQuestion={(section) => setAdding({ question: blankQuestion(), section })}
           onSaveQuestion={saveSectionQuestion}
           onRemoveQuestion={removeSectionQuestion}
@@ -495,6 +496,24 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
             />
           </div>
         </Modal>
+      )}
+
+      {removingSection && (
+        <ConfirmDialog
+          title="Delete this section?"
+          description={`"${removingSection.title}" and its ${removingSection.questions.length} ${
+            removingSection.questions.length === 1 ? 'question' : 'questions'
+          } will be removed from this draft. Vendors are not affected.`}
+          icon={Trash2}
+          danger
+          confirmLabel="Delete section"
+          cancelLabel="Keep section"
+          onCancel={() => setRemovingSection(null)}
+          onConfirm={() => {
+            removeSection(removingSection)
+            setRemovingSection(null)
+          }}
+        />
       )}
 
       {discarding && (

@@ -609,8 +609,8 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
 
   const [activeStep, setActiveStep] = useState<StepId>(() => {
     // The Strategy lead's own work is the pre-read; later stages are theirs to view only. The
-    // Partnership Admin decides at the brief; the TDD Admin opens on the stage the case is at.
-    if (isStrategyTeam || (isAdmin && userProfile?.roleTitle !== 'TDD Admin')) return 'brief'
+    // admins open on the stage the case is at, and can go back to the earlier ones.
+    if (isStrategyTeam) return 'brief'
     const open = stepDefs.find((d) => !isStepCompleted(d.id))
     return (open ?? stepDefs[stepDefs.length - 1]).id
   })

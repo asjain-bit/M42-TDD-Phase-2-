@@ -527,6 +527,20 @@ describe('PartnershipFormScreen', () => {
     await user.click(
       within(section).getByRole('button', { name: /Remove section Company information/ })
     )
+    // A confirmation comes first; keeping the section leaves it as it was
+    const confirm = screen.getByRole('dialog', { name: 'Delete this section?' })
+    await user.click(within(confirm).getByRole('button', { name: 'Keep section' }))
+    expect(screen.getByRole('region', { name: 'Company information' })).toBeInTheDocument()
+    await user.click(
+      within(screen.getByRole('region', { name: 'Company information' })).getByRole('button', {
+        name: /Remove section Company information/,
+      })
+    )
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this section?' })).getByRole('button', {
+        name: 'Delete section',
+      })
+    )
     expect(screen.queryByRole('region', { name: 'Company information' })).not.toBeInTheDocument()
     expect(screen.getByText('Start by creating a section')).toBeInTheDocument()
   })
@@ -559,6 +573,11 @@ describe('PartnershipFormScreen', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Create draft' }))
     // Start from an empty page: remove the pre-populated section
     await user.click(screen.getByRole('button', { name: /Remove section Company information/ }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this section?' })).getByRole('button', {
+        name: 'Delete section',
+      })
+    )
     expect(screen.getByText('Start by creating a section')).toBeInTheDocument()
     expect(screen.queryByRole('complementary', { name: 'Edit question' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()

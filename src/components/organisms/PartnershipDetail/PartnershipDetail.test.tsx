@@ -698,6 +698,7 @@ describe('PartnershipDetail', () => {
     it('shows the admin checks in Agent Actions', async () => {
       const user = userEvent.setup()
       renderDetail({ userProfile: adminProfile, request: INITIAL_PARTNERSHIP_REQUESTS[2] })
+      await user.click(stepper().getByRole('button', { name: /Initial Assessment Brief/ }))
       await user.click(screen.getByRole('button', { name: 'Agent Actions' }))
       const drawer = screen.getByRole('dialog', { name: 'Agent Actions' })
       ;[
@@ -782,7 +783,8 @@ describe('PartnershipDetail', () => {
       adminDecision: { action: 'proceed', type, reason: 'Original reason', date: 'Just now' },
     })
 
-    it('shows the status as Approved with the type, and no green status banner', () => {
+    it('shows the status as Approved with the type, and no green status banner', async () => {
+      const user = userEvent.setup()
       renderDetail({
         userProfile: adminProfile,
         request: {
@@ -791,13 +793,15 @@ describe('PartnershipDetail', () => {
           status: 'In Progress',
         },
       })
+      await user.click(stepper().getByRole('button', { name: /Initial Assessment Brief/ }))
       expect(screen.getByText('Approved')).toBeInTheDocument()
       expect(screen.getByText('Partnership')).toBeInTheDocument()
       expect(screen.queryByText('Status: Approved to Proceed')).not.toBeInTheDocument()
       expect(screen.queryByText(/Director Notes/)).not.toBeInTheDocument()
     })
 
-    it('shows the status as Rejected', () => {
+    it('shows the status as Rejected', async () => {
+      const user = userEvent.setup()
       renderDetail({
         userProfile: adminProfile,
         request: {
@@ -807,7 +811,19 @@ describe('PartnershipDetail', () => {
           adminDecision: { action: 'reject', reason: 'No', date: 'Just now' },
         },
       })
+      await user.click(stepper().getByRole('button', { name: /Initial Assessment Brief/ }))
       expect(screen.getByText('Rejected')).toBeInTheDocument()
+    })
+
+    it('opens a case that is past the brief on its current stage, and lets the admin go back', async () => {
+      const user = userEvent.setup()
+      renderDetail({
+        userProfile: adminProfile,
+        request: { ...routed('Partnership'), status: 'In Progress' },
+      })
+      expect(screen.queryByRole('heading', { name: 'Assessment Summary' })).not.toBeInTheDocument()
+      await user.click(stepper().getByRole('button', { name: /Initial Assessment Brief/ }))
+      expect(screen.getByRole('heading', { name: 'Assessment Summary' })).toBeInTheDocument()
     })
 
     /** Edit only reassigns the request type: no Proceed or Reject buttons */
