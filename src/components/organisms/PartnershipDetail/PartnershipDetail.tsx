@@ -3635,6 +3635,9 @@ export const PartnershipDetail: React.FC<PartnershipDetailProps> = ({
         runDone &&
         activeStep === 'brief' &&
         activeTab !== 'audit' &&
+        !briefApproved &&
+        !isRejected &&
+        !isClosedAfterBrief &&
         !previousRouting && (
           <div className="sticky bottom-0 z-30 -mx-6 -mb-6 mt-2 px-6 py-3.5 bg-white border-t border-[#d3dbe4] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] flex items-center justify-between gap-4 flex-wrap">
             <span className="text-sm text-[#475569]">

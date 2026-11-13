@@ -131,7 +131,11 @@ describe('PartnershipFormScreen', () => {
     render(<Harness />)
     await startDraft(user)
 
-    await user.click(screen.getByRole('button', { name: 'Add question' }))
+    await user.click(
+      within(screen.getByRole('region', { name: 'Key assessment areas' })).getByRole('button', {
+        name: 'Add question',
+      })
+    )
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', { name: 'Add question' })
     )
@@ -504,7 +508,7 @@ describe('PartnershipFormScreen', () => {
     expect(screen.getByText(/Started from Version 1/)).toBeInTheDocument()
   })
 
-  it('builds a blank form from scratch: first a section, then its input fields', async () => {
+  it('starts a blank form with a Company information section that can be deleted', async () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Request form' }))
@@ -512,12 +516,51 @@ describe('PartnershipFormScreen', () => {
     await user.selectOptions(within(dialog).getByLabelText('Workflow'), 'Security Questionnaire')
     await user.click(within(dialog).getByRole('button', { name: 'Create draft' }))
 
-    // Nothing is filled in for them: no company fields and no assessment section
-    expect(screen.getByText('Security Questionnaire', { selector: 'span' })).toBeInTheDocument()
-    expect(screen.queryByRole('complementary', { name: 'Edit question' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Company information' })).not.toBeInTheDocument()
+    // The section is already there, filled with the company fields
+    expect(screen.queryByText('Start by creating a section')).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Key assessment areas' })).not.toBeInTheDocument()
+    const section = screen.getByRole('region', { name: 'Company information' })
+    expect(within(section).getByText('9 questions')).toBeInTheDocument()
+    expect(within(section).getByText('Vendor Name')).toBeInTheDocument()
+
+    // It can be deleted like any other section
+    await user.click(
+      within(section).getByRole('button', { name: /Remove section Company information/ })
+    )
+    expect(screen.queryByRole('region', { name: 'Company information' })).not.toBeInTheDocument()
     expect(screen.getByText('Start by creating a section')).toBeInTheDocument()
+  })
+
+  it('adds, edits and removes a question in the company information of a standard form', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await startDraft(user)
+    const company = screen.getByRole('region', { name: 'Company information' })
+    await user.click(within(company).getByRole('button', { name: 'Add question' }))
+    await user.type(screen.getByLabelText(/^Question/), 'Tax registration number')
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Add question' })
+    )
+    expect(
+      within(screen.getByRole('region', { name: 'Company information' })).getByText('10 questions')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Tax registration number')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Remove Tax registration number' }))
+    expect(screen.queryByText('Tax registration number')).not.toBeInTheDocument()
+  })
+
+  it('builds a blank form from scratch: sections with their input fields', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Request form' }))
+    const dialog = screen.getByRole('dialog', { name: 'New request form' })
+    await user.selectOptions(within(dialog).getByLabelText('Workflow'), 'Security Questionnaire')
+    await user.click(within(dialog).getByRole('button', { name: 'Create draft' }))
+    // Start from an empty page: remove the pre-populated section
+    await user.click(screen.getByRole('button', { name: /Remove section Company information/ }))
+    expect(screen.getByText('Start by creating a section')).toBeInTheDocument()
+    expect(screen.queryByRole('complementary', { name: 'Edit question' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Create section' }))

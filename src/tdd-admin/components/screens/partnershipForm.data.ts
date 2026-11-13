@@ -87,6 +87,8 @@ export interface FormVersion {
    */
   layout: 'standard' | 'custom'
   companyFields: CompanyField[]
+  /** Fields the admin added to the company information of a standard form */
+  companyQuestions: FormQuestion[]
   questions: FormQuestion[]
   /** The sections of a custom form */
   sections: FormSection[]
@@ -281,6 +283,7 @@ export const seedFormVersions = (): FormVersion[] => [
     workflow: 'Partnership',
     layout: 'standard',
     companyFields: defaultCompanyFields(),
+    companyQuestions: [],
     questions: seedQuestions(),
     sections: [],
     auditLog: [
@@ -305,6 +308,7 @@ export const seedFormVersions = (): FormVersion[] => [
     workflow: 'Partnership',
     layout: 'standard',
     companyFields: defaultCompanyFields(),
+    companyQuestions: [],
     questions: seedQuestions(),
     sections: [],
     auditLog: [
@@ -330,6 +334,7 @@ export const seedFormVersions = (): FormVersion[] => [
     workflow,
     layout: 'standard',
     companyFields: defaultCompanyFields(),
+    companyQuestions: [],
     questions: seedQuestions(),
     sections: [],
     auditLog: [
@@ -372,11 +377,30 @@ export const newSection = (title: string): FormSection => ({
   questions: [],
 })
 
+/** The Company information section a blank form starts with: the usual company fields, all deletable */
+const companyInformationSection = (): FormSection => ({
+  ...newSection('Company information'),
+  questions: DEFAULT_COMPANY_FIELDS.map((field) => ({
+    id: newQuestionId(),
+    label: field.label,
+    helper: field.helper ?? '',
+    placeholder: '',
+    type: 'short',
+    options: [],
+    required: field.required,
+    visible: true,
+    aiCheck: false,
+    aiGuidance: '',
+  })),
+})
+
 /** How many questions a version asks, in whichever layout it has */
-export const totalQuestions = (v: Pick<FormVersion, 'layout' | 'questions' | 'sections'>) =>
+export const totalQuestions = (
+  v: Pick<FormVersion, 'layout' | 'questions' | 'sections' | 'companyQuestions'>
+) =>
   v.layout === 'custom'
     ? v.sections.reduce((sum, section) => sum + section.questions.length, 0)
-    : v.questions.length
+    : v.questions.length + v.companyQuestions.length
 
 const cloneQuestion = (q: FormQuestion): FormQuestion => ({ ...q, options: [...q.options] })
 
@@ -412,9 +436,13 @@ export const createDraft = (
     companyFields: custom
       ? []
       : (from?.companyFields ?? defaultCompanyFields()).map((f) => ({ ...f })),
+    companyQuestions: custom ? [] : (from?.companyQuestions ?? []).map(cloneQuestion),
     questions: custom ? [] : (from?.questions ?? []).map(cloneQuestion),
+    // A blank form starts with the Company information section, which can be deleted
     sections: custom
-      ? (from?.sections ?? []).map((s) => ({ ...s, questions: s.questions.map(cloneQuestion) }))
+      ? from
+        ? from.sections.map((s) => ({ ...s, questions: s.questions.map(cloneQuestion) }))
+        : [companyInformationSection()]
       : [],
     auditLog: [
       makeAudit(
@@ -422,7 +450,7 @@ export const createDraft = (
         `${
           from
             ? `Started from Version ${from.number}`
-            : `Started from a blank ${workflow} form, with no sections yet`
+            : `Started from a blank ${workflow} form, with a Company information section`
         }${note.trim() ? `. Reason: ${note.trim()}` : '.'}`
       ),
     ],
@@ -447,6 +475,7 @@ export const describeChanges = (live: FormVersion | undefined, draft: FormVersio
   if (draft.layout === 'custom') return describeCustomChanges(live, draft)
   const baseFields = live?.companyFields ?? defaultCompanyFields()
   const baseQuestions = live?.questions ?? []
+  const baseCompanyQuestions = live?.companyQuestions ?? []
   const changes: string[] = []
 
   draft.companyFields.forEach((field) => {
@@ -461,6 +490,16 @@ export const describeChanges = (live: FormVersion | undefined, draft: FormVersio
     if (before.required !== field.required) {
       changes.push(`${clip(field.label)} is now ${field.required ? 'required' : 'optional'}`)
     }
+  })
+
+  draft.companyQuestions.forEach((q) => {
+    const before = baseCompanyQuestions.find((b) => b.id === q.id)
+    if (!before) changes.push(`Added "${clip(q.label)}" to the company information`)
+    else if (!sameQuestion(before, q)) changes.push(`Edited "${clip(q.label)}"`)
+  })
+  baseCompanyQuestions.forEach((b) => {
+    if (!draft.companyQuestions.some((q) => q.id === b.id))
+      changes.push(`Removed "${clip(b.label)}" from the company information`)
   })
 
   draft.questions.forEach((q) => {

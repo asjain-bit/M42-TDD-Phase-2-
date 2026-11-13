@@ -73,9 +73,11 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
   onToast,
 }) => {
   const [tab, setTab] = useState<Tab>('questions')
-  const [adding, setAdding] = useState<{ question: FormQuestion; section?: FormSection } | null>(
-    null
-  )
+  const [adding, setAdding] = useState<{
+    question: FormQuestion
+    section?: FormSection
+    company?: boolean
+  } | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [discarding, setDiscarding] = useState(false)
@@ -109,6 +111,40 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
       }
     )
     onToast('Field updated.')
+  }
+
+  const addCompanyQuestion = (question: FormQuestion) => {
+    update(
+      { companyQuestions: [...version.companyQuestions, question] },
+      {
+        title: 'Added a company field',
+        description: `"${question.label}" was added to the company information.`,
+      }
+    )
+    onToast('Field added.')
+  }
+
+  const saveCompanyQuestion = (before: FormQuestion, after: FormQuestion) => {
+    update(
+      { companyQuestions: version.companyQuestions.map((q) => (q.id === after.id ? after : q)) },
+      {
+        title: 'Edited a company field',
+        description: `"${after.label}": ${describeQuestionEdit(before, after).join(', ')}.`,
+      }
+    )
+    onToast('Field updated.')
+  }
+
+  const removeCompanyQuestion = (question: FormQuestion) => {
+    const before = version
+    update(
+      { companyQuestions: version.companyQuestions.filter((q) => q.id !== question.id) },
+      {
+        title: 'Removed a company field',
+        description: `"${question.label}" was removed from the company information.`,
+      }
+    )
+    onToast('Field removed.', () => onChange(before))
   }
 
   const saveQuestion = (before: FormQuestion, after: FormQuestion) => {
@@ -357,6 +393,9 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
           version={version}
           readOnly={!isDraft}
           onAdd={() => setAdding({ question: blankQuestion() })}
+          onAddCompany={() => setAdding({ question: blankQuestion(), company: true })}
+          onSaveCompanyQuestion={saveCompanyQuestion}
+          onRemoveCompany={removeCompanyQuestion}
           onSaveField={saveField}
           onSaveQuestion={saveQuestion}
           onRemove={removeQuestion}
@@ -389,6 +428,7 @@ export const PartnershipFormEditor: React.FC<PartnershipFormEditorProps> = ({
           question={adding.question}
           onSave={(q) => {
             if (adding.section) addQuestionToSection(adding.section, q)
+            else if (adding.company) addCompanyQuestion(q)
             else addQuestion(q)
             setAdding(null)
           }}

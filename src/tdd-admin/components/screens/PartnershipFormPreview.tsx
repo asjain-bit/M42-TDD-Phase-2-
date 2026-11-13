@@ -256,6 +256,7 @@ export const PartnershipFormPreviewBody: React.FC<{ version: FormVersion; closed
                   {lastRow.map((field) => textField(field))}
                 </div>
               )}
+              {version.companyQuestions.filter((q) => q.visible).map(question)}
             </div>
           </section>
 

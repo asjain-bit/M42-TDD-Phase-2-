@@ -60,12 +60,19 @@ const FIELD_TYPE_LABEL: Record<CompanyFieldKey, string> = {
   country: 'Country list',
 }
 
-type Selection = { kind: 'field'; key: CompanyFieldKey } | { kind: 'question'; id: string } | null
+type Selection =
+  | { kind: 'field'; key: CompanyFieldKey }
+  | { kind: 'question'; id: string }
+  | { kind: 'companyQuestion'; id: string }
+  | null
 
 interface QuestionsTabProps {
   version: FormVersion
   readOnly: boolean
   onAdd: () => void
+  onAddCompany: () => void
+  onSaveCompanyQuestion: (before: FormQuestion, after: FormQuestion) => void
+  onRemoveCompany: (question: FormQuestion) => void
   onSaveField: (before: CompanyField, after: CompanyField) => void
   onSaveQuestion: (before: FormQuestion, after: FormQuestion) => void
   onRemove: (question: FormQuestion) => void
@@ -76,6 +83,9 @@ export const PartnershipFormQuestionsTab: React.FC<QuestionsTabProps> = ({
   version,
   readOnly,
   onAdd,
+  onAddCompany,
+  onSaveCompanyQuestion,
+  onRemoveCompany,
   onSaveField,
   onSaveQuestion,
   onRemove,
@@ -91,16 +101,31 @@ export const PartnershipFormQuestionsTab: React.FC<QuestionsTabProps> = ({
       : undefined
   const question =
     selected?.kind === 'question' ? version.questions.find((q) => q.id === selected.id) : undefined
+  const companyQuestion =
+    selected?.kind === 'companyQuestion'
+      ? version.companyQuestions.find((q) => q.id === selected.id)
+      : undefined
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
       <div className="flex flex-col gap-5 min-w-0">
         <CompanySection
           version={version}
+          readOnly={readOnly}
           selectedKey={selected?.kind === 'field' ? selected.key : null}
+          selectedQuestionId={selected?.kind === 'companyQuestion' ? selected.id : null}
           onSelect={(key) => {
             setCompanyOpen(null)
             setSelected({ kind: 'field', key })
+          }}
+          onSelectQuestion={(id) => {
+            setCompanyOpen(null)
+            setSelected({ kind: 'companyQuestion', id })
+          }}
+          onAdd={onAddCompany}
+          onRemove={(q) => {
+            if (selected?.kind === 'companyQuestion' && selected.id === q.id) setSelected(null)
+            onRemoveCompany(q)
           }}
           // Editing an assessment question folds the company information away
           open={companyOpen ?? selected?.kind !== 'question'}
@@ -134,6 +159,14 @@ export const PartnershipFormQuestionsTab: React.FC<QuestionsTabProps> = ({
             readOnly={readOnly}
             onClose={() => setSelected(null)}
             onSave={(after) => onSaveField(field, after)}
+          />
+        ) : companyQuestion ? (
+          <QuestionPanel
+            key={companyQuestion.id}
+            question={companyQuestion}
+            readOnly={readOnly}
+            onClose={() => setSelected(null)}
+            onSave={(after) => onSaveCompanyQuestion(companyQuestion, after)}
           />
         ) : question ? (
           <QuestionPanel
@@ -278,18 +311,46 @@ export const Row: React.FC<{
 
 const CompanySection: React.FC<{
   version: FormVersion
+  readOnly: boolean
   selectedKey: CompanyFieldKey | null
+  selectedQuestionId: string | null
   onSelect: (key: CompanyFieldKey) => void
+  onSelectQuestion: (id: string) => void
+  onAdd: () => void
+  onRemove: (question: FormQuestion) => void
   open: boolean
   onOpenChange: (open: boolean) => void
-}> = ({ version, selectedKey, onSelect, open, onOpenChange }) => (
+}> = ({
+  version,
+  readOnly,
+  selectedKey,
+  selectedQuestionId,
+  onSelect,
+  onSelectQuestion,
+  onAdd,
+  onRemove,
+  open,
+  onOpenChange,
+}) => (
   <SectionCard
     open={open}
     onOpenChange={onOpenChange}
     icon={Building2}
     title="Company information"
     subtitle="Basic details about the vendor and their company."
-    count={version.companyFields.length}
+    count={version.companyFields.length + version.companyQuestions.length}
+    action={
+      !readOnly && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="h-9 px-3 rounded-lg border border-[#36c0c9] bg-white text-xs font-semibold text-[#0d7280] hover:bg-[#f0fbfc] inline-flex items-center gap-1.5 cursor-pointer transition shrink-0"
+        >
+          <Plus className="w-4 h-4" aria-hidden="true" />
+          Add question
+        </button>
+      )
+    }
   >
     {version.companyFields.map((f) => (
       <Row
@@ -302,6 +363,38 @@ const CompanySection: React.FC<{
         selected={selectedKey === f.key}
         onSelect={() => onSelect(f.key)}
         actions={null}
+      />
+    ))}
+    {version.companyQuestions.map((q) => (
+      <Row
+        key={q.id}
+        label={q.label}
+        helper={q.helper}
+        required={q.required}
+        hidden={!q.visible}
+        selected={selectedQuestionId === q.id}
+        onSelect={() => onSelectQuestion(q.id)}
+        extra={
+          <span className="flex items-center gap-2 pt-1.5">
+            <span className="px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[10px] font-semibold text-[#475569]">
+              {ANSWER_TYPE_LABELS[q.type]}
+              {isChoiceType(q.type) && ` · ${q.options.length} options`}
+            </span>
+          </span>
+        }
+        actions={
+          !readOnly && (
+            <button
+              type="button"
+              aria-label={`Remove ${q.label}`}
+              title="Remove question"
+              onClick={() => onRemove(q)}
+              className="w-8 h-8 flex items-center justify-center text-red-500 cursor-pointer bg-transparent border-0"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )
+        }
       />
     ))}
   </SectionCard>

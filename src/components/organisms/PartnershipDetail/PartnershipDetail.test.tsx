@@ -720,6 +720,15 @@ describe('PartnershipDetail', () => {
       expect(within(bar).getByRole('button', { name: 'Reject' })).toBeInTheDocument()
     })
 
+    it('has no Proceed and Reject bar once the case is past the first stage', () => {
+      renderDetail({
+        userProfile: adminProfile,
+        request: { ...adminCase, status: 'In Progress' },
+      })
+      expect(screen.queryByText('Action required: decide where this case goes.')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
+    })
+
     it('proceeds by choosing a request type, with an optional reason', async () => {
       const user = userEvent.setup()
       renderDetail({ userProfile: adminProfile, request: adminCase })
