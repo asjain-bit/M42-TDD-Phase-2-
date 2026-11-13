@@ -151,6 +151,51 @@ const alignWithCases = (rows: AssessmentRow[], cases: LinkedPartnershipCase[]) =
 const alignmentKey = (rows: AssessmentRow[]) =>
   rows.map((r) => `${r.id}|${r.vendor}|${r.vendorId}`).join('/')
 
+/** The three figures of every KPI card, worked out from the assessments it is given */
+export const computeDashboardKpis = (rows: AssessmentRow[], now: Date = new Date()) => {
+  // One entry per vendor: its confidence is the score of its first listed assessment, and every
+  // assessment counts as a round together with the earlier rounds recorded under it
+  const vendors = new Map<string, { score: string; rounds: number }>()
+  rows.forEach((row) => {
+    const key = row.vendorId !== '-' ? row.vendorId : row.vendor
+    const rounds = 1 + (row.pastRounds?.length ?? 0)
+    const known = vendors.get(key)
+    if (known) known.rounds += rounds
+    else vendors.set(key, { score: row.score, rounds })
+  })
+  const list = [...vendors.values()]
+  const totalRounds = list.reduce((sum, v) => sum + v.rounds, 0)
+
+  const ageInDays = (created: string) => {
+    const time = Date.parse(created.replace('Sept', 'Sep'))
+    return Number.isNaN(time) ? 0 : Math.max(0, Math.floor((now.getTime() - time) / 86_400_000))
+  }
+  const backlog = rows
+    .filter((r) => r.status === 'awaiting_evidence')
+    .map((r) => ageInDays(r.createdDate))
+
+  return {
+    vendors: {
+      total: list.length,
+      high: list.filter((v) => v.score === 'High').length,
+      medium: list.filter((v) => v.score === 'Medium').length,
+      low: list.filter((v) => v.score === 'Low').length,
+    },
+    rounds: {
+      average: list.length ? Math.round((totalRounds / list.length) * 10) / 10 : 0,
+      one: list.filter((v) => v.rounds === 1).length,
+      two: list.filter((v) => v.rounds === 2).length,
+      threePlus: list.filter((v) => v.rounds >= 3).length,
+    },
+    backlog: {
+      total: backlog.length,
+      fresh: backlog.filter((d) => d <= 14).length,
+      mid: backlog.filter((d) => d > 14 && d <= 30).length,
+      old: backlog.filter((d) => d > 30).length,
+    },
+  }
+}
+
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   partnershipCases = [],
   onViewPartnershipRequest,
@@ -408,6 +453,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     })
   }, [partnershipCases])
 
+  // The KPI cards follow the Filter menu (vendor name, confidence, questionnaire)
+  const kpis = useMemo(
+    () =>
+      computeDashboardKpis(
+        assessments.filter(
+          (item) =>
+            (!assessmentFilters.vendor || item.vendor === assessmentFilters.vendor) &&
+            (!assessmentFilters.confidence || item.score === assessmentFilters.confidence) &&
+            (!assessmentFilters.questionnaire ||
+              item.questionnaire === assessmentFilters.questionnaire)
+        )
+      ),
+    [assessments, assessmentFilters]
+  )
+
   // KPI Card data calculations
   const completedAssessments = assessments.filter((a) => a.status === 'completed').length
   const finalizedAssessments = assessments.filter((a) => a.status === 'finalised').length
@@ -559,20 +619,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 Total Vendors
               </h3>
             </div>
-            <div className="text-2xl font-extrabold text-[#36c0c9] shrink-0">12</div>
+            <div className="text-2xl font-extrabold text-[#36c0c9] shrink-0">
+              {kpis.vendors.total}
+            </div>
           </div>
 
           <div className="grid grid-cols-3 divide-x divide-[#e2e8f0] pt-3 border-t border-[#e2e8f0]">
             <div className="flex flex-col gap-0.5 pr-2">
-              <span className="text-lg font-bold text-[#0d212c]">7</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.vendors.high}</span>
               <span className="text-[11px] text-[#64748b] font-medium">High confidence</span>
             </div>
             <div className="flex flex-col gap-0.5 px-3">
-              <span className="text-lg font-bold text-[#0d212c]">2</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.vendors.medium}</span>
               <span className="text-[11px] text-[#64748b] font-medium">Medium confidence</span>
             </div>
             <div className="flex flex-col gap-0.5 pl-3">
-              <span className="text-lg font-bold text-[#0d212c]">3</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.vendors.low}</span>
               <span className="text-[11px] text-[#64748b] font-medium">Low confidence</span>
             </div>
           </div>
@@ -592,20 +654,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 Average Rounds per Vendor
               </h3>
             </div>
-            <div className="text-2xl font-extrabold text-[#36c0c9] shrink-0">2</div>
+            <div className="text-2xl font-extrabold text-[#36c0c9] shrink-0">
+              {kpis.rounds.average}
+            </div>
           </div>
 
           <div className="grid grid-cols-3 divide-x divide-[#e2e8f0] pt-3 border-t border-[#e2e8f0]">
             <div className="flex flex-col gap-0.5 pr-2">
-              <span className="text-lg font-bold text-[#0d212c]">8</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.rounds.one}</span>
               <span className="text-[11px] text-[#64748b] font-medium">1 Round</span>
             </div>
             <div className="flex flex-col gap-0.5 px-3">
-              <span className="text-lg font-bold text-[#0d212c]">3</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.rounds.two}</span>
               <span className="text-[11px] text-[#64748b] font-medium">2 Rounds</span>
             </div>
             <div className="flex flex-col gap-0.5 pl-3">
-              <span className="text-lg font-bold text-[#0d212c]">1</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.rounds.threePlus}</span>
               <span className="text-[11px] text-[#64748b] font-medium">3+ Rounds</span>
             </div>
           </div>
@@ -625,20 +689,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 Evidence backlog by age
               </h3>
             </div>
-            <div className="text-2xl font-extrabold text-[#36c0c9] shrink-0">75</div>
+            <div className="text-2xl font-extrabold text-[#36c0c9] shrink-0">
+              {kpis.backlog.total}
+            </div>
           </div>
 
           <div className="grid grid-cols-3 divide-x divide-[#e2e8f0] pt-3 border-t border-[#e2e8f0]">
             <div className="flex flex-col gap-0.5 pr-2">
-              <span className="text-lg font-bold text-[#0d212c]">33</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.backlog.fresh}</span>
               <span className="text-[11px] text-[#64748b] font-medium">0–14 days</span>
             </div>
             <div className="flex flex-col gap-0.5 px-3">
-              <span className="text-lg font-bold text-[#0d212c]">8</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.backlog.mid}</span>
               <span className="text-[11px] text-[#64748b] font-medium">15–30 days</span>
             </div>
             <div className="flex flex-col gap-0.5 pl-3">
-              <span className="text-lg font-bold text-[#0d212c]">34</span>
+              <span className="text-lg font-bold text-[#0d212c]">{kpis.backlog.old}</span>
               <span className="text-[11px] text-[#64748b] font-medium">Over 30 days</span>
             </div>
           </div>
